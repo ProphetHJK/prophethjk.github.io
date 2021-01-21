@@ -66,3 +66,11 @@ jobs:
           fi
 
           bash tools/deploy.sh
+
+      - name: Purge cache
+        uses: jakejarvis/cloudflare-purge-action@master
+        env:
+          # Zone is required by both authentication methods
+          CLOUDFLARE_ZONE: aa3d922bcf99c85366fdf16cba9e6d40
+          CLOUDFLARE_TOKEN: yvD41TmWnw_v9Z04Yl8YMoL1aaiO2qJWPEStcbWW
+
