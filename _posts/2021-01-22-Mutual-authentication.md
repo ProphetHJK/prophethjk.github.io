@@ -80,7 +80,7 @@ Email Address []:
 
 至此，CA自签名根证书已生成完成，后续需要用到CA密钥和证书签发子证书，注意密钥的保存与保密
 
-### 生成客户端证书
+### 签发客户端证书
 
 使用以下命令生成无密码的2048位rsa密钥
 
@@ -135,7 +135,7 @@ openssl pkcs12 -export -out client.pfx -inkey client.key -in client.crt
 openssl pkcs12 -export -out client.pfx -inkey client.key -in client.crt -certfile ca.crt
 ```
 
-### 生成服务端证书
+### 签发服务端证书
 
 服务端证书生成过程与客户端相同，此处不再赘述
 
@@ -155,7 +155,7 @@ ca.key  ca.crt  client.crt  client.key  client.pfx  server.key  server.crt
 
 - (可选)server.key和server.crt部署在服务器证书路径下
 - 对于GoAhead，ca.crt需部署在服务器证书路径下，用于验证客户端证书
-- client.pfx安装到客户端，windows下之前下一步默认即可
+- client.pfx安装到客户端，windows下直接下一步默认即可
 
 ## 配置GoAhead客户端证书认证功能
 
