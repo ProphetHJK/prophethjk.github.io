@@ -12,11 +12,11 @@ tags: [SSL, 双向认证, goahead, HTTPS]
 >- [巧用 Nginx 快速实现 HTTPS 双向认证](<https://blog.csdn.net/easylife206/article/details/107776854>)
 >- [Using Client-Certificate based authentication with NGINX on Ubuntu](<https://www.ssltrust.com.au/help/setup-guides/client-certificate-authentication>)
 
-## 1 原理
+## 原理
 
 双向认证，顾名思义，客户端和服务器端都需要验证对方的身份，在建立 HTTPS 连接的过程中，握手的流程比单向认证多了几步。单向认证的过程，客户端从服务器端下载服务器端公钥证书进行验证，然后建立安全通信通道。双向通信流程，客户端除了需要从服务器端下载服务器的公钥证书进行验证外，还需要把客户端的公钥证书上传到服务器端给服务器端进行验证，等双方都认证通过了，才开始建立安全通信通道进行数据传输。
 
-### 1.1  单向认证流程
+### 单向认证流程
 
 单向认证流程中，服务器端保存着公钥证书和私钥两个文件，整个握手过程如下：
 
@@ -29,7 +29,7 @@ tags: [SSL, 双向认证, goahead, HTTPS]
 5. 服务端用自己的私钥 (server.key) 去解密这个密文，得到了密钥 R
 6. 服务端和客户端在后续通讯过程中就使用这个密钥R进行通信了
 
-### 1.2 双向认证流程
+### 双向认证流程
 
 ![双向认证](/assets/img/2021-01-22-Mutual-authentication/双向认证.png)
 
@@ -44,17 +44,9 @@ tags: [SSL, 双向认证, goahead, HTTPS]
 9. 服务端用自己的私钥去解密这个密文，得到了密钥 R
 10. 服务端和客户端在后续通讯过程中就使用这个密钥R进行通信了。
 
-## 2 实战
+## 证书生成
 
-本次配置以GoAhead-openssl为例，GoAhead还能使用mbedtls实现https，这里不做介绍，关于GoAhead的介绍如下：
-
->GoAhead is the world's most popular, tiny embedded web server. It is compact, secure and simple to use.
->
->GoAhead is deployed in hundreds of millions of devices and is ideal for the smallest of embedded devices.
-
-### 2.1 证书生成
-
-#### 使用openssl生成CA自签名根证书
+### 使用openssl生成CA自签名根证书
 
 使用以下命令生成无密码的2048位rsa密钥
 
@@ -88,7 +80,7 @@ Email Address []:
 
 至此，CA自签名根证书已生成完成，后续需要用到CA密钥和证书签发子证书，注意密钥的保存与保密
 
-#### 生成客户端证书
+### 生成客户端证书
 
 使用以下命令生成无密码的2048位rsa密钥
 
@@ -143,11 +135,17 @@ openssl pkcs12 -export -out client.pfx -inkey client.key -in client.crt
 openssl pkcs12 -export -out client.pfx -inkey client.key -in client.crt -certfile ca.crt
 ```
 
-#### 生成服务端证书
+### 生成服务端证书
 
 服务端证书生成过程与客户端相同，此处不再赘述
 
-### 2.2 证书部署
+## 证书部署
+
+*本次配置以GoAhead-openssl为例，GoAhead还能使用mbedtls实现https，这里不做介绍，关于GoAhead的介绍如下：*
+
+>GoAhead is the world's most popular, tiny embedded web server. It is compact, secure and simple to use.
+>
+>GoAhead is deployed in hundreds of millions of devices and is ideal for the smallest of embedded devices.
 
 以上步骤完成后，将会生成如下文件：
 
@@ -159,12 +157,12 @@ ca.key  ca.crt  client.crt  client.key  client.pfx  server.key  server.crt
 - 对于GoAhead，ca.crt需部署在服务器证书路径下，用于验证客户端证书
 - client.pfx安装到客户端，windows下之前下一步默认即可
 
-### 2.3 配置客户端证书认证
+## 配置GoAhead客户端证书认证功能
 
 1. 将me.h中的宏ME_GOAHEAD_SSL_VERIFY_PEER置为1，启用客户端证书认证
 2. 将me.h中的宏ME_GOAHEAD_SSL_AUTHORITY配置为CA证书的绝对路径，用于校验客户端证书
 3. 重新编译GoAhead库与服务端程序
 
-### 2.4 测试
+## 测试
 
 windows客户端安装完客户端证书后访问服务端，此时浏览器会提示选择客户端证书，选择证书后能正常访问，如证书错误或未提供证书则访问失败，即测试通过
