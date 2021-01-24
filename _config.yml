@@ -87,7 +87,7 @@ img_cdn: ''
 
 # the avatar on sidebar, support local or CORS resources
 # avatar: /assets/img/favicons/ms-icon-310x310.png
-avatar: 
+avatar: https://octodex.github.com/images/class-act.png
 
 # boolean type, the global switch for ToC in posts.
 toc: true
