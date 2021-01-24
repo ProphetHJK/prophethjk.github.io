@@ -12,7 +12,7 @@ title: BLOG                          # the main title
 tagline: Nothing, temporary   # it will display as the sub-title
 
 description: >-                        # used by seo meta and the atom feed
-  技术类的博客，计算机、嵌入式、互联网...，偶尔有日常
+  技术类的博客，计算机、嵌入式、互联网...，偶尔有日常...
   "三年不翅，将以长羽翼"
 
 # fill in the protocol & hostname for your site, e.g., 'https://username.github.io'
@@ -86,7 +86,8 @@ theme_mode:   # [light|dark]
 img_cdn: ''
 
 # the avatar on sidebar, support local or CORS resources
-avatar: /assets/img/favicons/ms-icon-310x310.png
+# avatar: /assets/img/favicons/ms-icon-310x310.png
+avatar: 
 
 # boolean type, the global switch for ToC in posts.
 toc: true
