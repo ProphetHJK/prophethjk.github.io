@@ -71,6 +71,6 @@ jobs:
         uses: jakejarvis/cloudflare-purge-action@master
         env:
           # Zone is required by both authentication methods
-          CLOUDFLARE_ZONE: aa3d922bcf99c85366fdf16cba9e6d40
-          CLOUDFLARE_TOKEN: yvD41TmWnw_v9Z04Yl8YMoL1aaiO2qJWPEStcbWW
+          CLOUDFLARE_ZONE: c82c766a5a9c390658bbcc0f04a4134a
+          CLOUDFLARE_TOKEN: 84BjnjW-9cYypcnv5sLYXVilBQT9MLNmAK-hDs0D
 
