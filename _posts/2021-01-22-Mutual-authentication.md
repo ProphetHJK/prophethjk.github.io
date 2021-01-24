@@ -14,11 +14,11 @@ tags: [SSL, 双向认证, goahead, HTTPS]
 
 ## 原理
 
-双向认证，顾名思义，客户端和服务器端都需要验证对方的身份，在建立 HTTPS 连接的过程中，握手的流程比单向认证多了几步。单向认证的过程，客户端从服务器端下载服务器端公钥证书进行验证，然后建立安全通信通道。双向通信流程，客户端除了需要从服务器端下载服务器的公钥证书进行验证外，还需要把客户端的公钥证书上传到服务器端给服务器端进行验证，等双方都认证通过了，才开始建立安全通信通道进行数据传输。
+`双向认证`，顾名思义，客户端和服务器端都需要验证对方的身份，在建立 HTTPS 连接的过程中，握手的流程比单向认证多了几步。单向认证的过程，客户端从服务器端下载服务器端公钥证书进行验证，然后建立安全通信通道。双向通信流程，客户端除了需要从服务器端下载服务器的公钥证书进行验证外，还需要把客户端的公钥证书上传到服务器端给服务器端进行验证，等双方都认证通过了，才开始建立安全通信通道进行数据传输。
 
 ### 单向认证流程
 
-单向认证流程中，服务器端保存着公钥证书和私钥两个文件，整个握手过程如下：
+`单向认证`流程中，服务器端保存着公钥证书和私钥两个文件，整个握手过程如下：
 
 ![单向认证](/assets/img/2021-01-22-Mutual-authentication/单向认证.png)
 
@@ -48,100 +48,100 @@ tags: [SSL, 双向认证, goahead, HTTPS]
 
 ### 使用openssl生成CA自签名根证书
 
-使用以下命令生成无密码的2048位rsa密钥
+1. 使用以下命令生成无密码的2048位rsa密钥
 
-```console
-openssl genrsa -out ca.key 2048
-```
+    ```
+    openssl genrsa -out ca.key 2048
+    ```
 
-或加上-des3命令生成使用des3算法加密的rsa密钥
+    或加上-des3命令生成使用des3算法加密的rsa密钥
 
-```console
-openssl genrsa -des3 -out ca.key 2048
-```
+    ```
+    openssl genrsa -des3 -out ca.key 2048
+    ```
 
-生成x509格式的CA自签名根证书
+2. 生成x509格式的CA自签名根证书
 
-```console
-openssl req -new -x509 -days 365 -key ca.key -out ca.crt
-```
+    ```
+    openssl req -new -x509 -days 365 -key ca.key -out ca.crt
+    ```
 
-依次填入csr信息，Common Name表示颁发者
+3. 依次填入csr信息，Common Name表示颁发者
 
-```console
-Country Name (2 letter code) [AU]:CN
-State or Province Name (full name) [Some-State]:zhejiang
-Locality Name (eg, city) []:ningbo
-Organization Name (eg, company) [Internet Widgits Pty Ltd]:SX
-Organizational Unit Name (eg, section) []:tech
-Common Name (e.g. server FQDN or YOUR name) []:test
-Email Address []:
-```
+    ```
+    Country Name (2 letter code) [AU]:CN
+    State or Province Name (full name) [Some-State]:zhejiang
+    Locality Name (eg, city) []:ningbo
+    Organization Name (eg, company) [Internet Widgits Pty Ltd]:SX
+    Organizational Unit Name (eg, section) []:tech
+    Common Name (e.g. server FQDN or YOUR name) []:test
+    Email Address []:
+    ```
 
 至此，CA自签名根证书已生成完成，后续需要用到CA密钥和证书签发子证书，注意密钥的保存与保密
 
 ### 签发客户端证书
 
-使用以下命令生成无密码的2048位rsa密钥
+1. 使用以下命令生成无密码的2048位`rsa密钥`
 
-```console
-openssl genrsa -out client.key 2048
-```
+    ```
+    openssl genrsa -out client.key 2048
+    ```
 
-或加上-des3命令生成使用des3算法加密的rsa密钥
+    或加上`-des3`命令生成使用des3算法加密的`rsa密钥`
 
-```console
-openssl genrsa -des3 -out client.key 2048
-```
+    ```
+    openssl genrsa -des3 -out client.key 2048
+    ```
 
-生成客户端csr文件
+2. 生成客户端`csr`文件
 
-```console
-openssl req -new -key client.key -out client.csr
-```
+    ```
+    openssl req -new -key client.key -out client.csr
+    ```
 
-依次填入csr信息，Common Name表示使用者，不能与颁发者相同
+3. 依次填入`csr`信息，`Common Name`表示使用者，不能与颁发者相同
 
-```console
-Country Name (2 letter code) [AU]:CN
-State or Province Name (full name) [Some-State]:zhejiang
-Locality Name (eg, city) []:ningbo
-Organization Name (eg, company) [Internet Widgits Pty Ltd]:SX
-Organizational Unit Name (eg, section) []:tech
-Common Name (e.g. server FQDN or YOUR name) []:client1
-Email Address []:
+    ```
+    Country Name (2 letter code) [AU]:CN
+    State or Province Name (full name) [Some-State]:zhejiang
+    Locality Name (eg, city) []:ningbo
+    Organization Name (eg, company) [Internet Widgits Pty Ltd]:SX
+    Organizational Unit Name (eg, section) []:tech
+    Common Name (e.g. server FQDN or YOUR name) []:client1
+    Email Address []:
 
-Please enter the following 'extra' attributes
-to be sent with your certificate request
-A challenge password []:147258369
-An optional company name []:sanxing
-```
+    Please enter the following 'extra' attributes
+    to be sent with your certificate request
+    A challenge password []:147258369
+    An optional company name []:sanxing
+    ```
 
-使用CA签发客户端x509证书
+4. 使用CA签发客户端x509证书
 
-```console
-openssl x509 -req -days 365 -in client.csr -CA ca.crt -CAkey ca.key -set_serial 01 -out client.crt
-```
+    ```
+    openssl x509 -req -days 365 -in client.csr -CA ca.crt -CAkey ca.key -set_serial 01 -out client.crt
+    ```
 
-将客户端密钥和证书打包成pfx文件，用于浏览器或系统导入
+5. 将客户端密钥和证书打包成`pfx`文件，用于浏览器或系统导入
 
-```console
-openssl pkcs12 -export -out client.pfx -inkey client.key -in client.crt
-```
+    ```
+    openssl pkcs12 -export -out client.pfx -inkey client.key -in client.crt
+    ```
 
-或加上CA证书保证证书被信任
+    或加上CA证书保证证书被信任
 
-```console
-openssl pkcs12 -export -out client.pfx -inkey client.key -in client.crt -certfile ca.crt
-```
+    ```
+    openssl pkcs12 -export -out client.pfx -inkey client.key -in client.crt -certfile ca.crt
+    ```
 
 ### 签发服务端证书
 
-服务端证书生成过程与客户端相同，此处不再赘述
+- 服务端证书生成过程与客户端相同，此处不再赘述
 
 ## 证书部署
 
-*本次配置以GoAhead-openssl为例，GoAhead还能使用mbedtls实现https，这里不做介绍，关于GoAhead的介绍如下：*
+*本次配置以`GoAhead-openssl`为例，GoAhead还能使用mbedtls实现https，这里不做介绍，关于GoAhead的介绍如下：*
 
 >GoAhead is the world's most popular, tiny embedded web server. It is compact, secure and simple to use.
 >
@@ -149,18 +149,18 @@ openssl pkcs12 -export -out client.pfx -inkey client.key -in client.crt -certfil
 
 以上步骤完成后，将会生成如下文件：
 
-```console
+```
 ca.key  ca.crt  client.crt  client.key  client.pfx  server.key  server.crt
 ```
 
-- (可选)server.key和server.crt部署在服务器证书路径下
-- 对于GoAhead，ca.crt需部署在服务器证书路径下，用于验证客户端证书
-- client.pfx安装到客户端，windows下直接下一步默认即可
+- (可选)`server.key`和`server.crt`部署在服务器证书路径下
+- 对于GoAhead，`ca.crt`需部署在服务器证书路径下，用于验证客户端证书
+- `client.pfx`安装到客户端，windows下直接下一步默认即可
 
 ## 配置GoAhead客户端证书认证功能
 
-1. 将me.h中的宏ME_GOAHEAD_SSL_VERIFY_PEER置为1，启用客户端证书认证
-2. 将me.h中的宏ME_GOAHEAD_SSL_AUTHORITY配置为CA证书的绝对路径，用于校验客户端证书
+1. 将`me.h`中的宏`ME_GOAHEAD_SSL_VERIFY_PEER`置为`1`，启用客户端证书认证
+2. 将`me.h`中的宏`ME_GOAHEAD_SSL_AUTHORITY`配置为CA证书的绝对路径，用于校验客户端证书
 3. 重新编译GoAhead库与服务端程序
 
 ## 测试
