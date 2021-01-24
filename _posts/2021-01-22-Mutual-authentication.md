@@ -13,6 +13,7 @@ tags: [SSL, 双向认证, goahead, HTTPS]
 >- [Using Client-Certificate based authentication with NGINX on Ubuntu](<https://www.ssltrust.com.au/help/setup-guides/client-certificate-authentication>)
 
 ## 原理
+--------
 
 `双向认证`，顾名思义，客户端和服务器端都需要验证对方的身份，在建立 HTTPS 连接的过程中，握手的流程比单向认证多了几步。单向认证的过程，客户端从服务器端下载服务器端公钥证书进行验证，然后建立安全通信通道。双向通信流程，客户端除了需要从服务器端下载服务器的公钥证书进行验证外，还需要把客户端的公钥证书上传到服务器端给服务器端进行验证，等双方都认证通过了，才开始建立安全通信通道进行数据传输。
 
@@ -45,6 +46,7 @@ tags: [SSL, 双向认证, goahead, HTTPS]
 10. 服务端和客户端在后续通讯过程中就使用这个密钥R进行通信了。
 
 ## 证书生成
+--------
 
 ### 使用openssl生成CA自签名根证书
 
@@ -140,6 +142,7 @@ tags: [SSL, 双向认证, goahead, HTTPS]
 - 服务端证书生成过程与客户端相同，此处不再赘述
 
 ## 证书部署
+--------
 
 *本次配置以`GoAhead-openssl`为例，GoAhead还能使用mbedtls实现https，这里不做介绍，关于GoAhead的介绍如下：*
 
@@ -158,11 +161,13 @@ ca.key  ca.crt  client.crt  client.key  client.pfx  server.key  server.crt
 - `client.pfx`安装到客户端，windows下直接下一步默认即可
 
 ## 配置GoAhead客户端证书认证功能
+--------
 
 1. 将`me.h`中的宏`ME_GOAHEAD_SSL_VERIFY_PEER`置为`1`，启用客户端证书认证
 2. 将`me.h`中的宏`ME_GOAHEAD_SSL_AUTHORITY`配置为CA证书的绝对路径，用于校验客户端证书
 3. 重新编译GoAhead库与服务端程序
 
 ## 测试
+--------
 
 windows客户端安装完客户端证书后访问服务端，此时浏览器会提示选择客户端证书，选择证书后能正常访问，如证书错误或未提供证书则访问失败，即测试通过
