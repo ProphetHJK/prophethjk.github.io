@@ -2,7 +2,7 @@
 title: 在移动硬盘上使用btrfs文件系统
 author: Jinkai
 date: 2021-02-22 09:00:00 +0800
-published: false
+published: true
 categories: [技术]
 tags: [btrfs, linux, 文件系统]
 ---
