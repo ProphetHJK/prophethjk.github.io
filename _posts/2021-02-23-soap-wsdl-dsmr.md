@@ -386,15 +386,11 @@ This document constitutes WS-ResourceTransfer, hereafter referred to as WS-RT.
 
 DSMR协议是由荷兰Energie-Nederland协会编写的能源管理与通信标准，以下是Energie-Nederland协会的简介：
 
-```text
-Energie-Nederland is de branchevereniging voor alle partijen die stroom, gas en warmte produceren, leveren en verhandelen. Samen vertegenwoordigen wij circa 80% van de markt. Onze ruim 60 leden zijn actief in zowel ‘groene’ als ‘grijze’ energie en allerlei soorten dienstverlening. Onder hen zijn ook veel nieuwkomers op de markt, innovatieve spelers en duurzame initiatieven. Energie-Nederland gaat voor een duurzame, betrouwbare en betaalbare energievoorziening; wij zijn een van de trekkers van het Klimaatakkoord.
-```
+>Energie-Nederland is de branchevereniging voor alle partijen die stroom, gas en warmte produceren, leveren en verhandelen. Samen vertegenwoordigen wij circa 80% van de markt. Onze ruim 60 leden zijn actief in zowel ‘groene’ als ‘grijze’ energie en allerlei soorten dienstverlening. Onder hen zijn ook veel nieuwkomers op de markt, innovatieve spelers en duurzame initiatieven. Energie-Nederland gaat voor een duurzame, betrouwbare en betaalbare energievoorziening; wij zijn een van de trekkers van het Klimaatakkoord.
 
 简介是荷兰语的，我也看不懂，只能找Google机翻一下：
 
-```text
-Energie-Nederland是所有生产，供应和贸易电，气和热的各方的贸易协会。 我们共同代表了约80％的市场。 我们的60多个成员活跃于“绿色”和“灰色”能源以及各种服务中。 他们还包括许多新进入市场的人，创新参与者和可持续发展倡议。 Energie-Nederland致力于可持续，可靠和负担得起的能源供应； 我们是《气候协定》的发起人之一。
-```
+>Energie-Nederland是所有生产，供应和贸易电，气和热的各方的贸易协会。 我们共同代表了约80％的市场。 我们的60多个成员活跃于“绿色”和“灰色”能源以及各种服务中。 他们还包括许多新进入市场的人，创新参与者和可持续发展倡议。 Energie-Nederland致力于可持续，可靠和负担得起的能源供应； 我们是《气候协定》的发起人之一。
 
 ### Scope
 
