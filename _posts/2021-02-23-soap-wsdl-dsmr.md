@@ -407,9 +407,668 @@ This companion standard focuses on the P3 interface for Electricity meters.
 
 ![Meter interfaces overview](/assets/img/2021-02-23-soap-wsdl-dsmr/Meter-interfaces-overview.png)
 
-本文主要介绍其中P3.2部分，也就是采集网关和主站之间的通信协议
+### System architecture
 
-## 附录：盛付通接口实例
+The P3.2 interface is introduced because a Data Concentrator (DC) can be placed between the CS and the meter(s). With this, the DC divides P3 into two parts, P3.1 and P3.2. However since P3 and P3.1 are functionally the same these terms are interchangeable. Where P3 is mentioned this can also be read as P3.1 (when a DC is involved). Where P3.2 is mentioned this deals exclusively with the interface between the CS and the DC. Where gas meters are mentioned this could also be replaced with thermal and water meters.
+
+The communication interface P3 and P3.1 (see figure 1.2) is based on the DLMS/COSEM standard. Communication interface P3.2 is based on Web Services standards compliant with WS-I Basic Profile 1.1 or WS-I Basic Profile 1.2.
+
+![Meter interfaces overview](/assets/img/2021-02-23-soap-wsdl-dsmr/P3.1-and-P3.2-infrastructure.png)
+
+P3和P3.1基于DLMS/COSEM标准，P3.2基于Web Services标准，符合WS-I Basic Profile 1.1或WS-I Basic Profile 1.2。
+
+>本文主要介绍P3.2部分
+
+### DSMR协议中的Resource Transfer
+
+DSMR中的`Resource Transfer`符合`WS-ResourceTransfer`规范，WS-ResourceTransfer是`WS-Transfer`的扩展。`WS-Transfer`定义了`Get`，`Put`，`Create`和`Delete`资源表示形式的操作，而`WS-ResourceTransfer`扩展了这些操作，以增加对资源表示片段进行操作的能力。
+
+### Get
+
+WS-Transfer Get操作用于整体检索现有资源表示。 WS-ResourceTransfer扩展了Get操作，以检索现有表示的片段。 可以返回其完整表示形式的资源还必须支持wxf:Get(即WS-Transfer Get操作)，而无需使用WS-ResourceTransfer扩展即可返回整个资源表示形式。
+
+wsrt:Get的`[Body]`包含一个标识目标片段的表达式。
+
+>按照我的理解，Get操作与HTTP中的GET请求类似，是通过UUID获取资源
+
+wsrt:Get的概述是：
+
+```xml
+[Headers]
+  <wsrt:ResourceTransfer s:mustUnderstand="true"? />
+
+[Action]
+  http://schemas.xmlsoap.org/ws/2004/09/transfer/Get
+
+[Body]
+  <wsrt:Get Dialect="xs:anyURI"?>
+  .  <wsrt:Expression ...>xs:any</wsrt:Expression> *
+  </wsrt:Get>
+```
+
+### Put
+
+WS-Transfer Put 操作用于通过提供替换`XML表示(XML representation)`来更新`现有资源表示`。 WS-ResourceTransfer扩展了 Put 操作，通过提供`XML表示的片段(fragments of the XML representation)`来更新`现有资源表示`。 可以更新其完整表示形式的资源还必须支持wxf:Put(即WS-Transfer Put操作)以更新整个资源表示形式，而无需使用WS-ResourceTransfer扩展。
+
+>按照我的理解，Put操作是SET操作
+
+Put操作的概括为：
+
+```xml
+[Headers]
+  <wsrt:ResourceTransfer s:mustUnderstand="true"/>
+
+[Action]
+  http://schemas.xmlsoap.org/ws/2004/09/transfer/Put
+
+[Body]
+  <wsrt:Put Dialect="xs:anyURI"?>
+    <wsrt:Fragment Mode="xs:anyURI">
+      <wsrt:Expression>xs:any</wsrt:Expression> ?
+      <wsrt:Value ...>xs:any</wsrt:Value> ?
+    </wsrt:Fragment> +
+  </wsrt:Put>
+```
+
+### Create
+
+WS-Transfer Create操作用于通过初始表示(initial representation)来创建资源。 接收到Create请求的资源工厂将分配一个新资源，该资源根据显示的表示(presented representation)进行了初始化。 将为新资源分配工厂服务(factory-service-determined)确定的端点引用，该端点引用在`响应消息`中返回。 在许多情况下，创建资源所需的信息可能与初始表示（通过随后的Get操作实现的值）明显不同，并且提供初始表示是不可行的。
+
+WS-ResourceTransfer扩展了Create操作，以从零个或多个指定的XML表示形式的片段中创建资源。 WS-ResourceTransfer进一步扩展了Create操作，从而可以在资源创建过程中创建任何资源元数据。
+
+>按照我的理解，Create操作是开辟资源存储的空间，创建资源对应的UUID，等待之后填充或获取
+
+Create操作的扩展概要为：
+
+```xml
+[Headers]
+  <wsrt:ResourceTransfer s:mustUnderstand="true"/>
+[Action]
+  http://schemas.xmlsoap.org/ws/2004/09/transfer/Create
+[Body]
+  <wsrt:Create Dialect="xs:anyURI"?>
+  <wsmex:Metadata>resource metadata</wsmex:Metadata> ?
+  <wsrt:Fragment>
+      <wsrt:Expression>xs:any</wsrt:Expression> ?
+      <wsrt:Value ...>xs:any</wsrt:Value>
+  </wsrt:Fragment> *
+  </wsrt:Create>
+```
+
+### Delete
+
+WS-Transfer Delete操作用于整体删除资源。 WSResourceTransfer没有单独定义或扩展WS-Transfer中的Delete操作，而是直接使用WS-Transfer定义的Delete。
+
+>按照我的理解，Delete操作与Create对应，为删除资源并释放空间
+
+Delete请求消息必须采用以下格式：
+
+```xml
+<s:Envelope …> 
+  <s:Header …>
+    <wsa:Action>
+        http://schemas.xmlsoap.org/ws/2004/09/transfer/Delete
+    </wsa:Action>
+    <wsa:MessageID>xs:anyURI</wsa:MessageID>
+    <wsa:To>xs:anyURI</wsa:To>
+    …
+  </s:Header>
+  <s:Body … />
+</s:Envelope>
+```
+
+### 示例
+
+本部分包含WS-RT`Get`，`Put`，`Create`和`Delete`操作的示例。 这些示例旨在举例说明`MeterAccess`资源的基本WS-RT操作。 MeterAccess资源是用于访问仪表对象的资源。 出于本示例的目的，MeterAccess资源模型访问单个能量寄存器COSEM对象。 表1显示了激活并填充结果后的MeterAccess资源。
+
+### Web Service 安全
+
+原文：
+
+>Security for Data Concentrator requires protection against attacks on the P3.2 Interface with providing Confidentiality, Integrity and Authentication for the services provided with Web Services. Authentication is required for communicating parties.
+>
+>WS-I Basic Profile 1.1 and 1.2 adopt HTTP secured with TLS 1.0 or SSL 3.0 (HTTPS) for security of Web Services. HTTPS is transport level of security and provides mature and most widely used standard for secured connections for HTTP based transports.
+>
+>Higher levels of Web Services Security defined with WS-Security are out of the scope of this specification
+
+Data Concentrator的安全性要求为Web服务提供的服务提供机密性，完整性和身份验证，以防止P3.2接口受到攻击。 通信方需要身份验证。
+
+`WS-I`基本配置文件1.1和1.2采用HTTP协议，该协议受TLS 1.0或SSL 3.0(HTTPS)保护，以确保Web服务的安全。 `HTTPS`是传输的安全级别，它为基于HTTP的传输的安全连接提供了成熟且使用最广泛的标准。
+
+用`WS-Security`定义的更高级别的Web服务安全性`不在本规范范围`内
+
+## 附录1：P3.2 XML Schema
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" elementFormDefault="qualified" attributeFormDefault="unqualified">
+    <xs:import namespace="http://schemas.xmlsoap.org/ws/2004/08/addressing" schemaLocation="http://schemas.xmlsoap.org/ws/2004/08/addressing"/>
+    <xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="http://www.w3.org/2001/xml.xsd"/>
+    <xs:complexType name="attributableURI">
+        <xs:simpleContent>
+            <xs:extension base="xs:anyURI">
+                <xs:anyAttribute namespace="##other" processContents="lax"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+    <xs:element name="ResourceURI" type="attributableURI"/>
+    <xs:complexType name="SelectorType" mixed="true">
+        <xs:annotation>
+            <xs:documentation>Instances of this type can be only simple types or EPRs, not arbitrary mixed data.</xs:documentation>
+        </xs:annotation>
+        <xs:complexContent mixed="true">
+            <xs:restriction base="xs:anyType">
+                <xs:sequence>
+                    <xs:element ref="wsa:EndpointReference" minOccurs="0"/>
+                </xs:sequence>
+                <xs:attribute name="Name" type="xs:NCName" use="required"/>
+                <xs:anyAttribute namespace="##other" processContents="lax"/>
+            </xs:restriction>
+        </xs:complexContent>
+    </xs:complexType>
+    <xs:element name="Selector" type="SelectorType"/>
+    <xs:complexType name="SelectorSetType">
+        <xs:sequence>
+            <xs:element ref="Selector" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:anyAttribute namespace="##other" processContents="lax"/>
+    </xs:complexType>
+    <xs:complexType name="attributableAny">
+        <xs:sequence>
+            <xs:element name="ResourceURI" type="xs:anyURI"/>
+            <xs:element name="SelectorSet" type="SelectorSetType" minOccurs="0"/>
+            <xs:element name="ResourceEventResult">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+        </xs:sequence>
+        <xs:anyAttribute namespace="##other" processContents="lax"/>
+    </xs:complexType>
+    <xs:complexType name="ResourceEventType">
+        <xs:complexContent>
+            <xs:extension base="attributableAny"/>
+        </xs:complexContent>
+    </xs:complexType>
+    <xs:element name="ResourceEvent" type="ResourceEventType"/>
+    <xs:simpleType name="bitString">
+        <xs:restriction base="xs:string"/>
+    </xs:simpleType>
+    <xs:simpleType name="octetString">
+        <xs:restriction base="xs:string"/>
+    </xs:simpleType>
+    <xs:complexType name="NULL" final="#all"/>
+    <xs:simpleType name="ISO646String">
+        <xs:restriction base="xs:token"/>
+    </xs:simpleType>
+
+    <xs:simpleType name="visibleString">
+        <xs:restriction base="ISO646String"/>
+    </xs:simpleType>
+    <xs:simpleType name="Integer8">
+        <xs:restriction base="xs:byte"/>
+    </xs:simpleType>
+    <xs:simpleType name="Integer16">
+        <xs:restriction base="xs:short"/>
+    </xs:simpleType>
+    <xs:simpleType name="Integer32">
+        <xs:restriction base="xs:int"/>
+    </xs:simpleType>
+    <xs:simpleType name="Integer64">
+        <xs:restriction base="xs:long"/>
+    </xs:simpleType>
+    <xs:simpleType name="Unsigned8">
+        <xs:restriction base="xs:unsignedByte"/>
+    </xs:simpleType>
+    <xs:simpleType name="Unsigned16">
+        <xs:restriction base="xs:unsignedShort"/>
+    </xs:simpleType>
+    <xs:simpleType name="Unsigned32">
+        <xs:restriction base="xs:unsignedInt"/>
+    </xs:simpleType>
+    <xs:simpleType name="Unsigned64">
+        <xs:restriction base="xs:unsignedLong"/>
+    </xs:simpleType>
+    <xs:simpleType name="actionResult">
+        <xs:restriction base="Unsigned8"/>
+    </xs:simpleType>
+    <xs:simpleType name="dataAccessResult">
+        <xs:restriction base="Unsigned8"/>
+    </xs:simpleType>
+    <xs:complexType name="typeDescription">
+        <xs:choice>
+            <xs:element name="N" type="NULL"/>
+            <xs:element name="A">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="NumberOfElements" type="Unsigned16"/>
+                        <xs:element name="TypeDescription" type="typeDescription"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="S">
+                <xs:complexType>
+                    <xs:sequence minOccurs="0" maxOccurs="unbounded">
+                        <xs:element name="TypeDescription" type="typeDescription"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="B" type="NULL"/>
+            <xs:element name="BS" type="NULL"/>
+            <xs:element name="DL" type="NULL"/>
+            <xs:element name="DLU" type="NULL"/>
+            <xs:element name="FP" type="NULL"/>
+            <xs:element name="OS" type="NULL"/>
+            <xs:element name="VS" type="NULL"/>
+            <xs:element name="BCD" type="NULL"/>
+            <xs:element name="I" type="NULL"/>
+            <xs:element name="L" type="NULL"/>
+            <xs:element name="U" type="NULL"/>
+            <xs:element name="LU" type="NULL"/>
+            <xs:element name="L64" type="NULL"/>
+            <xs:element name="L64U" type="NULL"/>
+            <xs:element name="E" type="NULL"/>
+            <xs:element name="F32" type="NULL"/>
+            <xs:element name="F64" type="NULL"/>
+            <xs:element name="DT" type="NULL"/>
+            <xs:element name="D" type="NULL"/>
+            <xs:element name="T" type="NULL"/>
+            <xs:element name="DC" type="NULL"/>
+        </xs:choice>
+
+    </xs:complexType>
+    <xs:complexType name="sequenceOfData">
+        <xs:choice maxOccurs="unbounded">
+            <xs:element name="N" type="NULL"/>
+            <xs:element name="A" type="sequenceOfData"/>
+            <xs:element name="S" type="sequenceOfData"/>
+            <xs:element name="B" type="xs:boolean"/>
+            <xs:element name="BS" type="bitString"/>
+            <xs:element name="DL" type="Integer32"/>
+            <xs:element name="DLU" type="Unsigned32"/>
+            <xs:element name="FP" type="xs:float"/>
+            <xs:element name="OS" type="octetString"/>
+            <xs:element name="VS" type="visibleString"/>
+            <xs:element name="BCD" type="Integer8"/>
+            <xs:element name="I" type="Integer8"/>
+            <xs:element name="L" type="Integer16"/>
+            <xs:element name="U" type="Unsigned8"/>
+            <xs:element name="LU" type="Unsigned16"/>
+            <xs:element name="CA">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="ContentsDescription" type="typeDescription"/>
+                        <xs:element name="ArrayContents" type="xs:hexBinary"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="L64" type="Integer64"/>
+            <xs:element name="L64U" type="Unsigned64"/>
+            <xs:element name="E" type="Unsigned8"/>
+            <xs:element name="F32" type="xs:float"/>
+            <xs:element name="F64" type="xs:double"/>
+            <xs:element name="DT" type="xs:hexBinary"/>
+            <xs:element name="D" type="xs:hexBinary"/>
+            <xs:element name="T" type="xs:hexBinary"/>
+            <xs:element name="DC" type="NULL"/>
+        </xs:choice>
+    </xs:complexType>
+    <xs:complexType name="data">
+        <xs:choice>
+            <xs:element name="N" type="NULL"/>
+            <xs:element name="A" type="sequenceOfData"/>
+            <xs:element name="S" type="sequenceOfData"/>
+            <xs:element name="B" type="xs:boolean"/>
+            <xs:element name="BS" type="bitString"/>
+            <xs:element name="DL" type="Integer32"/>
+            <xs:element name="DLU" type="Unsigned32"/>
+            <xs:element name="FP" type="xs:float"/>
+            <xs:element name="OS" type="octetString"/>
+            <xs:element name="VS" type="visibleString"/>
+            <xs:element name="BCD" type="Integer8"/>
+            <xs:element name="I" type="Integer8"/>
+            <xs:element name="L" type="Integer16"/>
+            <xs:element name="U" type="Unsigned8"/>
+            <xs:element name="LU" type="Unsigned16"/>
+            <xs:element name="CA">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="ContentsDescription" type="typeDescription"/>
+                        <xs:element name="ArrayContents" type="xs:hexBinary"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="L64" type="Integer64"/>
+            <xs:element name="L64U" type="Unsigned64"/>
+            <xs:element name="E" type="Unsigned8"/>
+            <xs:element name="F32" type="xs:float"/>
+            <xs:element name="F64" type="xs:double"/>
+            <xs:element name="DT" type="xs:hexBinary"/>
+            <xs:element name="D" type="xs:hexBinary"/>
+            <xs:element name="T" type="xs:hexBinary"/>
+            <xs:element name="DC" type="NULL"/>
+        </xs:choice>
+    </xs:complexType>
+
+    <xs:complexType name="actionAccessResult">
+        <xs:sequence>
+            <xs:element name="Result" type="actionResult"/>
+            <xs:element name="ReturnParameters" type="dataAccessResult"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="setAccessResult">
+        <xs:sequence>
+            <xs:element name="Result" type="dataAccessResult"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="getAccessResult">
+        <xs:choice>
+            <xs:element name="Data" type="data"/>
+            <xs:element name="DataAccessResult" type="dataAccessResult"/>
+        </xs:choice>
+    </xs:complexType>
+    <xs:complexType name="imageTransferResult">
+        <xs:sequence>
+            <xs:element name="Result" type="xs:boolean"/>
+            <xs:element name="ImageTransferStatus" type="Unsigned8"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="cosemAccessResult">
+        <xs:choice>
+            <xs:element name="GetAccessResult" type="getAccessResult"/>
+            <xs:element name="SetAccessResult" type="setAccessResult"/>
+            <xs:element name="ActionAccessResult" type="actionAccessResult"/>
+            <xs:element name="ImageTransferResult" type="imageTransferResult"/>
+        </xs:choice>
+    </xs:complexType>
+    <xs:complexType name="selectiveAccessDescriptor">
+        <xs:sequence>
+            <xs:element name="AccessSelector" type="Unsigned8"/>
+            <xs:element name="AccessParameters" type="data"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="getAccessDescriptor">
+        <xs:sequence>
+            <xs:element name="CosemAttributeDescriptor" type="cosemAttributeDescriptor"/>
+            <xs:element name="AccessSelection" type="selectiveAccessDescriptor" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="setAccessDescriptor">
+        <xs:sequence>
+            <xs:element name="CosemAttributeDescriptor" type="cosemAttributeDescriptor"/>
+            <xs:element name="AccessSelection" type="selectiveAccessDescriptor" minOccurs="0"/>
+            <xs:element name="Value" type="data"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="actionAccessDescriptor">
+        <xs:sequence>
+            <xs:element name="CosemMethodDescriptor" type="cosemMethodDescriptor"/>
+            <xs:element name="MethodInvocationParameters" type="data" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="imageTransferDescriptor">
+        <xs:sequence>
+            <xs:element name="ImageReference" type="imageReference"/>
+            <xs:element name="ImageTransferObjectReference" type="cosemObjectReference"/>
+            <xs:element name="ImageTransferSchedule" type="imageTransferSchedule" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="cosemMethodDescriptor">
+        <xs:sequence>
+            <xs:element name="ClassId" type="Unsigned16"/>
+            <xs:element name="InstanceId" type="octetString"/>
+            <xs:element name="MethodId" type="Integer8"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="cosemAttributeDescriptor">
+        <xs:sequence>
+
+            <xs:element name="ClassId" type="Unsigned16"/>
+            <xs:element name="InstanceId" type="octetString"/>
+            <xs:element name="AttributeId" type="Integer8"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="cosemObjectReference">
+        <xs:sequence>
+            <xs:element name="ClassId" type="Unsigned16"/>
+            <xs:element name="InstanceId" type="octetString"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="imageReference">
+        <xs:sequence>
+            <xs:element name="ImageIdentifier" type="octetString"/>
+            <xs:element name="ImageLocation" type="xs:anyURI"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="imageTransferSchedule">
+        <xs:sequence>
+            <xs:element name="Activation" type="xs:dateTime"/>
+            <xs:element name="ImageActivationObjectReference" type="cosemObjectReference"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="cosemAccessDesciptor">
+        <xs:choice>
+            <xs:element name="GetAccessDescriptor" type="getAccessDescriptor"/>
+            <xs:element name="SetAccessDescriptor" type="setAccessDescriptor"/>
+            <xs:element name="ActionAccessDescriptor" type="actionAccessDescriptor"/>
+            <xs:element name="ImageTransferDescriptor" type="imageTransferDescriptor"/>
+        </xs:choice>
+    </xs:complexType>
+    <xs:complexType name="cosemAccess">
+        <xs:sequence>
+            <xs:element name="CosemAccessDescriptor" type="cosemAccessDesciptor"/>
+            <xs:element name="CosemAccessResult" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                    <xs:complexContent>
+                        <xs:extension base="cosemAccessResult">
+                            <xs:attribute name="MeterID" type="xs:string"/>
+                            <xs:attribute name="Activated" type="xs:dateTime"/>
+                        </xs:extension>
+                    </xs:complexContent>
+                </xs:complexType>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="meterReference">
+        <xs:attribute name="MeterID" type="xs:string" use="required"/>
+    </xs:complexType>
+    <xs:complexType name="meterAccess">
+        <xs:sequence>
+            <xs:element name="MeterReferenceList">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="MeterReference" type="meterReference" minOccurs="0" maxOccurs="unbounded"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="CosemAccessList">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="CosemAccess" type="cosemAccess" minOccurs="0" maxOccurs="unbounded"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="Activates" type="xs:dateTime" minOccurs="0"/>
+            <xs:element name="Expires" type="xs:dateTime" minOccurs="0"/>
+            <xs:element name="Created" type="xs:dateTime" minOccurs="0"/>
+            <xs:element name="Updated" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="packageTransferResult">
+
+        <xs:sequence>
+            <xs:element name="Result" type="xs:boolean"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="packageTransferDescriptor">
+        <xs:sequence>
+            <xs:element name="PackageReference" type="packageReference"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="keyValueType">
+        <xs:simpleContent>
+            <xs:extension base="xs:base64Binary"/>
+        </xs:simpleContent>
+    </xs:complexType>
+    <xs:complexType name="keyContextType">
+        <xs:sequence>
+            <xs:any namespace="##any"/>
+        </xs:sequence>
+        <xs:attribute name="Name" type="xs:string" use="required"/>
+    </xs:complexType>
+    <xs:complexType name="meterSecurityKey">
+        <xs:sequence>
+            <xs:element name="KeyValue" type="keyValueType"/>
+            <xs:element name="KeyContext" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attribute name="KeyIdent" type="xs:string" use="required"/>
+        <xs:attribute name="KeyType" type="xs:string"/>
+    </xs:complexType>
+    <xs:complexType name="meterSecurityTransferDescriptor">
+        <xs:sequence>
+            <xs:element name="MeterReference" type="meterReference"/>
+            <xs:element name="MeterSecurityKey" type="meterSecurityKey" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="securityTransferResult">
+        <xs:sequence>
+            <xs:element name="Result" type="xs:boolean"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="securityTransferDescriptor">
+        <xs:choice>
+            <xs:element name="MeterSecurityTransferDescriptor" type="meterSecurityTransferDescriptor"/>
+        </xs:choice>
+    </xs:complexType>
+    <xs:complexType name="packageReference">
+        <xs:sequence>
+            <xs:element name="PackageIdentifier" type="xs:string"/>
+            <xs:element name="PackageLocation" type="xs:anyURI"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="serviceAccessDescriptor">
+        <xs:choice>
+            <xs:element name="PackageTransferDescriptor" type="packageTransferDescriptor"/>
+            <xs:element name="SecurityTransferDescriptor" type="securityTransferDescriptor"/>
+        </xs:choice>
+    </xs:complexType>
+    <xs:complexType name="serviceAccessResult">
+        <xs:choice>
+            <xs:element name="PackageTransferResult" type="packageTransferResult"/>
+            <xs:element name="SecurityTransferResult" type="securityTransferResult"/>
+        </xs:choice>
+    </xs:complexType>
+    <xs:complexType name="serviceAccess">
+        <xs:sequence>
+            <xs:element name="ServiceAccessDescriptor" type="serviceAccessDescriptor"/>
+            <xs:element name="ServiceAccessResult" type="serviceAccessResult" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="concentratorServiceAccess">
+        <xs:sequence>
+            <xs:element name="ServiceAccessList">
+
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="ServiceAccess" type="serviceAccess" minOccurs="0" maxOccurs="unbounded"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="Activates" type="xs:dateTime" minOccurs="0"/>
+            <xs:element name="Expires" type="xs:dateTime" minOccurs="0"/>
+            <xs:element name="Created" type="xs:dateTime" minOccurs="0"/>
+            <xs:element name="Updated" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="eventLogEntry">
+        <xs:sequence>
+            <xs:element name="EventSource">
+                <xs:complexType>
+                    <xs:simpleContent>
+                        <xs:extension base="xs:string">
+                            <xs:attribute name="Name" type="xs:string" use="required"/>
+                            <xs:attribute name="Ident" type="xs:string" use="required"/>
+                        </xs:extension>
+                    </xs:simpleContent>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="EventIdent" type="xs:string"/>
+            <xs:element name="EventLevel" type="xs:short"/>
+            <xs:element name="EventDateTime" type="xs:dateTime"/>
+            <xs:element name="EventDetail" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="eventLog">
+        <xs:sequence>
+            <xs:element name="EventLogEntry" type="eventLogEntry" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="concentratorStatus">
+        <xs:sequence>
+            <xs:element name="Ident" type="xs:string"/>
+            <xs:element name="Status" type="xs:string"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="metersDirectory">
+        <xs:sequence>
+            <xs:element name="RegisteredMetersList">
+                <xs:complexType>
+                    <xs:sequence maxOccurs="unbounded">
+                        <xs:element name="RegisteredMeter" type="meterReference"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="RevokedMetersList" minOccurs="0">
+                <xs:complexType>
+                    <xs:sequence maxOccurs="unbounded">
+                        <xs:element name="RevokedMeter" type="meterReference"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="AllowedMetersList" minOccurs="0">
+                <xs:complexType>
+                    <xs:sequence maxOccurs="unbounded">
+                        <xs:element name="AllowedMeter" type="meterReference"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:element name="MeterAccess" type="meterAccess">
+        <xs:annotation>
+            <xs:documentation>MeterAccess provides access to Meters registered on the Concentrator</xs:documentation>
+        </xs:annotation>
+    </xs:element>
+    <xs:element name="MetersDirectory" type="metersDirectory">
+        <xs:annotation>
+            <xs:documentation>MetersDirectory provides acecss to Directory of Meters registered on the Concentrator</xs:documentation>
+        </xs:annotation>
+    </xs:element>
+    <xs:element name="ConcentratorAccess">
+        <xs:annotation>
+            <xs:documentation>ConcentratorAccess provides access to services of the Concentrator</xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="ConcentratorService">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="ConcentratorServiceAccess" type="concentratorServiceAccess" minOccurs="0" maxOccurs="unbounded"/>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element name="EventLog" type="eventLog"/>
+                <xs:element name="Status" type="concentratorStatus"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>
+```
+
+## 附录2：盛付通接口实例
 
 --------
 
