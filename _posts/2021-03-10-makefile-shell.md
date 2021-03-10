@@ -49,7 +49,7 @@ kernelversion:
 
 Makefile命令中的shell语句也并非直接用于shell环境，make会对该语句进行预处理，如果想要引用shell中的变量，就要使用`$`号来把Makefile变量转换成shell变量
 
-`$$`的用法就是把Makefile变量转化为shell变量，用于引用shell中的变量，直接看实例
+`$$`的用法就是把Makefile引用转化为shell引用，可以理解为此时的`$`是一个转义符，**也可以理解为去掉一个`$`后直接带入shell脚本中**
 
 例1：
 
@@ -98,8 +98,19 @@ for i in one two three; do \
 
 例2中，`$$i`命令被make翻译成了shell命令中的`$i`，此时shell脚本可以正常执行，输出正确结果
 
+例3：
+
+```makefile
+help:
+	@echo  '                    (default: $$(INSTALL_MOD_PATH)/lib/firmware)'
+```
+
+> Makefile中的@符号表示该行shell命令不回显，否则执行时make会把转化后的shell脚本打印一遍
+
+例2中，`$$i`命令被make翻译成了shell命令中的`$i`，此时shell脚本可以正常执行，输出正确结果
+
 ## 总结
 
 -------
 
-Makefile中的`$`用于引用Makefile变量，shell中的`$`用于引用shell变量，Makefile中的`$$`用于引用shell中的变量
+Makefile中的`$`用于引用Makefile变量，shell中的`$`用于引用shell变量，Makefile中的`$$`用于把Makefile引用转化为shell引用
