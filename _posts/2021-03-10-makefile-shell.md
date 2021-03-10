@@ -105,9 +105,17 @@ help:
 	@echo  '                    (default: $$(INSTALL_MOD_PATH)/lib/firmware)'
 ```
 
-> Makefile中的@符号表示该行shell命令不回显，否则执行时make会把转化后的shell脚本打印一遍
+输出结果为：
 
-例2中，`$$i`命令被make翻译成了shell命令中的`$i`，此时shell脚本可以正常执行，输出正确结果
+```txt
+                    (default: $(INSTALL_MOD_PATH)/lib/firmware)
+```
+
+> 注：Makefile中的`@`符号表示该行shell命令不回显，否则执行时make会把转化后的shell脚本打印一遍
+
+> 注：`单引号`在shell中表示不执行转义或引用，按照原样字符串输出，此处`$(INSTALL_MOD_PATH)`不会被理解为变量
+
+例3中，`$$(INSTALL_MOD_PATH)`被翻译成`$(INSTALL_MOD_PATH)`，但由于存在`单引号`，导致shell变量不会被引用
 
 ## 总结
 
