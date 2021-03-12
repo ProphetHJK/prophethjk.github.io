@@ -4,7 +4,7 @@ author: Jinkai
 date: 2021-03-11 09:00:00 +0800
 published: true
 categories: [学习笔记]
-tags: [Operating Systems, 操作系统]
+tags: [Operating Systems, 操作系统导论]
 ---
 
 > 参考：
