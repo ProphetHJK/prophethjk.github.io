@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 }
 ```
 
-输入如下：
+输出如下：
 
 ```shell
 prompt> ./p1
@@ -108,6 +108,8 @@ prompt>
 ## exec()系统调用
 
 exec()这个系统调用可以让子进程执行与父进程不同的程序
+
+> 关于`exec函数族`的更多相关内容，可以查看[Linux 多任务编程（三）---exec 函数族及其基础实验](https://blog.csdn.net/mybelief321/article/details/9055589)
 
 ```c
 #include <stdio.h>
@@ -225,11 +227,11 @@ prompt>
 
 - 每个 Unix 进程（除了可能的守护进程）应均有三个标准的 POSIX 文件描述符，对应于三个标准流：
 
-  | 整数值 |      名称       | <unistd.h>符号常量 | <stdio.h>文件流 |
-  | :----: | :-------------: | :----------------: | :-------------: |
-  |   0    | Standard input  |    STDIN_FILENO    |      stdin      |
-  |   1    | Standard output |   STDOUT_FILENO    |     stdout      |
-  |   2    | Standard error  |   STDERR_FILENO    |     stderr      |
+  | 整数值 |      名称       | `<unistd.h>`符号常量 | `<stdio.h>`文件流 |
+  | :----: | :-------------: | :------------------: | :---------------: |
+  |   0    | Standard input  |     STDIN_FILENO     |       stdin       |
+  |   1    | Standard output |    STDOUT_FILENO     |      stdout       |
+  |   2    | Standard error  |    STDERR_FILENO     |      stderr       |
 
 1. UNIX 系统从 0 开始寻找可以使用的文件描述符，进程启动后默认打开了标准输出`STDOUT_FILENO`输出到屏幕，此时所有的对`标准输出文件描述符`的输出，如 `printf()`，都会打印的屏幕上：
 
@@ -245,56 +247,221 @@ prompt>
    wc: write error: Bad file descriptor
    ```
 
-3. 此时再打开`新的文件描述符`_open("./p4.output", O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU)_，会将所有的对`标准输出文件描述符`的输出定向到该文件描述符上，因为 Unix 系统会从 0 开始寻找可用的文件描述符，当找不到`STDOUT_FILENO`自然会去找新打开的文件描述符
+3. 此时再打开`新的文件描述符` _open("./p4.output", O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU)_，会将所有的对`标准输出文件描述符`的输出定向到该文件描述符上，因为 Unix 系统会从 0 开始寻找可用的文件描述符，当找不到`STDOUT_FILENO`自然会去找新打开的文件描述符
 
 ### 扩展阅读：管道
 
-UNIX 管道也是用类似的方式实现的，但用的是 `pipe()`系统调用。在这种情况下，一个进程的输出被链接到了一个内核管道（pipe）上（队列），另一个进程的输入也被连接到了同一个管道上。因此，`前一个进程的输出无缝地作为后一个进程的输入`，许多命令可以用这种方式串联在一起，共同完成某项任务。比如通过将 grep、wc 命令用管道连接可以完成从一个文件中查找某个词，并统计其出现次数的功能：_grep -o foo file | wc -l_。
+UNIX 管道也是用类似的方式实现的，但用的是 `pipe()`系统调用。在这种情况下，一个进程的`输出`被链接到了一个`内核管道`（pipe）上（队列），另一个进程的`输入`也被连接到了同一个管道上。因此，`前一个进程的输出无缝地作为后一个进程的输入`，许多命令可以用这种方式串联在一起，共同完成某项任务。比如通过将 `grep`、`wc` 命令用管道连接可以完成从一个文件中查找某个词，并统计其出现次数的功能：_grep -o foo file | wc -l_。
 
 ## 作业
 
-1. 编写一个调用 fork()的程序。在调用 fork()之前，让主进程访问一个变量（例如 x）
-    并将其值设置为某个值（例如 100）。子进程中的变量有什么值？当子进程和父进程都改变
-    x 的值时，变量会发生什么？
+1. 编写一个调用 fork()的程序。在调用 fork()之前，让主进程访问一个变量（例如 x）并将其值设置为某个值（例如 100）。子进程中的变量有什么值？当子进程和父进程都改变 x 的值时，变量会发生什么？
 
->答：父进程在fork之前修改的值会同步到子进程中，当fork完成后，两个进程相互独立，修改fork前定义的变量时也是独立的。
+   答：父进程在 fork 之前修改的值会同步到子进程中（fork 前子进程并不存在），当 fork 完成后，两个进程相互独立，修改 fork 前定义的变量时也是独立的。
 
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
+   ```c
+   #include <stdio.h>
+   #include <stdlib.h>
+   #include <unistd.h>
 
-int main(int argc, char *argv[])
-{
-    int x = 1;
-    printf("hello world (pid:%d)\n", (int)getpid());
-    x = 3;
-    int rc = fork();
-    if (rc < 0)
-    { // fork failed; exit
-        fprintf(stderr, "fork failed\n");
-        exit(1);
-    }
-    else if (rc == 0)
-    { // child (new process)
-        x=4;
-        printf("hello, I am child (pid:%d),x:%d\n", (int)getpid(),x);
-    }
-    else
-    { // parent goes down this path (main)
-        wait(NULL);
-        printf("hello, I am parent of %d (pid:%d),x:%d\n",
-            rc, (int)getpid(),x);
-    }
-    return 0;
-}
-```
+   int main(int argc, char *argv[])
+   {
+       int x = 1;
+       printf("hello world (pid:%d)\n", (int)getpid());
+       x = 3;
+       int rc = fork();
+       if (rc < 0)
+       { // fork failed; exit
+           fprintf(stderr, "fork failed\n");
+           exit(1);
+       }
+       else if (rc == 0)
+       { // child (new process)
+           x=4;
+           printf("hello, I am child (pid:%d),x:%d\n", (int)getpid(),x);
+       }
+       else
+       { // parent goes down this path (main)
+           wait(NULL);
+           printf("hello, I am parent of %d (pid:%d),x:%d\n",
+               rc, (int)getpid(),x);
+       }
+       return 0;
+   }
+   ```
 
-```shell
-root@hjk:~/repo/os_test# ./a.out 
-hello world (pid:17699)
-hello, I am child (pid:17700),x:4
-hello, I am parent of 17700 (pid:17699),x:3
-```
+   结果如下，两个进程的 x 独立，即便是子进程修改了 x，父进程中的 x 还是 fork 前的值
 
-2. 
+   ```shell
+   root@hjk:~/repo/os_test# ./a.out
+   hello world (pid:17699)
+   hello, I am child (pid:17700),x:4
+   hello, I am parent of 17700 (pid:17699),x:3
+   ```
+
+2. 编写一个打开文件的程序（使用 open()系统调用），然后调用 fork()创建一个新进程。子进程和父进程都可以访问 open()返回的文件描述符吗？当它们并发（即同时）写入文件时，会发生什么？
+
+   答：都可以访问。并发时无影响。
+
+   ```c
+   #include <stdio.h>
+   #include <stdlib.h>
+   #include <unistd.h>
+   #include <string.h>
+   #include <fcntl.h>
+   #include <sys/wait.h>
+
+   int main(int argc, char *argv[])
+   {
+       close(STDOUT_FILENO);
+       int fd = open("./p4.output", O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
+       int rc = fork();
+       if (rc < 0)
+       { // fork failed; exit
+           fprintf(stderr, "fork failed\n");
+           exit(1);
+       }
+       else if (rc == 0)
+       { // child: redirect standard output to a file
+           // now exec "wc"...
+           printf("child\n");
+       }
+       else
+       { // parent goes down this path (main)
+           // int wc = wait(NULL);
+           printf("father\n");
+       }
+       // if(fd>=0)
+       // {
+       //     close(fd);
+       // }
+       return 0;
+   }
+   ```
+
+   p4.output 文件输出如下：
+
+   ```shell
+   father
+   child
+   ```
+
+3. 使用 fork()编写另一个程序。子进程应打印“hello”，父进程应打印“goodbye”。你应该尝试确保子进程始终先打印。你能否不在父进程调用 wait()而做到这一点呢？
+
+   答：使用 sleep 函数时父进程休眠一段时间
+
+4. 现在编写一个程序，在父进程中使用 wait()，等待子进程完成。wait()返回什么？如果你在子进程中使用 wait()会发生什么？
+
+   答：wait()返回子进程的 pid，子进程中调用无影响，返回值为-1。
+
+   ```c
+   #include <stdio.h>
+   #include <stdlib.h>
+   #include <unistd.h>
+   #include <string.h>
+   #include <fcntl.h>
+   #include <sys/wait.h>
+
+   int main(int argc, char *argv[])
+   {
+       close(STDOUT_FILENO);
+       int fd = open("./p4.output", O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
+       int rc = fork();
+       if (rc < 0)
+       { // fork failed; exit
+           fprintf(stderr, "fork failed\n");
+           exit(1);
+       }
+       else if (rc == 0)
+       { // child: redirect standard output to a file
+           // now exec "wc"...
+           int wc=wait(NULL);
+           printf("child,pid:%d,wc:%d\n",getpid(),wc);
+       }
+       else
+       { // parent goes down this path (main)
+           int wc = wait(NULL);
+           // sleep(1);
+           printf("father,pid:%d,wc:%d\n",getpid(),wc);
+       }
+       // if(fd>=0)
+       // {
+       //     close(fd);
+       // }
+       return 0;
+   }
+   ```
+
+   p4.output 输出结果为：
+
+   ```shell
+   child,pid:4577,wc:-1
+   father,pid:4576,wc:4577
+   ```
+
+5. 对前一个程序稍作修改，这次使用 waitpid()而不是 wait()。什么时候 waitpid()会有用？
+
+   | `waitpid()`参数值 | 说明                                                                                                     |
+   | :---------------: | :------------------------------------------------------------------------------------------------------- |
+   |      pid<-1       | 等待`进程组`号为 `pid 绝对值`的任何子进程。                                                              |
+   |      pid=-1       | 等待`任何子进程`，此时的 waitpid()函数就退化成了普通的 `wait()`函数。                                    |
+   |       pid=0       | 等待`进程组`号与目前进程`相同`的任何子进程，也就是说任何和调用 waitpid()函数的进程在同一个进程组的进程。 |
+   |       pid>0       | 等待`进程号`为 pid 的子进程。                                                                            |
+
+   > 使用`getpgrp()`获取当前进程组号
+
+   答：当 pid 为`0`(pid=0),`-1`(pid=-1),`child_pid`(pid>0),`getpgrp()*-1`(pid<-1)时，waitpid()有用
+
+6. 编写一个创建子进程的程序，然后在子进程中关闭标准输出（STDOUT_FILENO）。如果子进程在关闭描述符后调用 printf()打印输出，会发生什么？
+
+    答：子进程无法打印
+
+   ```c
+   #include <stdio.h>
+   #include <stdlib.h>
+   #include <unistd.h>
+   #include <string.h>
+   #include <fcntl.h>
+   #include <sys/wait.h>
+
+   int main(int argc, char *argv[])
+   {
+       // close(STDOUT_FILENO);
+       // int fd = open("./p4.output", O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
+       int rc = fork();
+       if (rc < 0)
+       { // fork failed; exit
+           fprintf(stderr, "fork failed\n");
+           exit(1);
+       }
+       else if (rc == 0)
+       { // child: redirect standard output to a file
+           // now exec "wc"...
+           // int wc=wait(NULL);
+           close(STDOUT_FILENO);
+           printf("child,pid:%d,wc:%d\n",getpid());
+       }
+       else
+       { // parent goes down this path (main)
+           // int wc = waitpid(getpgrp(),NULL,0);
+           // sleep(1);
+
+           printf("father,pid:%d,wc:%d\n",getpid());
+       }
+       // if(fd>=0)
+       // {
+       //     close(fd);
+       // }
+       return 0;
+   }
+   ```
+
+   输出为：
+
+   ```shell
+   root@hjk:~/repo/os_test# ./a.out
+   father,pid:11189,wc:0
+   ```
+
+7. 编写一个程序，创建两个子进程，并使用 pipe()系统调用，将一个子进程的标准输出连接到另一个子进程的标准输入。
+
