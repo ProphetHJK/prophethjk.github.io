@@ -247,11 +247,21 @@ prompt>
    wc: write error: Bad file descriptor
    ```
 
-3. 此时再打开`新的文件描述符` *open("./p4.output", O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU)*，会将所有的对`标准输出文件描述符`的输出定向到该文件描述符上，因为 Unix 系统会从 0 开始寻找可用的文件描述符，当找不到`STDOUT_FILENO`自然会去找新打开的文件描述符
+3. 此时再打开`新的文件描述符`，会将所有的对`标准输出文件描述符`的输出定向到该文件描述符上
+
+    ```shell
+    open("./p4.output", O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU)
+    ```
+
+    > 因为 Unix 系统会从 0 开始寻找可用的文件描述符，当找不到`STDOUT_FILENO`自然会去找新打开的文件描述符
 
 ### 扩展阅读：管道
 
-UNIX 管道也是用类似的方式实现的，但用的是 `pipe()`系统调用。在这种情况下，一个进程的`输出`被链接到了一个`内核管道`（pipe）上（队列），另一个进程的`输入`也被连接到了同一个管道上。因此，`前一个进程的输出无缝地作为后一个进程的输入`，许多命令可以用这种方式串联在一起，共同完成某项任务。比如通过将 `grep`、`wc` 命令用管道连接可以完成从一个文件中查找某个词，并统计其出现次数的功能：*grep -o foo file | wc -l*。
+`UNIX管道`也是用类似的方式实现的，但用的是 `pipe()`系统调用。在这种情况下，一个进程的`输出`被链接到了一个`内核管道`（pipe）上（队列），另一个进程的`输入`也被连接到了同一个管道上。因此，`前一个进程的输出无缝地作为后一个进程的输入`，许多命令可以用这种方式串联在一起，共同完成某项任务。比如通过将 `grep`、`wc` 命令用管道连接可以完成从一个文件中查找某个词，并统计其出现次数的功能：
+
+```shell
+grep -o foo file | wc -l
+```
 
 ## 作业
 
@@ -465,3 +475,91 @@ UNIX 管道也是用类似的方式实现的，但用的是 `pipe()`系统调用
 
 7. 编写一个程序，创建两个子进程，并使用 pipe()系统调用，将一个子进程的标准输出连接到另一个子进程的标准输入。
 
+    答：该程序将子进程2中的输出通过管道连接到子进程1的输入中
+
+    ```c
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <unistd.h>
+    #include <string.h>
+    #include <fcntl.h>
+    #include <sys/wait.h>
+
+    int main(int argc, char *argv[])
+    {
+        // close(STDOUT_FILENO);
+        // int fd = open("./p4.output", O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
+        int fds[2];
+        if(pipe(fds)==-1)
+        {
+            fprintf(stderr, "open pipe failed\n");
+            exit(1);
+        }
+        int rc = fork();
+        
+        if (rc < 0)
+        { // fork failed; exit
+            fprintf(stderr, "fork failed\n");
+            exit(1);
+        }
+        else if (rc == 0)
+        { // child: redirect standard output to a file
+            // int wc=wait(NULL);
+            printf("child1,pid:%d\n",getpid());
+            int len;
+            char buf[10];
+            // 从pipe中读取
+            if((len=read(fds[0],buf,6))==-1)
+            {
+                perror("read from pipe");
+                exit(1);
+            }
+            printf("buf:%s\n",buf);
+            exit(0);
+        }
+        else
+        { // parent goes down this path (main)
+            // wait(NULL);
+            //创建第二个子进程
+            int rc2 = fork();
+            if (rc2 < 0)
+            { // fork failed; exit
+                fprintf(stderr, "fork failed\n");
+                exit(1);
+            }
+            else if (rc2 == 0)
+            { // child: redirect standard output to a file
+                // int wc=wait(NULL);
+                printf("child2,pid:%d\n",getpid());
+                char buf[]= "12345";
+                // 写入pipe
+                if(write(fds[1],buf,sizeof(buf))!=sizeof(buf))
+                {
+                    perror("write to pipe");
+                    exit(1);
+                }
+                exit(0);
+            }
+        }
+
+        return 0;
+    }
+    ```
+
+## 补充：有趣的小知识
+
+在做作业时发现，有时子进程打印的结果会在shell显示`提示符`后才打印出来，如下：
+
+```shell
+root@hjk:~/repo/os_test# ./a.out 
+father,pid:92505
+root@hjk:~/repo/os_test# child,pid:92506
+```
+
+在本文的`[为什么这样设计 API]`一节中有提到shell执行程序的逻辑，下面解释下：
+
+- shell 也是一个用户程序，它首先显示一个提示符（prompt）
+- 运行程序时shell进程会fork一个子进程
+- 子进程使用exec替换程序为要执行的程序，如a.out
+- 此时shell进入wait状态，直到子进程退出
+- 由于作业中编写的程序又创建了一个子进程，如果父进程先执行完，那么对于shell进程来说，它的子进程就已经结束了，shell结束wait状态，打印一行提示符。此时用户进程的子进程还未结束，又继续在标准输出上打印了信息，那就会有这种现象
