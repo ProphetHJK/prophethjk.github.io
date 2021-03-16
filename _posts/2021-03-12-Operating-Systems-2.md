@@ -9,7 +9,7 @@ tags: [Operating Systems, 操作系统导论]
 
 > 参考：
 >
-> - [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/)
+> - [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/04.pdf)
 
 本系列文章将按照《Operating Systems: Three Easy Pieces》一书的章节顺序编写，结合原文与自己的感悟，以作笔记之用，如有不足之处，恳请在评论区指出
 

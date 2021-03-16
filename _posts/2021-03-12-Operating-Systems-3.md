@@ -9,7 +9,7 @@ tags: [Operating Systems, 操作系统导论]
 
 > 参考：
 >
-> - [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/)
+> - [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/05.pdf)
 
 ## fork()系统调用
 
