@@ -11,6 +11,8 @@ tags: [Operating Systems, 操作系统导论]
 >
 > - [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/06.pdf)
 
+本文中文版翻译质量堪忧，有不少名词翻译不知所云，建议对照英文版阅读
+
 ## 前言
 
 在构建这样的虚拟化机制时存在一些挑战。
@@ -20,13 +22,9 @@ tags: [Operating Systems, 操作系统导论]
 
 > 控制权对于操作系统尤为重要，因为操作系统负责资源管理。如果没有控制权，一个进程可以简单地无限制运行并接管机器，或访问没有权限的信息
 
-## 基本技巧：受限直接执行
-
-`受限的直接执行`（limited direct execution）
+## 直接运行协议（无限制）
 
 `直接执行`指的是直接在 CPU 上运行程序，该操作没有任何限制。
-
-### 直接运行协议（无限制）
 
 | 操作系统                                                                                  | 程序                                 |
 | :---------------------------------------------------------------------------------------- | :----------------------------------- |
@@ -147,27 +145,35 @@ LDE 协议有两个阶段:
 
 **第二阶段：**
 
-| 操作系统@`运行`（内核模式）                                                                                                       | 硬件                                                                           | 程序（应用模式） |
-| :-------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :--------------- |
-|                                                                                                                                   |                                                                                | 进程 A……         |
-|                                                                                                                                   | 时钟中断<br>将寄存器（A）保存到内核栈（A）<br>转向内核模式<br>跳到陷阱处理程序 |                  |
-| 处理陷阱<br>调用 switch()例程<br> -将寄存器（A）保存到进程结构（A）<br> -将进程结构（B）恢复到寄存器（B）<br>从陷阱返回（进入 B） |                                                                                |                  |
-|                                                                                                                                   | 从内核栈（B）恢复寄存器（B）<br>转向用户模式<br>跳到 B 的程序计数器            |                  |
-|                                                                                                                                   |                                                                                | 进程 B……         |
+| 操作系统@`运行`（内核模式）                                                                                                                                 | 硬件                                                                               | 程序（应用模式） |
+| :---------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------- | :--------------- |
+|                                                                                                                                                             |                                                                                    | 进程 A……         |
+|                                                                                                                                                             | 时钟中断<br>将用户寄存器（A）保存到内核栈（A）<br>转向内核模式<br>跳到陷阱处理程序 |                  |
+| 处理陷阱<br>调用 switch()例程<br> -保存内核寄存器（A）->进程结构（A）<br> -恢复内核寄存器（B）<-进程结构（B）<br>-切换到内核栈（B）<br>从陷阱返回（进入 B） |                                                                                    |                  |
+|                                                                                                                                                             | 恢复用户寄存器（B）<-内核栈（B）<br>转向用户模式<br>跳到 B 的程序计数器            |                  |
+|                                                                                                                                                             |                                                                                    | 进程 B……         |
 
-该表展示了整个过程的时间线。在这个例子中，进程 A 正在运行，然后`被中断时钟中断`。**硬件保存它的寄存器（在内核栈中），并进入内核（切换到内核模式）**。在时钟中断处理程序中，操作系统决定从正在运行的进程 A 切换到进程 B。此时，它调用 switch()例程，该例程仔细保存当前寄存器的值（保存到 A 的进程结构），恢复寄存器进程 B（从它的进程结构），然后切换上下文（switch context），具体来说是**通过改变栈指针来使用 B 的内核栈（而不是 A 的）**。最后，操作系统从陷阱返回，恢复 B 的寄存器并开始运行它。
+该表展示了整个过程的时间线。在这个例子中，进程 A 正在运行，然后`被中断时钟中断`。**硬件保存它的用户寄存器（到内核栈中），并进入内核（切换到内核模式）**。在时钟中断处理程序中，操作系统决定从正在运行的进程 A 切换到进程 B。此时，它调用 switch()例程，该例程仔细保存当前内核寄存器的值（保存到 A 的进程结构(process structure)），恢复内核寄存器进程 B（从它的进程结构(process structure)），然后`切换上下文`（switch context），具体来说是**通过改变栈指针来使用 B 的内核栈（而不是 A 的）**。最后，操作系统从陷阱返回，恢复 B 的用户寄存器并开始运行它。
 
 请注意，在此协议中，有`两种类型`的寄存器保存/恢复:
 
-- 第一种是发生`时钟中断`的时候。在这种情况下，运行进程的用户寄存器`由硬件隐式保存`，使用该进程的`内核栈`。
+- 第一种是发生`时钟中断`的时候。在这种情况下，运行进程的`用户寄存器`由`硬件`隐式保存，使用该进程的`内核栈`。
+
+        原文：the user registers of the running process are implicitly saved by the hardware, using the kernel stack of that process
+
+  根据英文原文，此处确实是保存到了内核栈中
 
   > **扩展：内核栈与用户栈**
   >
   > 内核在创建进程时，会同时创建 task_struct 和进程相应堆栈。每个进程都会有两个堆栈，一个用户栈，存在于用户空间，一个内核栈，存在于内核空间。当进程在用户空间运行时，`CPU 堆栈寄存器(SP)`的内容是`用户堆栈地址`，使用用户栈。当进程在内核空间时，`CPU 堆栈寄存器(SP)`的内容是`内核栈地址`，使用的是内核栈。
 
-- 第二种是当`操作系统决定`从 A 切换到 B。在这种情况下，A 的用户寄存器先被保存到内核栈，之后进入内核态，操作系统接管后，调用 switch()将内核栈中的值保存到 A 的进程结构，之后从 B 的进程结构恢复值到内核栈，然后从陷阱返回，从内核栈恢复 B 的寄存器，运行 B 进程
+- 第二种是当`操作系统决定`从 A 切换到 B。在这种情况下，A 的`用户寄存器`先被`硬件`保存到`内核栈(A)`，之后进入`内核态`，此时，**用户寄存器切换成内核寄存器，存放系统和进程A相关的值**，操作系统接管后，调用 `switch()`通过`软件`方式将`内核寄存器`中的值保存到 A 的`进程结构`，之后从 B 的`进程结构`恢复值到`内核寄存器`，并切换到进程 B 的`内核栈(B)`，然后从陷阱返回，从`内核栈(B)`恢复 B 的`用户寄存器`，运行 B 进程
 
-  TODO:这里还不明确，等待补充说明
+        原文：the kernel registers are explicitly saved by the software (i.e., the OS), but this time into memory in the process structure of the process. The latter action moves the system from running as if it just trapped into the kernel from A to as if it just trapped into the kernel from B.
+
+  为了理解这个逻辑，首先把切换这步去掉，假设 A 不切换成 B，即 A 的`用户寄存器`先被`硬件`保存到`内核栈(A)`，此时，包括`PC寄存器`（需要执行的下一条指令地址）在内的寄存器都被压入内核栈(A)，从陷阱返回后，从`内核栈(A)`恢复 A 的用户寄存器，将包括PC寄存器在内的寄存器恢复，此时继续执行PC寄存器保存的下一条指令。然后加上`switch()`操作，保存/恢复内核寄存器到对应的进程结构中。
+
+  TODO:此处后面再用实际操作系统的例子补充
 
 ### 分享：在 µC/OS-III 中遇到的上下文切换问题
 
@@ -200,8 +206,8 @@ OS_CPU_PendSVHandler:
     MRS     R0, PSP                                             @ PSP is process stack pointer
 
     CMP     R0, #0
-    BEQ     OS_CPU_PendSVHandler_nosave							@ equivalent code to CBZ from M3 arch to M0 arch
-																@ Except that it does not change the condition code flags
+    BEQ     OS_CPU_PendSVHandler_nosave                         @ equivalent code to CBZ from M3 arch to M0 arch
+                                                                @ Except that it does not change the condition code flags
 
     SUBS    R0, R0, #0x10                                       @ Adjust stack pointer to where memory needs to be stored to avoid overwriting
     STM     R0!, {R4-R7}                                        @ Stores 4 4-byte registers, default increments SP after each storing
@@ -228,7 +234,7 @@ PendSV_Handler:
 
     CMP     R0, #0
     BEQ     OS_CPU_PendSVHandler_nosave                         @ equivalent code to CBZ from M3 arch to M0 arch
-																@ Except that it does not change the condition code flags
+                                                                @ Except that it does not change the condition code flags
 
     SUBS    R0, R0, #0x24                                       @ Adjust SP to make space for Low, High & LR registers
     LDR     R1, =OSTCBCur                                       @ OSTCBCur->OSTCBStkPtr = SP;
