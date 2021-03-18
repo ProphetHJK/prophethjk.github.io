@@ -223,7 +223,7 @@ OS_CPU_PendSVHandler:
 
 查看官网更新说明[µC/OS-III v3.06.00 Changelog](https://www.micrium.com/ucos-iii-v3-06-00/)，有如下信息：
 
-![changelog](/assets/img/2021-03-16-Operating-Systems-4/changelog.png)
+![changelog](/assets/img/2021-03-16-operating-systems-4/changelog.png)
 
 bug 修复后的上下文切换源码如下：
 
