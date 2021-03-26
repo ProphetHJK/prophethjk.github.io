@@ -1,7 +1,7 @@
 ---
 title: "《Operating Systems: Three Easy Pieces》学习笔记(四) 机制：受限直接执行"
 author: Jinkai
-date: 2021-03-16 9:00:00 +0800
+date: 2021-03-16 09:00:00 +0800
 published: true
 categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
@@ -11,7 +11,7 @@ tags: [Operating Systems, 操作系统导论]
 >
 > - [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/06.pdf)
 
-本文中文版翻译质量堪忧，有不少名词翻译不知所云，建议对照英文版阅读
+*本文中文版翻译质量堪忧，有不少名词翻译不知所云，建议对照英文版阅读*
 
 ## 前言
 
@@ -118,7 +118,7 @@ LDE 协议有两个阶段:
 
 如果应用程序执行了某些`非法操作`，也会将控制转移给操作系统。例如，如果应用程序以 0 为除数，或者尝试访问应该无法访问的内存，就会陷入（trap）操作系统。操作系统将再次控制 CPU（并可能终止违规进程）。
 
-### 非协作方式：操作系统进行控制
+### 非协作方式：时钟中断
 
 `时钟中断`（timer interrupt）。时钟设备可以编程为**每隔几毫秒产生一次中断**。产生中断时，当前正在运行的进程停止，操作系统中预先配置的`中断处理程序`（interrupt handler）会运行。此时，操作系统重新获得 CPU 的控制权，因此可以做它想做的事：停止当前进程，并启动另一个进程。
 

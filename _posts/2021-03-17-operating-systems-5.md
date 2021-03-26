@@ -1,7 +1,7 @@
 ---
 title: "《Operating Systems: Three Easy Pieces》学习笔记(五) 进程调度：介绍"
 author: Jinkai
-date: 2021-03-17 9:00:00 +0800
+date: 2021-03-17 09:00:00 +0800
 published: true
 categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
