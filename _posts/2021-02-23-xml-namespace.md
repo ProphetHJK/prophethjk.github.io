@@ -6,9 +6,6 @@ published: true
 categories: [技术]
 tags: [xml, namespace, 命名空间]
 ---
->参考：
->
->- [XML 命名空间（XML Namespaces）](<https://www.w3school.com.cn/xml/xml_namespaces.asp>)
 
 ## xmlns 属性
 
@@ -113,3 +110,7 @@ xmlns="namespaceURI"
 <length>120</length>
 </table>
 ```
+
+## 参考
+
+- [XML 命名空间（XML Namespaces）](<https://www.w3school.com.cn/xml/xml_namespaces.asp>)

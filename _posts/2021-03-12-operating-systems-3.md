@@ -7,10 +7,6 @@ categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
 ---
 
-> 参考：
->
-> - [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/05.pdf)
-
 ## fork()系统调用
 
 在执行函数 fork()时，创建了一个子进程，此时是两个进程同时运行
@@ -563,3 +559,7 @@ root@hjk:~/repo/os_test# child,pid:92506
 - 子进程使用exec替换程序为要执行的程序，如a.out
 - 此时shell进入wait状态，直到子进程退出
 - 由于作业中编写的程序又创建了一个子进程，如果父进程先执行完，那么对于shell进程来说，它的子进程就已经结束了，shell结束wait状态，打印一行提示符。此时用户进程的子进程还未结束，又继续在标准输出上打印了信息，那就会有这种现象
+
+## 参考
+
+- [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/05.pdf)

@@ -6,10 +6,6 @@ published: true
 categories: [技术]
 tags: [SOAP, WSDL, DSMR]
 ---
->参考：
->
->- [SOAP与WSDL详解](<https://juejin.cn/post/6844903537629986824>)
->- [WS-Addressing - 维基百科](<https://zh.wikipedia.org/wiki/WS-Addressing>)
 
 前置阅读：
 - [XML命名空间](<https://hjk.life/posts/xml-namespace/>)
@@ -1235,3 +1231,8 @@ Data Concentrator的安全性要求为Web服务提供的服务提供机密性，
     </wsdl:service>
 </wsdl:definitions>
 ```
+
+## 参考
+
+- [SOAP与WSDL详解](<https://juejin.cn/post/6844903537629986824>)
+- [WS-Addressing - 维基百科](<https://zh.wikipedia.org/wiki/WS-Addressing>)

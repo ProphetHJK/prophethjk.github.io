@@ -7,10 +7,6 @@ categories: [技术]
 tags: [vscode, ssh]
 ---
 
->参考：
->
->- [【工程调试记录】vscode远程连接卡顿、频繁掉线的一个解决方法](<https://blog.csdn.net/jyhongjax/article/details/106075493>)
-
 ## 安装Remote-SSH
 
 -------
@@ -74,3 +70,7 @@ OpenSSH_8.3p1, OpenSSL 1.1.1g  21 Apr 2020
 ```
 
 关闭所有vscode窗口后，重新打开，可以发现SSH使用流畅，不会有掉线现象
+
+## 参考
+
+- [【工程调试记录】vscode远程连接卡顿、频繁掉线的一个解决方法](<https://blog.csdn.net/jyhongjax/article/details/106075493>)

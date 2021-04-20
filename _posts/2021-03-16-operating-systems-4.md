@@ -7,10 +7,6 @@ categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
 ---
 
-> 参考：
->
-> - [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/06.pdf)
-
 *本文中文版翻译质量堪忧，有不少名词翻译不知所云，建议对照英文版阅读*
 
 ## 前言
@@ -272,3 +268,7 @@ PendSV_Handler:
 ## 思考：上下文切换的消耗
 
 你可能有一个很自然的问题：上下文切换需要多长时间？甚至系统调用要多长时间？如果感到好奇，有一种称为 `lmbench`的工具，可以准确衡量这些事情，并提供其他一些可能相关的性能指标。随着时间的推移，结果有了很大的提高，大致跟上了处理器的性能提高。例如，1996 年在 200-MHz P6 CPU 上运行 Linux 1.3.37，系统调用花费了大约 4μs，上下文切换时间大约为 6μs。现代系统的性能几乎可以提高一个数量级，在具有 2 GHz 或 3 GHz 处理器的系统上的性能可以达到亚微秒级。应该注意的是，并非所有的操作系统操作都会跟踪 CPU 的性能。正如 Ousterhout 所说的，许多操作系统操作都是`内存密集型`的，而随着时间的推移，内存带宽并没有像处理器速度那样显著提高。因此，根据你的工作负载，购买最新、性能好的处理器可能不会像你希望的那样加速操作系统。
+
+## 参考
+
+- [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/06.pdf)

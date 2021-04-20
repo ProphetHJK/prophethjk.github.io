@@ -7,10 +7,6 @@ categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
 ---
 
-> 参考：
->
-> - [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/04.pdf)
-
 本系列文章将按照《Operating Systems: Three Easy Pieces》一书的章节顺序编写，结合原文与自己的感悟，以作笔记之用，如有不足之处，恳请在评论区指出
 
 ## 进程API
@@ -231,3 +227,7 @@ Stats: IO Busy  15 (71.43%)
 在本例中，由于使用了`-I IO_RUN_IMMEDIATE`设置，IO完成事件被立即处理，此时进程0继续运行，对于IO操作较为频繁的进程0来说这是一件好事
 
 思考：立即处理阻塞完成的进程是否是一个好主意?
+
+## 参考
+
+- [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/04.pdf)

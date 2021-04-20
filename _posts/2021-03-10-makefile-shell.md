@@ -7,10 +7,6 @@ categories: [技术]
 tags: [Makefile, shell]
 ---
 
->参考：
->
->- [Makefile中$$使用](<https://blog.csdn.net/weixin_34255055/article/details/92069010>)
-
 最近在看linux内核代码时看到在Makefile中用到了`$$()`的使用方式，虽然能猜到什么意思，但不知道使用方法和具体含义，于是查找资料，在此写一个总结
 
 ## SHELL中的$说明
@@ -166,3 +162,7 @@ echo "3.10.108$(/bin/bash /root/repo/makefile_test/scripts/setlocalversion /root
 -------
 
 Makefile中的`$`用于引用Makefile变量，shell中的`$`用于引用shell变量，Makefile中的`$$`用于把Makefile引用转化为shell引用
+
+## 参考
+
+- [Makefile中$$使用](<https://blog.csdn.net/weixin_34255055/article/details/92069010>)

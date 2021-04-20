@@ -7,10 +7,6 @@ categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
 ---
 
-> 参考：
->
-> - [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/)
-
 本系列文章将按照《Operating Systems: Three Easy Pieces》一书的章节顺序编写，结合原文与自己的感悟，以作笔记之用，如有不足之处，恳请在评论区指出
 
 ## 虚拟化 CPU
@@ -245,3 +241,7 @@ int main(int argc, char *argv[])
 **另一个目标是在应用程序之间以及在 OS 和应用程序之间提供保护（protection）**。因为我们希望让许多程序同时运行，所以要确保一个程序的恶意或偶然的不良行为不会损害其他程序。保护是操作系统基本原理之一的核心，这就是`隔离`（isolation）。让进程彼此隔离是保护的关键，因此决定了 OS 必须执行的大部分任务
 
 **操作系统也必须不间断运行**。当它失效时，系统上运行的所有应用程序也会失效。由于这种依赖性，操作系统往往力求提供高度的`可靠性`（reliability）。
+
+## 参考
+
+- [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/)

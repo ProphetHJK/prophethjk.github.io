@@ -15,4 +15,4 @@ tags: [Operating Systems, 操作系统导论]
 
 ## 参考
 
-Operating Systems: Three Easy Pieces 中文版 <https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/08.pdf>
+- [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/08.pdf)

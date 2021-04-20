@@ -7,11 +7,6 @@ categories: [技术]
 tags: [btrfs, linux, 文件系统]
 ---
 
->参考：
->
->- [Btrfs (简体中文) - ArchWiki](<https://wiki.archlinux.org/index.php/Btrfs_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87)>)
->- [Linux使用fdisk创建分区详解](<https://www.jianshu.com/p/520b3a405014>)
-
 ## 前言
 
 --------
@@ -137,3 +132,8 @@ mount /mnt/btrfs
 --------
 
 Btrfs文件系统目前支持`ZLIB`、`LZO`、`ZSTD`(从 4.14 开始支持)算法，ZSTD是目前btrfs最好的压缩策略
+
+## 参考
+
+- [Btrfs (简体中文) - ArchWiki](<https://wiki.archlinux.org/index.php/Btrfs_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87)>)
+- [Linux使用fdisk创建分区详解](<https://www.jianshu.com/p/520b3a405014>)

@@ -7,11 +7,6 @@ categories: [技术]
 tags: [SSL, 双向认证, goahead, HTTPS]
 ---
 
->参考：
->
->- [巧用 Nginx 快速实现 HTTPS 双向认证](<https://blog.csdn.net/easylife206/article/details/107776854>)
->- [Using Client-Certificate based authentication with NGINX on Ubuntu](<https://www.ssltrust.com.au/help/setup-guides/client-certificate-authentication>)
-
 ## 原理
 --------
 
@@ -171,3 +166,8 @@ ca.key  ca.crt  client.crt  client.key  client.pfx  server.key  server.crt
 --------
 
 windows客户端安装完客户端证书后访问服务端，此时浏览器会提示选择客户端证书，选择证书后能正常访问，如证书错误或未提供证书则访问失败，即测试通过
+
+## 参考
+
+- [巧用 Nginx 快速实现 HTTPS 双向认证](<https://blog.csdn.net/easylife206/article/details/107776854>)
+- [Using Client-Certificate based authentication with NGINX on Ubuntu](<https://www.ssltrust.com.au/help/setup-guides/client-certificate-authentication>)

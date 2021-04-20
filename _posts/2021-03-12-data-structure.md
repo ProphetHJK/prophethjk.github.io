@@ -7,10 +7,6 @@ categories: [技术]
 tags: [data structure, 数据结构, C++]
 ---
 
-> 参考：
->
-> - [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/)
-
 本系列文章将按照《Operating Systems: Three Easy Pieces》一书的章节顺序编写，结合原文与自己的感悟，以作笔记之用，如有不足之处，恳请在评论区指出
 
 ## 进程API
@@ -47,3 +43,6 @@ tags: [data structure, 数据结构, C++]
 
 操作系统也可能为程序的`堆`（heap）分配一些内存。。程序通过调用 `malloc`()来请求这样的空间，并通过调用 `free`()来明确地释放它。`数据结构`（如链表、散列表、树和其他有趣的数据结构）需要堆。
 
+## 参考
+
+- [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/)

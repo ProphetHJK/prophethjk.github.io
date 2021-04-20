@@ -7,10 +7,6 @@ categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
 ---
 
-> 参考：
->
-> - [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/07.pdf)
-
 ## 假设
 
 为了方便概念的描述，对操作系统中运行的进程（有时也叫工作任务）做出如下的假设：
@@ -129,3 +125,7 @@ SJF 调度程序必须运行完当前任务才可运行下一个任务。相比�
 ## 作业
 
 以后再做
+
+## 参考
+
+- [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/07.pdf)

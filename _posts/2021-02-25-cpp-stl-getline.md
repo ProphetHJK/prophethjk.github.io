@@ -7,10 +7,6 @@ categories: [技术]
 tags: [stl, c++, getline]
 ---
 
->参考：
->
->- [getline (string) - C++ Reference](<http://www.cplusplus.com/reference/string/string/getline/>)
-
 ## getline说明
 
 -------
@@ -62,3 +58,7 @@ Additionally, in any of these cases, if the appropriate flag has been set with i
 -------
 
 使用vscode编辑txt格式文件时，默认的换行符为`CRLF`，即`\r\n`，而getline的默认分隔符为`\n`，导致`\r`也被读入string，造成乱码
+
+## 参考
+
+- [getline (string) - C++ Reference](<http://www.cplusplus.com/reference/string/string/getline/>)
