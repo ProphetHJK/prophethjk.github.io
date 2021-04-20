@@ -1,5 +1,5 @@
 ---
-title: vscode远程SSH连接方法
+title: VSCode远程SSH连接方法
 author: Jinkai
 date: 2021-03-01 09:00:00 +0800
 published: true
@@ -69,7 +69,7 @@ C:\Users\huangjinkai>ssh -V
 OpenSSH_8.3p1, OpenSSL 1.1.1g  21 Apr 2020
 ```
 
-关闭所有vscode窗口后，重新打开，可以发现SSH使用流畅，不会有掉线现象
+关闭所有VSCode窗口后，重新打开，可以发现SSH使用流畅，不会有掉线现象
 
 ## 参考
 
