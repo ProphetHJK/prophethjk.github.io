@@ -80,7 +80,7 @@ img_cdn: ''
 
 # the avatar on sidebar, support local or CORS resources
 # avatar: https://octodex.github.com/images/class-act.png
-avatar: /assets/img/favicons/black.jpg
+avatar: /assets/img/favicons/Humanity.jpg
 
 # boolean type, the global switch for ToC in posts.
 toc: true
