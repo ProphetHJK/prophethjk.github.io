@@ -2,16 +2,18 @@
 title: "关于VSCode使用Remote SSH时git gutter(代码差异装饰器)无法显示的问题"
 author: Jinkai
 date: 2021-05-08 09:00:00 +0800
-published: false
+published: true
 categories: [技术]
 tags: [vscode, git, gutter]
 ---
 
 ## diff decorations gutter介绍
 
-`diff decorations gutter`中文翻译为代码差异装饰器，就是在使用git或svn插件时代码编辑器序号旁边显示的彩色装饰条，点击可以看到改动后的内容和HEAD内容的差异
+`diff decorations gutter`中文翻译为代码差异装饰器，就是在使用git或svn插件时代码编辑器序号旁边显示的彩色装饰条，点击可以看到**改动后的内容**和**最后一次提交内容**的差异
 
 ![diff-gutter](/assets/img/2021-05-08-vscode-git-gutter/diff-gutter.jpg)
+
+这玩意看似简单，却是版本管理的利器，没有它我都不敢写代码了
 
 ## 无法显示问题
 
