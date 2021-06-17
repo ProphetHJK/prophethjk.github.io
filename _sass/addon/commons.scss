@@ -65,16 +65,18 @@ h2 {
   @extend %heading;
   @extend %section;
   @extend %anchor;
+  color: #2ba591 !important;
 
-  font-size: 1.4rem;
+  font-size: 1.6rem;
 }
 
 h3 {
   @extend %heading;
   @extend %section;
   @extend %anchor;
+  color: #9ea841 !important;
 
-  font-size: 1.25rem;
+  font-size: 1.4rem;
 }
 
 h4 {
@@ -82,7 +84,7 @@ h4 {
   @extend %section;
   @extend %anchor;
 
-  font-size: 1.15rem;
+  font-size: 1.25rem;
 }
 
 h5 {
