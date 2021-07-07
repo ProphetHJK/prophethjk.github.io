@@ -132,6 +132,11 @@ defaults:
       layout: page
       permalink: /:title/
       dynamic_title: true    # Hide title in mobile screens.
+  -
+    scope:
+      path: 'assets/**/*.pdf'
+    values:
+      sitemap: false
 
 sass:
   style: compressed
