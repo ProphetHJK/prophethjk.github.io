@@ -15,42 +15,42 @@ $(function() {
     let past = new Date(iso);
     let prep = (typeof preposition !== "undefined" ? `${preposition} ` : "");
 
-    if (past.getFullYear() !== now.getFullYear()) {
+    // if (past.getFullYear() !== now.getFullYear()) {
       toRefresh -= 1;
       return prep + past.toLocaleString("en-US", {
         year: "numeric",
         month: "short",
         day: "numeric"
       });
-    }
+    // }
 
-    if (past.getMonth() !== now.getMonth()) {
-      toRefresh -= 1;
-      return prep + past.toLocaleString("en-US", {
-        month: "short",
-        day: "numeric"
-      });
-    }
+    // if (past.getMonth() !== now.getMonth()) {
+    //   toRefresh -= 1;
+    //   return prep + past.toLocaleString("en-US", {
+    //     month: "short",
+    //     day: "numeric"
+    //   });
+    // }
 
-    let seconds = Math.floor((now - past) / 1000);
+    // let seconds = Math.floor((now - past) / 1000);
 
-    let day = Math.floor(seconds / 86400);
-    if (day >= 1) {
-      toRefresh -= 1;
-      return day + " day" + (day > 1 ? "s" : "") + " ago";
-    }
+    // let day = Math.floor(seconds / 86400);
+    // if (day >= 1) {
+    //   toRefresh -= 1;
+    //   return day + " day" + (day > 1 ? "s" : "") + " ago";
+    // }
 
-    let hour = Math.floor(seconds / 3600);
-    if (hour >= 1) {
-      return hour + " hour" + (hour > 1 ? "s" : "") + " ago";
-    }
+    // let hour = Math.floor(seconds / 3600);
+    // if (hour >= 1) {
+    //   return hour + " hour" + (hour > 1 ? "s" : "") + " ago";
+    // }
 
-    let minute = Math.floor(seconds / 60);
-    if (minute >= 1) {
-      return minute + " minute" + (minute > 1 ? "s" : "") + " ago";
-    }
+    // let minute = Math.floor(seconds / 60);
+    // if (minute >= 1) {
+    //   return minute + " minute" + (minute > 1 ? "s" : "") + " ago";
+    // }
 
-    return "just now";
+    // return "just now";
   }
 
   function updateTimeago() {
