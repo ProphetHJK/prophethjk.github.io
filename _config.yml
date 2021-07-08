@@ -134,7 +134,7 @@ defaults:
       dynamic_title: true    # Hide title in mobile screens.
   -
     scope:
-      path: 'assets/**/*.pdf'
+      path: 'assets/**/*.pdf'  # see https://github.com/jekyll/jekyll-sitemap#exclusions
     values:
       sitemap: false
 
