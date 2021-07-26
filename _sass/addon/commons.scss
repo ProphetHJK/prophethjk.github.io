@@ -65,18 +65,16 @@ h2 {
   @extend %heading;
   @extend %section;
   @extend %anchor;
-  color: #2ba591 !important;
 
-  font-size: 1.6rem;
+  font-size: 1.4rem;
 }
 
 h3 {
   @extend %heading;
   @extend %section;
   @extend %anchor;
-  color: #9ea841 !important;
 
-  font-size: 1.4rem;
+  font-size: 1.25rem;
 }
 
 h4 {
@@ -84,7 +82,7 @@ h4 {
   @extend %section;
   @extend %anchor;
 
-  font-size: 1.25rem;
+  font-size: 1.15rem;
 }
 
 h5 {
@@ -109,6 +107,7 @@ a {
 
 img {
   max-width: 100%;
+  height: auto;
 }
 
 blockquote {
@@ -365,8 +364,28 @@ footer {
   overflow-wrap: break-word;
   word-wrap: break-word;
 
+  @mixin caption {
+    + em {
+      display: block;
+      text-align: center;
+      font-style: normal;
+      font-size: 80%;
+      padding: 0;
+      color: #6d6c6c;
+    }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
   img[data-src] {
     margin: 0.5rem 0;
+
+    &[data-loaded=true] {
+      animation: fade-in linear .5s;
+    }
 
     &.left {
       float: left;
@@ -381,6 +400,8 @@ footer {
     &.shadow {
       filter: drop-shadow(2px 4px 6px rgba(0, 0, 0, 0.08));
     }
+
+    @include caption;
 
   }
 
@@ -406,14 +427,7 @@ footer {
     }
 
     &.img-link {
-      + em {
-        display: block;
-        text-align: center;
-        font-style: normal;
-        font-size: 80%;
-        padding: 0;
-        color: #6d6c6c;
-      }
+      @include caption;
     }
 
   } // a
@@ -591,8 +605,6 @@ figure .mfp-title {
 
 /* --- sidebar layout --- */
 
-$tab-count: 5 !default;
-
 $sidebar-display: "sidebar-display";
 
 #sidebar {
@@ -603,7 +615,7 @@ $sidebar-display: "sidebar-display";
   left: 0;
   height: 100%;
   overflow-y: auto;
-  width: $sidebar-width-medium;
+  width: $sidebar-width;
   z-index: 99;
   background: var(--sidebar-bg);
 
@@ -712,7 +724,6 @@ $sidebar-display: "sidebar-display";
       width: 100%;
 
       &:last-child {
-        $cursor-width: 3px;
 
         a {
           position: relative;
@@ -742,12 +753,12 @@ $sidebar-display: "sidebar-display";
 
     @for $i from 1 through $tab-count {
       $offset: $tab-count - $i;
-      $top: -$offset * $tab-height + $tab-cursor-height / 2;
+      $top: -$offset * $tab-height + ($tab-height - $tab-cursor-height) / 2;
 
       @if $i < $tab-count {
         > li.active:nth-child(#{$i}),
         > li.nav-item:nth-child(#{$i}):hover {
-          ~li:last-child::after {
+          ~ li:last-child::after {
             @include fix-cursor($top);
           }
         }
@@ -841,7 +852,7 @@ $sidebar-display: "sidebar-display";
   height: $topbar-height;
   position: fixed;
   top: 0;
-  left: 260px; /* same as sidebar width */
+  left: $sidebar-width; /* same as sidebar width */
   right: 0;
   transition: top 0.2s ease-in-out;
   z-index: 50;
@@ -882,7 +893,7 @@ $sidebar-display: "sidebar-display";
 
 #search-wrapper {
   display: flex;
-  width: 95%;
+  width: 85%;
   border-radius: 1rem;
   border: 1px solid var(--search-wrapper-bg);
   background: var(--search-wrapper-bg);
@@ -1085,7 +1096,7 @@ $sidebar-display: "sidebar-display";
 
 @media all and (max-width: 576px) {
 
-  $footer-height: 6rem; // overwrite
+  $footer-height: $footer-height-mobile; // overwrite
 
   #main > div.row:first-child > div:first-child {
     min-height: calc(100vh - #{$topbar-height} - #{$footer-height});
@@ -1159,7 +1170,7 @@ $sidebar-display: "sidebar-display";
 
     #topbar-wrapper,
     #main-wrapper {
-      transform: translateX(#{$sidebar-width-medium});
+      transform: translateX(#{$sidebar-width});
     }
 
   }
@@ -1167,8 +1178,8 @@ $sidebar-display: "sidebar-display";
   #sidebar {
     @extend %slide;
 
-    transform: translateX(-#{$sidebar-width-medium}); // hide
-    -webkit-transform: translateX(-#{$sidebar-width-medium});
+    transform: translateX(-#{$sidebar-width}); // hide
+    -webkit-transform: translateX(-#{$sidebar-width});
 
     .cursor {
       -webkit-transition: none;
@@ -1266,7 +1277,7 @@ $sidebar-display: "sidebar-display";
   }
 
   #main-wrapper {
-    margin-left: $sidebar-width-medium;
+    margin-left: $sidebar-width;
   }
 
   .profile-wrapper {
