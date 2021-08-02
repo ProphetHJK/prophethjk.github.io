@@ -513,7 +513,7 @@ Security Associations (1 up, 0 connecting):
 
 从上面的图表可以看出，协议封装（非特指 GRE）打破了 OSI 模型中定义的分层。这可以被看成两个不同协议栈中间的分割器，一个承载另一个。
 
-![GRE](../assets/img/2021-07-28-strongswan-cisco-ipsecvpn/gre.png)
+![GRE](/assets/img/2021-07-28-strongswan-cisco-ipsecvpn/gre.png)
 
 ### GRE 环境搭建
 
@@ -565,7 +565,7 @@ ip -6 route add 2002:db8:1::/64 via fd25::1 dev gre2  metric 1024
 
 ## 实例
 
-[GRE-over-ipsec-tunnel 成功.zip](../assets/doc/2021-07-28-strongswan-cisco-ipsecvpn/GRE-over-ipsec-tunnel成功.zip)
+[GRE-over-ipsec-tunnel 成功.zip](/assets/doc/2021-07-28-strongswan-cisco-ipsecvpn/GRE-over-ipsec-tunnel成功.zip)
 
 ## 参考
 
