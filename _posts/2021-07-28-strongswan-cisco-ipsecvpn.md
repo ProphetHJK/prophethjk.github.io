@@ -237,16 +237,14 @@ vim lib/export/dns/Makefile.in
 
 ```makefile
 gen: ${srcdir}/gen.c
-
-        ${CC} ${ALL_CFLAGS} ${LDFLAGS} -o $@ ${srcdir}/gen.c ${LIBS}
+        ${CC} ${ALL_CFLAGS} ${LDFLAGS} -o $@ ${srcdir}/gen.c ${LIBS}
 ```
 
 改为
 
 ```makefile
 gen: ${srcdir}/gen.c
-
-        ${BUILD_CC} ${ALL_CFLAGS} ${LDFLAGS} -o $@ ${srcdir}/gen.c ${LIBS}
+        ${BUILD_CC} ${ALL_CFLAGS} ${LDFLAGS} -o $@ ${srcdir}/gen.c ${LIBS}
 ```
 
 3. 回到 dhcp 目录
@@ -330,7 +328,7 @@ ipsec.conf 是老版本的配置文件，但比较直观，教程用的也比较
 
 贴一下个人配置：
 
-```TOML
+```conf
 config setup
     # strictcrlpolicy=yes
     uniqueids = yes
@@ -391,7 +389,7 @@ strongswan.conf 是配置 strongSwan 这个应用相关的配置文件，包括�
 
 - <https://wiki.strongswan.org/projects/strongswan/wiki/strongswanconf>
 
-```TOML
+```conf
 # strongswan.conf - strongSwan configuration file
 #
 # Refer to the strongswan.conf(5) manpage for details
@@ -497,9 +495,9 @@ Security Associations (1 up, 0 connecting):
 
 ### GRE 介绍
 
-`通用路由封装`（英语：Generic Routing Encapsulation，缩写：`GRE`）是一种可以在虚拟点对点链路中封装多种网络层协议的隧道协议。由思科系统开发，在[RFC 2784](https://datatracker.ietf.org/doc/html/rfc2784)中定义。
+`通用路由封装`（英语：Generic Routing Encapsulation，缩写：`GRE`）是一种可以在虚拟`点对点`链路中封装多种网络层协议的`隧道协议`。由思科系统开发，在[RFC 2784](https://datatracker.ietf.org/doc/html/rfc2784)中定义。
 
-协议栈:
+GRE tun模式协议栈:
 
 | OSI 模型分层        | 协议       |
 | :------------------ | :--------- |
@@ -517,7 +515,9 @@ Security Associations (1 up, 0 connecting):
 
 ### GRE 环境搭建
 
-在上面搭建好 host-host 隧道的基础上创建 GRE 隧道，这里需要注意下，GRE 隧道默认是位于三层（3-layer）网络，不带 mac 信息的，在需要用到二层网络的地方需要使用 tap 模式
+在上面搭建好 host-host 隧道的基础上创建 GRE 隧道，这里需要注意下，GRE 隧道默认是位于三层（Layer 3）网络，不带 mac 信息的，在需要用到二层网络的地方需要使用 tap 模式
+
+![GRETAP](/assets/img/2021-07-28-strongswan-cisco-ipsecvpn/gretap.png)
 
 1. GRE tun 模式
 
