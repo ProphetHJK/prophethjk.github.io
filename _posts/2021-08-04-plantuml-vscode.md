@@ -18,16 +18,16 @@ tags: [PlantUML, UML, vscode, C++]
 如图所示，表示`A`类有一个`private`属性，`protected` 构造函数和`public`方法。
 
 ```plantuml
-    @startuml
+@startuml
 
-    class A{
-    	- String field
-    	+ A()
-    	# void method()
-    }
-    note right: 这是测试类 A
+class A{
+    - String field
+    + A()
+    # void method()
+}
+note right: 这是测试类 A
 
-    @enduml
+@enduml
 ```
 
 ## 类的关系
@@ -43,15 +43,15 @@ tags: [PlantUML, UML, vscode, C++]
 PlantUML 用 `--|>` 表示继承关系。实线和三角形的抽象表示，指向谁，即继承谁。
 
 ```plantuml
-    @startuml
+@startuml
 
-        class A
-        abstract B
+    class A
+    abstract B
 
-        ' A 继承 B
-        A --|> B
+    ' A 继承 B
+    A --|> B
 
-    @enduml
+@enduml
 ```
 
 ![2](/assets/img/2021-08-04-plantuml-vscode/2.png)
@@ -61,15 +61,15 @@ PlantUML 用 `--|>` 表示继承关系。实线和三角形的抽象表示，指
 PlantUML 用 `..|>` 表示实现关系。虚和三角形的抽象表示，指向谁，即实现谁。
 
 ```plantuml
-    @startuml
+@startuml
 
-        class A
-        interface C
+    class A
+    interface C
 
-        ' A 实现 C
-        A ..|> C
+    ' A 实现 C
+    A ..|> C
 
-    @enduml
+@enduml
 ```
 
 ![3](/assets/img/2021-08-04-plantuml-vscode/3.png)
@@ -81,15 +81,15 @@ PlantUML 用 `..|>` 表示实现关系。虚和三角形的抽象表示，指向
 PlantUML 用 `..>` 表示依赖关系。虚线和箭头的抽象表示，指向谁，即依赖谁。
 
 ```plantuml
-    @startuml
+@startuml
 
-        class A
-        class B
+    class A
+    class B
 
-        ' A 依赖 B
-        A ..> B
+    ' A 依赖 B
+    A ..> B
 
-    @enduml
+@enduml
 ```
 
 ![4](/assets/img/2021-08-04-plantuml-vscode/4.png)
@@ -103,17 +103,17 @@ PlantUML 用 `..>` 表示依赖关系。虚线和箭头的抽象表示，指向�
 B 类作为 A 类的属性，表示 A 类与 B 类有关联。 PlantUML 用 `-->` 表示单向关联。实线线和箭头的抽象表示，指向谁，即关联谁。
 
 ```plantuml
-    @startuml
+@startuml
 
-    	class A{
-    		- B b
-    	}
-    	class B
+    class A{
+        - B b
+    }
+    class B
 
-    	' A 关联 B
-    	A --> B
+    ' A 关联 B
+    A --> B
 
-    @enduml
+@enduml
 ```
 
 ![5](/assets/img/2021-08-04-plantuml-vscode/5.png)
@@ -123,19 +123,19 @@ B 类作为 A 类的属性，表示 A 类与 B 类有关联。 PlantUML 用 `-->
 B 类作为 A 类的属性同时，A 类也是 B 类的属性，表示双向关联。 PlantUML 用 `--` 表示双向关联。或者用`<-->`。
 
 ```plantuml
-    @startuml
+@startuml
 
-    	class A{
-    		- B b
-    	}
-    	class B{
-    		- A a
-    	}
+    class A{
+        - B b
+    }
+    class B{
+        - A a
+    }
 
-    	' A 关联 B
-    	A -- B
+    ' A 关联 B
+    A -- B
 
-    @enduml
+@enduml
 ```
 
 ![6](/assets/img/2021-08-04-plantuml-vscode/6.png)
@@ -147,17 +147,17 @@ A 类关联 A 类自身。常见于单例模式。
 ![7](/assets/img/2021-08-04-plantuml-vscode/7.png)
 
 ```plantuml
-    @startuml
+@startuml
 
-    	class A{
-    		- A a
-    	}
+    class A{
+        - A a
+    }
 
 
-    	' A 关联 A
-    	A --> A
+    ' A 关联 A
+    A --> A
 
-    @enduml
+@enduml
 ```
 
 ### 聚合
@@ -169,17 +169,17 @@ A 类关联 A 类自身。常见于单例模式。
 PlantUML 用 `o--` 表示聚合关系。实线和空心菱形的抽象表示，指向谁，表示谁是整体。
 
 ```plantuml
-    @startuml
+@startuml
 
-    	class Car{
-    		- List<Wheel> wheels
-    	}
-    	class Wheel
+    class Car{
+        - List<Wheel> wheels
+    }
+    class Wheel
 
-    	' Car 关联 Wheel
-    	Car "1" o-- "4" Wheel
+    ' Car 关联 Wheel
+    Car "1" o-- "4" Wheel
 
-    @enduml
+@enduml
 ```
 
 ![8](/assets/img/2021-08-04-plantuml-vscode/8.png)
@@ -195,17 +195,17 @@ PlantUML 用 `o--` 表示聚合关系。实线和空心菱形的抽象表示，�
 PlantUML 用 `*--` 表示聚合关系。实线和实心菱形的抽象表示，指向谁，表示谁是整体。
 
 ```plantuml
-    @startuml
+@startuml
 
-    	class Body{
-    		- List<Action> actions
-    	}
-    	class Action
+    class Body{
+        - List<Action> actions
+    }
+    class Action
 
-    	' Body 关联 Action
-    	Body "1" *-- "N" Action
+    ' Body 关联 Action
+    Body "1" *-- "N" Action
 
-    @enduml
+@enduml
 ```
 
 ![9](/assets/img/2021-08-04-plantuml-vscode/9.png)
@@ -217,18 +217,18 @@ PlantUML 用 `*--` 表示聚合关系。实线和实心菱形的抽象表示，�
 ### default
 
 ```plantuml
-    @startuml
+@startuml
 
-    class A1
-    class B1
+class A1
+class B1
 
-    A1 --> B1
+A1 --> B1
 
-    class A2
-    class B2
-    A2 <-- B2
+class A2
+class B2
+A2 <-- B2
 
-    @enduml
+@enduml
 ```
 
 ![10](/assets/img/2021-08-04-plantuml-vscode/10.png)
@@ -238,18 +238,18 @@ PlantUML 用 `*--` 表示聚合关系。实线和实心菱形的抽象表示，�
 ### up
 
 ```plantuml
-    @startuml
+@startuml
 
-    class A1
-    class B1
+class A1
+class B1
 
-    A1 -up-> B1
+A1 -up-> B1
 
-    class A2
-    class B2
-    A2 <-up- B2
+class A2
+class B2
+A2 <-up- B2
 
-    @enduml
+@enduml
 ```
 
 ![11](/assets/img/2021-08-04-plantuml-vscode/11.png)
@@ -259,18 +259,18 @@ PlantUML 用 `*--` 表示聚合关系。实线和实心菱形的抽象表示，�
 ### down
 
 ```plantuml
-    @startuml
+@startuml
 
-    class A1
-    class B1
+class A1
+class B1
 
-    A1 -down-> B1
+A1 -down-> B1
 
-    class A2
-    class B2
-    A2 <-down- B2
+class A2
+class B2
+A2 <-down- B2
 
-    @enduml
+@enduml
 ```
 
 ![12](/assets/img/2021-08-04-plantuml-vscode/12.png)
@@ -280,18 +280,18 @@ PlantUML 用 `*--` 表示聚合关系。实线和实心菱形的抽象表示，�
 ### left
 
 ```plantuml
-    @startuml
+@startuml
 
-    class A1
-    class B1
+class A1
+class B1
 
-    A1 -left-> B1
+A1 -left-> B1
 
-    class A2
-    class B2
-    A2 <-left- B2
+class A2
+class B2
+A2 <-left- B2
 
-    @enduml
+@enduml
 ```
 
 使用 left 时，被指向对象在左。
@@ -301,18 +301,18 @@ PlantUML 用 `*--` 表示聚合关系。实线和实心菱形的抽象表示，�
 ### right
 
 ```plantuml
-    @startuml
+@startuml
 
-    class A1
-    class B1
+class A1
+class B1
 
-    A1 -right-> B1
+A1 -right-> B1
 
-    class A2
-    class B2
-    A2 <-right- B2
+class A2
+class B2
+A2 <-right- B2
 
-    @enduml
+@enduml
 ```
 
 ![14](/assets/img/2021-08-04-plantuml-vscode/14.png)
