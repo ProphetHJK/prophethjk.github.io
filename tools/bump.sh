@@ -123,19 +123,17 @@ release() {
 
   _release_branch="$_major-$_minor-stable"
 
-  if $opt_manual; then
-    echo -e "Bump version to $_version (manual release)\n"
-    bump "$_version"
-    exit 0
-  fi
+  if ! $opt_manual; then
+    if [[ -z $(git branch -v | grep "$_release_branch") ]]; then
+      git checkout -b "$_release_branch"
+      _new_release_branch=true
+    else
+      # cherry-pick the latest commit from default branch to release branch
+      _last_commit="$(git rev-parse $DEFAULT_BRANCH)"
+      git checkout "$_release_branch"
+      git cherry-pick "$_last_commit" -m 1
+    fi
 
-  if [[ -z $(git branch -v | grep "$_release_branch") ]]; then
-    git checkout -b "$_release_branch"
-    _new_release_branch=true
-  else
-    git checkout "$_release_branch"
-    # cherry-pick the latest commit from master branch to release branch
-    git cherry-pick "$(git rev-parse $DEFAULT_BRANCH)"
   fi
 
   echo -e "Bump version to $_version\n"

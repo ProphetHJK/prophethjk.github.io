@@ -16,19 +16,20 @@ tabs:
   archives: 归档
   about: 关于
 
-# text displayed in the search bar
+# the text displayed in the search bar & search results
 search:
   hint: 搜索
   cancel: 取消
+  no_results: 搜索结果为空
 
 panel:
   lastmod: 最近更新
   trending_tags: 热门标签
-  toc: 目录
+  toc: 文章内容
 
 #  The liquid date format › http://strftime.net/
 date_format:
-  tooltip: '%a, %F, %R %z'
+  tooltip: '%F, %R %z'
   post:
     long: '%F'
     short: '%m-%d'
@@ -38,8 +39,8 @@ copyright:
   # Shown at the bottom of the post
   license:
     template: 本文由作者按照 :LICENSE_NAME 进行授权
-    name: CC BY-SA 4.0
-    link: https://creativecommons.org/licenses/by-sa/4.0/
+    name: CC BY 4.0
+    link: https://creativecommons.org/licenses/by/4.0/
 
   # Displayed in the footer
   brief: 保留部分权利。
@@ -74,8 +75,10 @@ post:
   button:
     next: 下一篇
     previous: 上一篇
-    copy:
-      title: 分享链接
+    copy_code:
+      succeed: 已复制！
+    share_link:
+      title:  分享链接
       succeed: 链接已复制！
   # pinned prompt of posts list on homepage
   pin_prompt: 顶置
