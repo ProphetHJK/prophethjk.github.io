@@ -25,32 +25,8 @@ jobs:
           ruby-version: 2.7
           bundler-cache: true
 
-      - name: Check baseurl
-        run: |
-          baseurl="$(grep '^baseurl:' _config.yml | sed "s/.*: *//;s/['\"]//g;s/#.*//")"
-          if [[ -n $baseurl ]]; then
-            echo "BASE_URL=$baseurl" >> $GITHUB_ENV
-          fi
-
-      - name: Build Site
-        env:
-          JEKYLL_ENV: production
-        run: |
-          bundle exec jekyll b -d "_site$BASE_URL"
-
-      - name: Test Site
-        run: |
-          bash tools/test.sh
-
       - name: Deploy
-        run: |
-          if [[ -n $BASE_URL ]]; then
-            mv _site$BASE_URL _site-rename
-            rm -rf _site
-            mv _site-rename _site
-          fi
-
-          bash tools/deploy.sh
+        run: bash tools/deploy.sh
 
       - name: Purge cache
         uses: jakejarvis/cloudflare-purge-action@master
@@ -58,4 +34,3 @@ jobs:
           # Zone is required by both authentication methods
           CLOUDFLARE_ZONE: c82c766a5a9c390658bbcc0f04a4134a
           CLOUDFLARE_TOKEN: 84BjnjW-9cYypcnv5sLYXVilBQT9MLNmAK-hDs0D
-
