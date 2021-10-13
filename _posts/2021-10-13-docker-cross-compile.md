@@ -76,7 +76,7 @@ apt-get install gcc-arm-linux-gnueabi
 
 docker编译会有两个选择，`binary/dynbinary`即静态编译与动态编译（dynbinary好像不支持交叉编译，反正我没试成功），因此须要提供的arm库的数量也不一样：
 
-```txt
+```console
 # 静态编译提供的dev如下：
   libapparmor-dev
   libdevmapper-dev
@@ -247,7 +247,7 @@ docker-17.05.0-ce: ELF 32-bit LSB executable, ARM, EABI5 version 1 (SYSV), stati
 
 先下载检测脚本<https://github.com/moby/moby/blob/master/contrib/check-config.sh>
 
-找到内核编译时的`.config`文件，使用`check-config.sh`对.config进行检测，该操作不需要在目标机运行。
+找到内核编译时的`.config`文件，使用`check-config.sh`对.config进行检测，该操作可以不在目标机运行。
 
 `Generally Necessary`表示必须满足的，如果有`missing`项一定要把功能启用了，重新编译内核
 
@@ -469,8 +469,7 @@ balena-engine-daemon --config-file /media/disk/balena-engine/daemon.json
 
 启动日志：
 
-```log
-[root@sx binary-balena]# ./start-docker.sh 
+```console
 [root@sx binary-balena]# ./start-docker.sh 
 WARN[2021-10-13T06:56:16.290000000Z] could not change group /var/run/balena-engine.sock to balena-engine: group balena-engine not found 
 INFO[2021-10-13T06:56:16.310000000Z] libcontainerd: started new balena-engine-containerd process  pid=1351
