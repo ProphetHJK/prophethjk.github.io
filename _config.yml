@@ -31,7 +31,7 @@ github:
   username: prophethjk             # change to your github username
 
 twitter:
-  username: prophethjk            # change to your twitter username
+  username:             # change to your twitter username
 
 social:
   # Change to your full name.
@@ -50,8 +50,8 @@ google_site_verification: google_meta_tag_verification # change to your verifica
 # --------------------------
 
 google_analytics:
-  # id: 'G-VEN4M3BMXV'          # Fill with your Google Analytics ID
-  id: ''
+  id: 'G-VEN4M3BMXV'          # Fill with your Google Analytics ID
+  # id: ''
   pv:
     proxy_endpoint:   # fill in the Google Analytics superProxy endpoint of Google App Engine
     cache_path:       # the local PV cache data, friendly to visitors from GFW region
