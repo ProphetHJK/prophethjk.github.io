@@ -7,11 +7,11 @@ categories: [技术]
 tags: [Docker, OS-level virtualization, container]
 ---
 
-本文将会介绍如何对Docker源码进行交叉编译并将Docker相关组件移植到arm嵌入式设备上
+本文将会介绍如何对 Docker 源码进行交叉编译并将 Docker 相关组件移植到 arm 嵌入式设备上
 
-## Docker源码下载
+## Docker 源码下载
 
-Docker相关组件的源码已经移动到了moby库，在[https://github.com/moby/moby](https://github.com/moby/moby)获取源码，我这边使用的是[moby-17.05.0-ce](https://github.com/moby/moby/releases/tag/v17.05.0-ce)这个tag，因为嵌入式设备的资源空间有限，而新版本的Docker由于集成了大量功能，导致耗费资源较多，可能跑不起来。
+Docker 相关组件的源码已经移动到了 moby 库，在[https://github.com/moby/moby](https://github.com/moby/moby)获取源码，我这边使用的是[moby-17.05.0-ce](https://github.com/moby/moby/releases/tag/v17.05.0-ce)这个 tag，因为嵌入式设备的资源空间有限，而新版本的 Docker 由于集成了大量功能，导致耗费资源较多，可能跑不起来。
 
 下载[Source code](https://github.com/moby/moby/archive/refs/tags/v17.05.0-ce.tar.gz)：
 
@@ -31,11 +31,11 @@ tar -zxvf v17.05.0-ce.tar.gz
 
 ## 准备编译环境
 
-Docker编译需要在专用的Docker容器内进行，官方已经提供了完整的编译脚本，不过对于交叉编译的适配并不好，这里不使用自带的编译脚本，而是通过手动配置的办法进行编译
+Docker 编译需要在专用的 Docker 容器内进行，官方已经提供了完整的编译脚本，不过对于交叉编译的适配并不好，这里不使用自带的编译脚本，而是通过手动配置的办法进行编译
 
-### 进入Docker bash
+### 进入 Docker bash
 
-通过vim编辑Makefile脚本，找到`cross:`这个编译选项，将Makefile脚本修改为:
+通过 vim 编辑 Makefile 脚本，找到`cross:`这个编译选项，将 Makefile 脚本修改为:
 
 ```makefile
 cross: build ## cross build the binaries for darwin, freebsd and\nwindows
@@ -44,9 +44,9 @@ cross: build ## cross build the binaries for darwin, freebsd and\nwindows
 
 ![makefile-cross](/assets/img/2021-10-13-docker-cross-compile/makefile-cross.jpg)
 
-以上操作表示进入Docker容器的bash，而不是通过脚本直接编译
+以上操作表示进入 Docker 容器的 bash，而不是通过脚本直接编译
 
-使用make命令（`DOCKER_CROSSPLATFORMS`这个编译参数好像不加也没事）：
+使用 make 命令（`DOCKER_CROSSPLATFORMS`这个编译参数好像不加也没事）：
 
 ```bash
 DOCKER_CROSSPLATFORMS="linux/arm" make cross
@@ -54,13 +54,13 @@ DOCKER_CROSSPLATFORMS="linux/arm" make cross
 
 之后容器构建脚本会开始执行构建命令，国内的网络环境可能下载不了某些库，如果有必要，自行修改源码目录下的`Dockerfile`。
 
-构建完成后就会进入容器的bash：
+构建完成后就会进入容器的 bash：
 
 ![docker-bash](/assets/img/2021-10-13-docker-cross-compile/docker-bash.jpg)
 
 ### 安装交叉编译工具链
 
-使用golang交叉编译还是比较方便的，可惜只支持静态链接，二进制文件较大，动态链接还没试成功过
+使用 golang 交叉编译还是比较方便的，可惜只支持静态链接，二进制文件较大，动态链接还没试成功过
 
 对于`armv5el`平台，需要对应的交叉编译工具链`arm-linux-gnueabi-gcc`，当前容器默认是没安装的，需要手动安装
 
@@ -74,7 +74,7 @@ apt-get install gcc-arm-linux-gnueabi
 
 ### 交叉编译依赖库
 
-docker编译会有两个选择，`binary/dynbinary`即静态编译与动态编译（dynbinary好像不支持交叉编译，反正我没试成功），因此须要提供的arm库的数量也不一样：
+docker 编译会有两个选择，`binary/dynbinary`即静态编译与动态编译（dynbinary 好像不支持交叉编译，反正我没试成功），因此须要提供的 arm 库的数量也不一样：
 
 ```console
 # 静态编译提供的dev如下：
@@ -101,43 +101,43 @@ docker编译会有两个选择，`binary/dynbinary`即静态编译与动态编�
 
 不过每个库都交叉编译比较麻烦，这里提供两种更简单的方法：
 
-1. 直接通过apt安装
+1. 直接通过 apt 安装
 
-    如过当前的debian版本较新，可以直接通过apt安装，安装时指定对应的平台即可，armv5对应是`armel`
+   如过当前的 debian 版本较新，可以直接通过 apt 安装，安装时指定对应的平台即可，armv5 对应是`armel`
 
-    ```shell
-    apt install libapparmor-dev:armel
-    apt install libdevmapper-dev:armel
-    apt install libseccomp-dev:armel
-    ```
+   ```shell
+   apt install libapparmor-dev:armel
+   apt install libdevmapper-dev:armel
+   apt install libseccomp-dev:armel
+   ```
 
-2. 去debian仓库网页下载
+2. 去 debian 仓库网页下载
 
-    部分debian的版本较老，仓库内可能没有对应的库，这时就要去手动下载，下面是部分库的地址：
+   部分 debian 的版本较老，仓库内可能没有对应的库，这时就要去手动下载，下面是部分库的地址：
 
-    - <https://packages.debian.org/buster/libdevmapper-dev> (注意依赖)
-    - <https://packages.debian.org/buster/libseccomp-dev>
-    - <https://packages.debian.org/buster/libapparmor-dev>
+   - <https://packages.debian.org/buster/libdevmapper-dev> (注意依赖)
+   - <https://packages.debian.org/buster/libseccomp-dev>
+   - <https://packages.debian.org/buster/libapparmor-dev>
 
-    下载完是deb包，传到容器里，安装即可。如果无法安装就解压后覆盖到根目录
+   下载完是 deb 包，传到容器里，安装即可。如果无法安装就解压后覆盖到根目录
 
-    ```shell
-    dpkg --force-architecture -i libdevmapper-dev_1.02.155-3_armel.deb
-    ```
+   ```shell
+   dpkg --force-architecture -i libdevmapper-dev_1.02.155-3_armel.deb
+   ```
 
-    *注意：交叉编译时可能优先使用容器内自带的x86的库做链接，如果报了链接出错就把原来的库删了:*
+   _注意：交叉编译时可能优先使用容器内自带的 x86 的库做链接，如果报了链接出错就把原来的库删了:_
 
-    ```console
-    /usr/local/lib/libseccomp.so: file not recognized: file format not recognized
-    collect2: error: ld returned 1 exit status
-    ```
+   ```console
+   /usr/local/lib/libseccomp.so: file not recognized: file format not recognized
+   collect2: error: ld returned 1 exit status
+   ```
 
-    ```shell
-    rm /usr/local/lib/libseccomp.a
-    rm /usr/local/lib/libseccomp.so
-    rm /usr/lib/libdevmapper.so
-    rm /usr/lib/libdevmapper.a
-    ```
+   ```shell
+   rm /usr/local/lib/libseccomp.a
+   rm /usr/local/lib/libseccomp.so
+   rm /usr/lib/libdevmapper.so
+   rm /usr/lib/libdevmapper.a
+   ```
 
 ### 设置编译相关环境变量
 
@@ -156,7 +156,7 @@ export DOCKER_GITCOMMIT=89658be
 export DOCKER_BUILDTAGS='no_btrfs no_cri no_zfs exclude_disk_quota exclude_graphdriver_btrfs exclude_graphdriver_zfs no_buildkit'
 ```
 
-## 编译docker依赖组件
+## 编译 docker 依赖组件
 
 `moby`项目只包含了`docker-client`和`docker-daemon`，其他的组件需要通过脚本单独下载编译：
 
@@ -171,9 +171,9 @@ sh /go/src/github.com/docker/docker/hack/dockerfile/install-binaries.sh runc tin
 
 编译完的文件自动部署在容器的`/usr/local/bin/`目录，需要自行拷贝出来。当然也可以自行修改`install-binaries.sh`脚本把二进制文件保存到自己希望的目录
 
-## 编译docker
+## 编译 docker
 
- 使用hack/make.sh脚本进行编译docker与dockerd执行程序。
+使用 hack/make.sh 脚本进行编译 docker 与 dockerd 执行程序。
 
 ```shell
 #编译静态包（成功）
@@ -184,7 +184,7 @@ hack/make.sh dynbinary
 
 ![docker-build](/assets/img/2021-10-13-docker-cross-compile/docker-build.jpg)
 
-编译完的二进制文件在/go/src/github.com/docker/docker/bundles/17.05.0-ce目录，该目录是宿主机目录的映射，可以在宿主机目录/repo/moby-17.05.0-ce/bundles/17.05.0-ce提取文件。别忘了上一节的依赖组件
+编译完的二进制文件在/go/src/github.com/docker/docker/bundles/17.05.0-ce 目录，该目录是宿主机目录的映射，可以在宿主机目录/repo/moby-17.05.0-ce/bundles/17.05.0-ce 提取文件。别忘了上一节的依赖组件
 
 ```console
 root@racknerd-ae2d96:~/repo/moby-17.05.0-ce/bundles/17.05.0-ce/binary-client# file docker-17.05.0-ce
@@ -229,25 +229,25 @@ docker-17.05.0-ce: ELF 32-bit LSB executable, ARM, EABI5 version 1 (SYSV), stati
 
 ## 扩展：balena-engine
 
-介绍：*An engine purpose-built for embedded and IoT use cases, based on Moby Project technology from Docker*
+介绍：_An engine purpose-built for embedded and IoT use cases, based on Moby Project technology from Docker_
 
 官网：<https://www.balena.io/engine/>
 
-移植docker的过程中无意中发现了balena-engine，根据官网介绍这个软件是专门为IoT定制的精简版docker，比docker更快更小。
+移植 docker 的过程中无意中发现了 balena-engine，根据官网介绍这个软件是专门为 IoT 定制的精简版 docker，比 docker 更快更小。
 
-整体的编译方法和docker相同，编译时使用`hack/make.sh binary-balena`就行，二进制文件只有一个，其他都是软链接。
+整体的编译方法和 docker 相同，编译时使用`hack/make.sh binary-balena`就行，二进制文件只有一个，其他都是软链接。
 
 ![balena-engine](/assets/img/2021-10-13-docker-cross-compile/balena-engine.jpg)
 
-## 运行Docker
+## 运行 Docker
 
-后面的介绍以balena-engine为例，Docker也是一样的
+后面的介绍以 balena-engine 为例，Docker 也是一样的
 
 ### 运行环境检查
 
 先下载检测脚本<https://github.com/moby/moby/blob/master/contrib/check-config.sh>
 
-找到内核编译时的`.config`文件，使用`check-config.sh`对.config进行检测，该操作可以不在目标机运行。
+找到内核编译时的`.config`文件，使用`check-config.sh`对.config 进行检测，该操作可以不在目标机运行。
 
 `Generally Necessary`表示必须满足的，如果有`missing`项一定要把功能启用了，重新编译内核
 
@@ -367,9 +367,9 @@ cat: /proc/sys/kernel/keys/root_maxkeys: No such file or directory
 - /proc/sys/kernel/keys/root_maxkeys:
 ```
 
-### 挂载cgroup
+### 挂载 cgroup
 
-Docker使用依赖于cgroup，通过以下shell脚本挂载cgroup：
+Docker 使用依赖于 cgroup，通过以下 shell 脚本挂载 cgroup：
 
 ```shell
 #!/bin/bash
@@ -408,19 +408,19 @@ done
 exit 0
 ```
 
-cgroup挂载成功：
+cgroup 挂载成功：
 
 ![cgroup-mount](/assets/img/2021-10-13-docker-cross-compile/cgroup-mount.jpg)
 
-### 安装iptables
+### 安装 iptables
 
-Docker需要iptables配置网络，关于iptables的交叉编译，在我之前写的文章《[strongSwan与Cisco CSR 1000V建立IPSec vpn调试记录](https://hjk.life/posts/strongswan-cisco-ipsecvpn/#iptables-%E4%BA%A4%E5%8F%89%E7%BC%96%E8%AF%91)》里有提到
+Docker 需要 iptables 配置网络，关于 iptables 的交叉编译，在我之前写的文章《[strongSwan 与 Cisco CSR 1000V 建立 IPSec vpn 调试记录](https://hjk.life/posts/strongswan-cisco-ipsecvpn/#iptables-%E4%BA%A4%E5%8F%89%E7%BC%96%E8%AF%91)》里有提到
 
 ### 配置环境变量
 
-需要配置iptables和Docker的运行环境变量
+需要配置 iptables 和 Docker 的运行环境变量
 
-关于XTABLES_LIBDIR的信息，见这篇文章《[移植 iptables 扩展依赖问题](https://zhuanlan.zhihu.com/p/159638436)》
+关于 XTABLES_LIBDIR 的信息，见这篇文章《[移植 iptables 扩展依赖问题](https://zhuanlan.zhihu.com/p/159638436)》
 
 ```shell
 export PATH=$PATH:/media/disk/iptables/sbin:/media/disk/balena-engine
@@ -428,9 +428,9 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/media/disk/iptables/lib
 export XTABLES_LIBDIR=/media/disk/iptables/lib/xtables
 ```
 
-### 修改Docker配置文件
+### 修改 Docker 配置文件
 
-Docker的配置文件名为`daemon.json`，主要是配置storage-driver和data-root，分别是文件系统驱动和数据根目录
+Docker 的配置文件名为`daemon.json`，主要是配置 storage-driver 和 data-root，分别是文件系统驱动和数据根目录
 
 daemon.json：
 
@@ -448,15 +448,15 @@ daemon.json：
 }
 ```
 
-### 运行containerd和dockerd
+### 运行 containerd 和 dockerd
 
-运行dockerd会自动拉起containerd：
+运行 dockerd 会自动拉起 containerd：
 
 ```shell
 balena-engine-daemon --config-file /media/disk/balena-engine/daemon.json
 ```
 
-编写start-docker.sh脚本：
+编写 start-docker.sh 脚本：
 
 ```shell
 #/bin/sh
@@ -470,8 +470,8 @@ balena-engine-daemon --config-file /media/disk/balena-engine/daemon.json
 启动日志：
 
 ```console
-[root@sx binary-balena]# ./start-docker.sh 
-WARN[2021-10-13T06:56:16.290000000Z] could not change group /var/run/balena-engine.sock to balena-engine: group balena-engine not found 
+[root@sx binary-balena]# ./start-docker.sh
+WARN[2021-10-13T06:56:16.290000000Z] could not change group /var/run/balena-engine.sock to balena-engine: group balena-engine not found
 INFO[2021-10-13T06:56:16.310000000Z] libcontainerd: started new balena-engine-containerd process  pid=1351
 INFO[0000] starting containerd                           module=containerd revision= version=1.0.0+unknown
 INFO[0000] setting subreaper...                          module=containerd
@@ -498,27 +498,27 @@ INFO[0000] loading plugin "io.containerd.grpc.v1.introspection"...  module=conta
 INFO[0000] serving...                                    address=/var/run/balena-engine/containerd/balena-engine-containerd-debug.sock module=containerd/debug
 INFO[0000] serving...                                    address=/var/run/balena-engine/containerd/balena-engine-containerd.sock module=containerd/grpc
 INFO[0000] containerd successfully booted in 0.190000s   module=containerd
-INFO[2021-10-13T06:56:17.900000000Z] Graph migration to content-addressability took 0.00 seconds 
-WARN[2021-10-13T06:56:17.920000000Z] Your kernel does not support swap memory limit 
-WARN[2021-10-13T06:56:17.920000000Z] Your kernel does not support kernel memory limit 
-WARN[2021-10-13T06:56:17.920000000Z] Your kernel does not support cgroup cfs period 
-WARN[2021-10-13T06:56:17.920000000Z] Your kernel does not support cgroup cfs quotas 
-WARN[2021-10-13T06:56:17.920000000Z] Unable to find blkio cgroup in mounts        
-WARN[2021-10-13T06:56:17.940000000Z] mountpoint for pids not found                
-INFO[2021-10-13T06:56:17.960000000Z] Loading containers: start.                   
-WARN[2021-10-13T06:56:18.010000000Z] Running modprobe nf_nat failed with message: `modprobe: can't change directory to '/lib/modules': No such file or directory`, error: exit status 1 
-WARN[2021-10-13T06:56:18.060000000Z] Running modprobe xt_conntrack failed with message: `modprobe: can't change directory to '/lib/modules': No such file or directory`, error: exit status 1 
-WARN[2021-10-13T06:56:19.810000000Z] Could not load necessary modules for IPSEC rules: Running modprobe xfrm_user failed with message: `modprobe: can't change directory to '/lib/modules': No such file or directory`, error: exit status 1 
-INFO[2021-10-13T06:56:26.480000000Z] Default bridge (balena0) is assigned with an IP address 172.17.0.0/16. Daemon option --bip can be used to set a preferred IP address 
-INFO[2021-10-13T06:56:28.920000000Z] Loading containers: done.                    
-WARN[2021-10-13T06:56:28.920000000Z] Could not get operating system name: Error opening /usr/lib/os-release: open /usr/lib/os-release: no such file or directory 
-WARN[2021-10-13T06:56:30.450000000Z] failed to retrieve balena-engine-init version: exec: "balena-engine-init": executable file not found in $PATH 
+INFO[2021-10-13T06:56:17.900000000Z] Graph migration to content-addressability took 0.00 seconds
+WARN[2021-10-13T06:56:17.920000000Z] Your kernel does not support swap memory limit
+WARN[2021-10-13T06:56:17.920000000Z] Your kernel does not support kernel memory limit
+WARN[2021-10-13T06:56:17.920000000Z] Your kernel does not support cgroup cfs period
+WARN[2021-10-13T06:56:17.920000000Z] Your kernel does not support cgroup cfs quotas
+WARN[2021-10-13T06:56:17.920000000Z] Unable to find blkio cgroup in mounts
+WARN[2021-10-13T06:56:17.940000000Z] mountpoint for pids not found
+INFO[2021-10-13T06:56:17.960000000Z] Loading containers: start.
+WARN[2021-10-13T06:56:18.010000000Z] Running modprobe nf_nat failed with message: `modprobe: can't change directory to '/lib/modules': No such file or directory`, error: exit status 1
+WARN[2021-10-13T06:56:18.060000000Z] Running modprobe xt_conntrack failed with message: `modprobe: can't change directory to '/lib/modules': No such file or directory`, error: exit status 1
+WARN[2021-10-13T06:56:19.810000000Z] Could not load necessary modules for IPSEC rules: Running modprobe xfrm_user failed with message: `modprobe: can't change directory to '/lib/modules': No such file or directory`, error: exit status 1
+INFO[2021-10-13T06:56:26.480000000Z] Default bridge (balena0) is assigned with an IP address 172.17.0.0/16. Daemon option --bip can be used to set a preferred IP address
+INFO[2021-10-13T06:56:28.920000000Z] Loading containers: done.
+WARN[2021-10-13T06:56:28.920000000Z] Could not get operating system name: Error opening /usr/lib/os-release: open /usr/lib/os-release: no such file or directory
+WARN[2021-10-13T06:56:30.450000000Z] failed to retrieve balena-engine-init version: exec: "balena-engine-init": executable file not found in $PATH
 INFO[2021-10-13T06:56:30.450000000Z] Docker daemon                                 commit=89658be graphdriver(s)=vfs version=dev
-INFO[2021-10-13T06:56:30.450000000Z] Daemon has completed initialization          
+INFO[2021-10-13T06:56:30.450000000Z] Daemon has completed initialization
 INFO[2021-10-13T06:56:31.060000000Z] API listen on /var/run/balena-engine.sock
 ```
 
-查看Docker信息：
+查看 Docker 信息：
 
 ```console
 [root@sx binary-balena]# ./balena-engine info
@@ -535,14 +535,14 @@ Plugins:
  Volume: local
  Network: bridge host null
  Log: journald json-file
-Swarm: 
- NodeID: 
+Swarm:
+ NodeID:
  Is Manager: false
- Node Address: 
+ Node Address:
 Runtimes: bare runc
 Default Runtime: runc
 Init Binary: balena-engine-init
-containerd version: 
+containerd version:
 runc version: 13e66eedaddfbfeda2a73d23701000e4e63b5471
 init version: N/A (expected: )
 Kernel Version: 3.10.108
@@ -569,13 +569,13 @@ WARNING: No cpu cfs quota support
 WARNING: No cpu cfs period support
 ```
 
-至此，Docker已经启动完毕，后面就是通过docker命令安装镜像，启动容器之类的了，这里不在赘述。有关本地载入镜像的说明可以参考此博客《[Docker 本地导入镜像/保存镜像/载入镜像/删除镜像](https://www.cnblogs.com/linjiqin/p/8604756.html)》
+至此，Docker 已经启动完毕，后面就是通过 docker 命令安装镜像，启动容器之类的了，这里不在赘述。有关本地载入镜像的说明可以参考此博客《[Docker 本地导入镜像/保存镜像/载入镜像/删除镜像](https://www.cnblogs.com/linjiqin/p/8604756.html)》
 
 ## 参考
 
-- [在mac环境下交叉编译ARM32版Docker](https://blog.csdn.net/talkxin/article/details/83011017)
+- [在 mac 环境下交叉编译 ARM32 版 Docker](https://blog.csdn.net/talkxin/article/details/83011017)
 - [解决：dockerd: failed to start daemon: Devices cgroup isn‘t mounted](https://zmedu.blog.csdn.net/article/details/118293022)
 - [Docker storage drivers](https://docs.docker.com/storage/storagedriver/select-storage-driver/)
-- [Docker之几种storage-driver比较](https://blog.csdn.net/vchy_zhao/article/details/70238690)
+- [Docker 之几种 storage-driver 比较](https://blog.csdn.net/vchy_zhao/article/details/70238690)
 - [移植 iptables 扩展依赖问题](https://zhuanlan.zhihu.com/p/159638436)
 - [Docker 本地导入镜像/保存镜像/载入镜像/删除镜像](https://www.cnblogs.com/linjiqin/p/8604756.html)
