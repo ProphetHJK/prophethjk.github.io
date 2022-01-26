@@ -146,13 +146,13 @@ Docker 发展到现在，已经不只是一项容器化技术那么简单。Dock
 
 ## Linux 容器原理
 
-Linux 内核提供了几项特性（chroot、Namespace、Cgroups 和联合文件系统）用于虚拟化，现代容器技术正是利用了这些特性实现的
+Linux 内核提供了几项特性（chroot、Namespace、Cgroups）用于虚拟化，现代容器技术正是利用了这些特性实现的
 
 如果说 chroot 是用于隔离目录，那 namespace 就是用于隔离系统资源，cgroups 适用于物理资源分配
 
 ### chroot
 
-chroot 是在 Unix 和 Linux 系统的一个操作，针对正在运作的软件进程和它的子进程，改变它外显的根目录，让进程以为该目录即为根目录。一个运行在这个环境下，经由 chroot 设置根目录的程序，它不能够对这个指定根目录之外的文件进行访问动作，不能读取，也不能更改它的内容。
+chroot 是在 Unix 和 Linux 系统的一个操作，针对正在运行的进程和它的子进程，改变它外显的根目录，让进程以为该目录即为根目录。一个运行在这个环境下，经由 chroot 设置根目录的程序，它不能够对这个指定根目录之外的文件进行访问动作，不能读取，也不能更改它的内容。
 
 ### Namespace
 
@@ -223,16 +223,16 @@ Cgroup 作用：
 
 通过 mount -t cgroup 命令或进入/sys/fs/cgroup 目录，我们看到目录中有若干个子目录，我们可以认为这些都是受 cgroups 控制的资源以及这些资源的信息：
 
-- blkio — 这 ​​​ 个 ​​​ 子 ​​​ 系 ​​​ 统 ​​​ 为 ​​​ 块 ​​​ 设 ​​​ 备 ​​​ 设 ​​​ 定 ​​​ 输 ​​​ 入 ​​​/输 ​​​ 出 ​​​ 限 ​​​ 制 ​​​，比 ​​​ 如 ​​​ 物 ​​​ 理 ​​​ 设 ​​​ 备 ​​​（磁 ​​​ 盘 ​​​，固 ​​​ 态 ​​​ 硬 ​​​ 盘 ​​​，USB 等 ​​​ 等 ​​​）。
-- cpu — 这 ​​​ 个 ​​​ 子 ​​​ 系 ​​​ 统 ​​​ 使 ​​​ 用 ​​​ 调 ​​​ 度 ​​​ 程 ​​​ 序 ​​​ 提 ​​​ 供 ​​​ 对 ​​​ CPU 的 ​​​ cgroup 任 ​​​ 务 ​​​ 访 ​​​ 问 ​​​。​​​
-- cpuacct — 这 ​​​ 个 ​​​ 子 ​​​ 系 ​​​ 统 ​​​ 自 ​​​ 动 ​​​ 生 ​​​ 成 ​​​ cgroup 中 ​​​ 任 ​​​ 务 ​​​ 所 ​​​ 使 ​​​ 用 ​​​ 的 ​​​ CPU 报 ​​​ 告 ​​​。​​​
-- cpuset — 这 ​​​ 个 ​​​ 子 ​​​ 系 ​​​ 统 ​​​ 为 ​​​ cgroup 中 ​​​ 的 ​​​ 任 ​​​ 务 ​​​ 分 ​​​ 配 ​​​ 独 ​​​ 立 ​​​ CPU（在 ​​​ 多 ​​​ 核 ​​​ 系 ​​​ 统 ​​​）和 ​​​ 内 ​​​ 存 ​​​ 节 ​​​ 点 ​​​。​​​
-- devices — 这 ​​​ 个 ​​​ 子 ​​​ 系 ​​​ 统 ​​​ 可 ​​​ 允 ​​​ 许 ​​​ 或 ​​​ 者 ​​​ 拒 ​​​ 绝 ​​​ cgroup 中 ​​​ 的 ​​​ 任 ​​​ 务 ​​​ 访 ​​​ 问 ​​​ 设 ​​​ 备 ​​​。​​​
-- freezer — 这 ​​​ 个 ​​​ 子 ​​​ 系 ​​​ 统 ​​​ 挂 ​​​ 起 ​​​ 或 ​​​ 者 ​​​ 恢 ​​​ 复 ​​​ cgroup 中 ​​​ 的 ​​​ 任 ​​​ 务 ​​​。​​​
-- memory — 这 ​​​ 个 ​​​ 子 ​​​ 系 ​​​ 统 ​​​ 设 ​​​ 定 ​​​ cgroup 中 ​​​ 任 ​​​ 务 ​​​ 使 ​​​ 用 ​​​ 的 ​​​ 内 ​​​ 存 ​​​ 限 ​​​ 制 ​​​，并 ​​​ 自 ​​​ 动 ​​​ 生 ​​​ 成 ​​​​​ 内 ​​​ 存 ​​​ 资 ​​​ 源使用 ​​​ 报 ​​​ 告 ​​​。​​​
-- net_cls — 这 ​​​ 个 ​​​ 子 ​​​ 系 ​​​ 统 ​​​ 使 ​​​ 用 ​​​ 等 ​​​ 级 ​​​ 识 ​​​ 别 ​​​ 符 ​​​（classid）标 ​​​ 记 ​​​ 网 ​​​ 络 ​​​ 数 ​​​ 据 ​​​ 包 ​​​，可 ​​​ 允 ​​​ 许 ​​​ Linux 流 ​​​ 量 ​​​ 控 ​​​ 制 ​​​ 程 ​​​ 序 ​​​（tc）识 ​​​ 别 ​​​ 从 ​​​ 具 ​​​ 体 ​​​ cgroup 中 ​​​ 生 ​​​ 成 ​​​ 的 ​​​ 数 ​​​ 据 ​​​ 包 ​​​。​​​
-- net_prio — 这个子系统用来设计网络流量的优先级
-- hugetlb — 这个子系统主要针对于 HugeTLB 系统进行限制，这是一个大页文件系统。
+- blkio - 这个子系统为块设备设定输入/输出限制，比如物理设备（磁盘，固态硬盘，USB 等等。
+- cpu - 这个子系统使用调度程序提供对 CPU 的 cgroup 任务访问。
+- cpuacct - 这个子系统自动生成 cgroup 中任务所使用的 CPU 报告。
+- cpuset - 这个子系统为 cgroup 中的任务分配独立 CPU（在多核系统）和内存节点。
+- devices - 这个子系统可允许或者拒绝 cgroup 中的任务访问设备。
+- freezer - 这个子系统挂起或者恢复 cgroup 中的任务。
+- memory - 这个子系统设定 cgroup 中任务使用的内存限制，并自动生成内存资源使用报告。
+- net_cls - 这个子系统使用等级识别符（classid）标记网络数据包，可允许 Linux 流量控制程序（tc）识别从具体 cgroup 中生。
+- net_prio - 这个子系统用来设计网络流量的优先级
+- hugetlb - 这个子系统主要针对于 HugeTLB 系统进行限制，这是一个大页文件系统。
 
 更多 Cgroups 信息详见:
 
@@ -356,24 +356,24 @@ KubeEdge 是一个开源的系统，可将本机容器化应用编排和管理�
 
 ![kubeedge](/assets/img/2021-11-02-containers-edge-cloudnative/kubeedge.png)
 
-##### 云上部分
+- 云上部分
 
-- CloudHub: CloudHub 是一个 Web Socket 服务端，负责监听云端的变化, 缓存并发送消息到 EdgeHub。
-- EdgeController: EdgeController 是一个扩展的 Kubernetes 控制器，管理边缘节点和 Pods 的元数据确保数据能够传递到指定的边缘节点。
-- DeviceController: DeviceController 是一个扩展的 Kubernetes 控制器，管理边缘设备，确保设备信息、设备状态的云边同步。
+  - CloudHub: CloudHub 是一个 Web Socket 服务端，负责监听云端的变化, 缓存并发送消息到 EdgeHub。
+  - EdgeController: EdgeController 是一个扩展的 Kubernetes 控制器，管理边缘节点和 Pods 的元数据确保数据能够传递到指定的边缘节点。
+  - DeviceController: DeviceController 是一个扩展的 Kubernetes 控制器，管理边缘设备，确保设备信息、设备状态的云边同步。
 
-##### 边缘部分
+- 边缘部分
 
-- EdgeHub: EdgeHub 是一个 Web Socket 客户端，负责与边缘计算的云服务（例如 KubeEdge 架构图中的 Edge Controller）交互，包括同步云端资源更新、报告边缘主机和设备状态变化到云端等功能。
-- Edged: Edged 是运行在边缘节点的代理，用于管理容器化的应用程序。
-- EventBus: EventBus 是一个与 MQTT 服务器（mosquitto）交互的 MQTT 客户端，为其他组件提供订阅和发布功能。
-- ServiceBus: ServiceBus 是一个运行在边缘的 HTTP 客户端，接受来自云上服务的请求，与运行在边缘端的 HTTP 服务器交互，提供了云上服务通过 HTTP 协议访问边缘端 HTTP 服务器的能力。
-- DeviceTwin: DeviceTwin 负责存储设备状态并将设备状态同步到云，它还为应用程序提供查询接口。
-  MetaManager: MetaManager 是消息处理器，位于 Edged 和 Edgehub 之间，它负责向轻量级数据库（SQLite）存储/检索元数据。
+  - EdgeHub: EdgeHub 是一个 Web Socket 客户端，负责与边缘计算的云服务（例如 KubeEdge 架构图中的 Edge Controller）交互，包括同步云端资源更新、报告边缘主机和设备状态变化到云端等功能。
+  - Edged: Edged 是运行在边缘节点的代理，用于管理容器化的应用程序。
+  - EventBus: EventBus 是一个与 MQTT 服务器（mosquitto）交互的 MQTT 客户端，为其他组件提供订阅和发布功能。
+  - ServiceBus: ServiceBus 是一个运行在边缘的 HTTP 客户端，接受来自云上服务的请求，与运行在边缘端的 HTTP 服务器交互，提供了云上服务通过 HTTP 协议访问边缘端 HTTP 服务器的能力。
+  - DeviceTwin: DeviceTwin 负责存储设备状态并将设备状态同步到云，它还为应用程序提供查询接口。
+    MetaManager: MetaManager 是消息处理器，位于 Edged 和 Edgehub 之间，它负责向轻量级数据库（SQLite）存储/检索元数据。
 
 ## 参考
 
-- [虚拟机和容器有什么不同*ThinkWon 的博客-CSDN 博客*容器和虚拟机的区别](https://blog.csdn.net/thinkwon/article/details/107476886)
+- [虚拟机和容器有什么不同-ThinkWon 的博客-CSDN 博客](https://blog.csdn.net/thinkwon/article/details/107476886)
 - [容器技术概览 - DockOne.io](http://dockone.io/article/2442)
 - [操作系统容器与应用程序容器 - 技术记录栈 (xieyonghui.com)](https://cs.xieyonghui.com/container/os-container-and-app-container_172.html)
 - [操作系统层虚拟化 - 维基百科，自由的百科全书 (wikipedia.org)](https://zh.wikipedia.org/wiki/%E4%BD%9C%E6%A5%AD%E7%B3%BB%E7%B5%B1%E5%B1%A4%E8%99%9B%E6%93%AC%E5%8C%96)
