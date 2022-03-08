@@ -1,28 +1,3 @@
 /*
   Appending custom SCSS variables will override the default ones in `_sass/addon/variables.scsss`
 */
-h2 {
-  @extend %heading;
-  @extend %section;
-  @extend %anchor;
-  color: #2ba591 !important;
-
-  font-size: 1.6rem;
-}
-
-h3 {
-  @extend %heading;
-  @extend %section;
-  @extend %anchor;
-  color: #9ea841 !important;
-
-  font-size: 1.4rem;
-}
-
-h4 {
-  @extend %heading;
-  @extend %section;
-  @extend %anchor;
-
-  font-size: 1.25rem;
-}
