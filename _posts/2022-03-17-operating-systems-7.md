@@ -2,7 +2,7 @@
 title: "《Operating Systems: Three Easy Pieces》学习笔记(七) 调度：比例份额"
 author: Jinkai
 date: 2022-03-17 09:00:00 +0800
-published: true
+published: false
 categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
 ---
