@@ -71,6 +71,29 @@ OpenSSH_8.3p1, OpenSSL 1.1.1g  21 Apr 2020
 
 关闭所有VSCode窗口后，重新打开，可以发现SSH使用流畅，不会有掉线现象
 
+## 使用代理连接
+
+-------
+
+可以使用socks5或http代理连接Remote SSH,从而绕开防火墙限制
+
+打开配置文件，为要添加代理的配置添加一行`ProxyCommand`
+
+```conf
+Host myhost
+    HostName 192.168.1.1
+    Port 22
+    User dev
+    IdentityFile "C:\Users\admin\Documents\dev_ecdsa"
+    TCPKeepAlive yes
+    ProxyCommand "C:\Program Files\Git\mingw64\bin\connect.exe" -S 127.0.0.1:10808 %h %p
+```
+
+这里使用了Git自带的mingw64工具箱中的connect工具，-S表示socks代理，当然也可以使用自己特定的代理工具
+
 ## 参考
 
+-------
+
 - [【工程调试记录】vscode远程连接卡顿、频繁掉线的一个解决方法](<https://blog.csdn.net/jyhongjax/article/details/106075493>)
+- [Connect over a proxy #117](https://github.com/microsoft/vscode-remote-release/issues/117)
