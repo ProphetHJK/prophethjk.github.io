@@ -123,5 +123,5 @@ htop
 ## 参考
 
 - [linux 查看哪个进程占用磁盘 IO\_带鱼兄的博客-CSDN 博客\_linux 查看磁盘被哪个进程占用](https://blog.csdn.net/daiyudong2020/article/details/53863314)
-- [Linux hdparm 命令 | 菜鸟教程](https://www.runoob.com/linux/linux-comm-hdparm.html)
+- [Linux hdparm 命令 \| 菜鸟教程](https://www.runoob.com/linux/linux-comm-hdparm.html)
 - [fuser 与 lsof -- 查看文件被哪些进程占用 - 常四 - 博客园](https://www.cnblogs.com/ccbloom/p/11301159.html)
