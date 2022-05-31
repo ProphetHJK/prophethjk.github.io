@@ -10,7 +10,7 @@ baseurl: ''
 # The language of the webpage › http://www.lingoes.net/en/translator/langcode.htm
 # If it has the same name as one of the files in folder `_data/locales`, the layout language will also be changed,
 # otherwise, the layout language will use the default value of 'en'.
-lang: zh-CN
+lang: en
 
 # Additional parameters for datetime localization, optional. › https://github.com/iamkun/dayjs/tree/dev/src/locale
 prefer_datetime_locale:
@@ -26,7 +26,7 @@ title: 普通人                          # the main title
 tagline: 潜龙勿用   # it will display as the sub-title
 
 description: >-                        # used by seo meta and the atom feed
-  技术类的[博客]，[计算机]、[嵌入式]、[互联网]、[Linux]...
+  技术类博客，[计算机]、[嵌入式]、[互联网]、[Linux]...
 
 # fill in the protocol & hostname for your site, e.g., 'https://username.github.io'
 url: 'https://hjk.life'
