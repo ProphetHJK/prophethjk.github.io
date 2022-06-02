@@ -120,6 +120,10 @@ htop
 1. 进入/home/dev/videomanager/videoweb/
 2. 执行 npm run build(dev 用户)
 
+## 安装openjdk
+
+[安装openjdk](https://computingforgeeks.com/install-oracle-java-18-on-ubuntu-debian/)
+
 ## 参考
 
 - [linux 查看哪个进程占用磁盘 IO\_带鱼兄的博客-CSDN 博客\_linux 查看磁盘被哪个进程占用](https://blog.csdn.net/daiyudong2020/article/details/53863314)
