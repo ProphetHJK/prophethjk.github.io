@@ -1,7 +1,7 @@
 ---
 title: "《Operating Systems: Three Easy Pieces》学习笔记(十) 插叙：内存操作 API"
 author: Jinkai
-date: 2022-06-08 09:00:00 +0800
+date: 2022-06-08 10:00:00 +0800
 published: true
 categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]

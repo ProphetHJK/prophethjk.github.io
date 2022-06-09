@@ -1,7 +1,7 @@
 ---
 title: "《Operating Systems: Three Easy Pieces》学习笔记(十一) 机制：地址转换"
 author: Jinkai
-date: 2022-06-08 09:00:00 +0800
+date: 2022-06-08 11:00:00 +0800
 published: true
 categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
