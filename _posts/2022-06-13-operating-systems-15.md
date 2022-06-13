@@ -2,7 +2,7 @@
 title: "《Operating Systems: Three Easy Pieces》学习笔记(十五) 分页：快速地址转换（TLB）"
 author: Jinkai
 date: 2022-06-13 10:00:00 +0800
-published: false
+published: true
 categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
 ---
@@ -94,7 +94,7 @@ MIPS 的 TLB 通常有 `32 项`或 `64 项`，大多数提供给用户进程使�
 
 ## 小结
 
-如果一个程序短时间内访问的页数`超过了` TLB 中的`页数`，就会产生大量的 `TLB 未命中`，运行速度就会变慢。这种现象被称为`超出 TLB 覆盖范围`（TLB coverage）
+如果一个程序短时间内访问的页数`超过了` TLB 中的`页数`，就会产生大量的 `TLB 未命中`，运行速度就会变慢。这种现象被称为`超出 TLB 覆盖范围`（TLB coverage）。可以用`更大的页`来缩小页的数量，增加命中率
 
 访问 TLB 很容易成为 CPU 流水线的瓶颈，尤其是有所谓的`物理地址索引缓存`（physically-indexed cache）,这是 CPU 内部的缓存。有了这种缓存，**地址转换必须发生在访问该缓存之前**，这会让操作变慢。`虚拟地址索引缓存`（virtually-indexed cache）解决了一些性能问题，但也为硬件设计带来了新问题。
 

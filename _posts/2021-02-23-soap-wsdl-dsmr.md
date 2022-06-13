@@ -8,7 +8,7 @@ tags: [SOAP, WSDL, DSMR]
 ---
 
 前置阅读：
-- [XML命名空间](<https://hjk.life/posts/xml-namespace/>)
+- [XML命名空间](/posts/xml-namespace/)
 - [Schema 教程](<https://www.w3school.com.cn/schema/index.asp>)
 
 ## 前言

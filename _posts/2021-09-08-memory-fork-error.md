@@ -27,7 +27,7 @@ tags: [linux, system, fork]
 2. 在子进程中调用 `exec` 函数去执行 command
 3. 在父进程中调用 `waitpid` 去等待子进程结束
 
-关于fork的详细介绍，在我之前写的[《Operating Systems: Three Easy Pieces》学习笔记(三) 插叙：进程 API](https://hjk.life/posts/operating-systems-3/)一文里有介绍
+关于fork的详细介绍，在我之前写的[《Operating Systems: Three Easy Pieces》学习笔记(三) 插叙：进程 API](/posts/operating-systems-3/)一文里有介绍
 
 问题很有可能发生在`fork`阶段，从这方面入手进行了模拟测试，终于发现在**系统内存占用较高**时fork会有失败的现象。
 

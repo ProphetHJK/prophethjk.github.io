@@ -414,7 +414,7 @@ cgroup 挂载成功：
 
 ### 安装 iptables
 
-Docker 需要 iptables 配置网络，关于 iptables 的交叉编译，在我之前写的文章《[strongSwan 与 Cisco CSR 1000V 建立 IPSec vpn 调试记录](https://hjk.life/posts/strongswan-cisco-ipsecvpn/#iptables-%E4%BA%A4%E5%8F%89%E7%BC%96%E8%AF%91)》里有提到
+Docker 需要 iptables 配置网络，关于 iptables 的交叉编译，在我之前写的文章《[strongSwan 与 Cisco CSR 1000V 建立 IPSec vpn 调试记录](/posts/strongswan-cisco-ipsecvpn/#iptables-%E4%BA%A4%E5%8F%89%E7%BC%96%E8%AF%91)》里有提到
 
 ### 配置环境变量
 
