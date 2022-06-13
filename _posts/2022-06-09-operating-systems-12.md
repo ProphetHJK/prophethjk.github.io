@@ -20,40 +20,40 @@ tags: [Operating Systems, 操作系统导论]
 段寄存器的值:
 
 |  段  | 基址 | 大小 |
-| :--: | :--: | :----: |
+| :--: | :--: | :--: |
 | 代码 | 32KB | 2KB  |
 |  堆  | 34KB | 2KB  |
 |  栈  | 28KB | 2KB  |
 
-比如访问100，是在代码段中，物理地址则是32KB+100=32868，然后判断是否在界限32KB+2KB内，合法时发起对物理地址的访问
+比如访问 100，是在代码段中，物理地址则是 32KB+100=32868，然后判断是否在界限 32KB+2KB 内，合法时发起对物理地址的访问
 
-比如访问4200，是在堆段中，先找到相对于堆段起始位置偏移量4200-4096=104，物理地址是34KB+104=34920
+比如访问 4200，是在堆段中，先找到相对于堆段起始位置偏移量 4200-4096=104，物理地址是 34KB+104=34920
 
 > `段错误`指的是在支持分段的机器上发生了非法的内存访问。越界访问会造成段异常（segmentation violation）或段错误（segmentation fault）
 
 ## 引用段的方式
 
-1. 显式（explicit）方式
+- 显式（explicit）方式
 
-    就是用虚拟地址的开头几位来标识不同的段
+  就是用虚拟地址的开头几位来标识不同的段
 
-    ![explicit](/assets/img/2022-06-09-operating-systems-12/explicit.jpg)
+  ![explicit](/assets/img/2022-06-09-operating-systems-12/explicit.jpg)
 
-    ```c
-    // get top 2 bits of 14-bit VA 2
-    Segment = (VirtualAddress & SEG_MASK) >> SEG_SHIFT
-    // now get offset
-    Offset = VirtualAddress & OFFSET_MASK
-    if (Offset >= Bounds[Segment])
-        RaiseException(PROTECTION_FAULT)
-    else
-        PhysAddr = Base[Segment] + Offset
-        Register = AccessMemory(PhysAddr)
-    ```
+  ```c
+  // get top 2 bits of 14-bit VA 2
+  Segment = (VirtualAddress & SEG_MASK) >> SEG_SHIFT
+  // now get offset
+  Offset = VirtualAddress & OFFSET_MASK
+  if (Offset >= Bounds[Segment])
+      RaiseException(PROTECTION_FAULT)
+  else
+      PhysAddr = Base[Segment] + Offset
+      Register = AccessMemory(PhysAddr)
+  ```
 
-2. 隐式（implicit）方式
+- 隐式（implicit）方式
 
-    硬件通过地址`产生的方式`来确定段。例如，如果地址由`程序计数器`产生（即它是指令获取），那么地址在`代码段`。如果基于栈或基址指针，它一定在栈段。其他地址则在堆段
+  硬件通过地址`产生的方式`来确定段。例如，如果地址由`程序计数器`产生（即它是指令获取），那么地址在`代码段`。如果基于栈或基址指针，它一定在栈段。其他地址则在堆段
 
 ## 栈
 
@@ -64,7 +64,7 @@ tags: [Operating Systems, 操作系统导论]
 
 ![T16.2](/assets/img/2022-06-09-operating-systems-12/T16.2.jpg)
 
-假设要访问虚拟地址 `15KB`，它应该映射到物理地址 `27KB`。该虚拟地址的二进制形式是：11 1100 0000 0000（十六进制 0x3C00）。硬件利用`前两位`（11）来指定段，但然后我们要处理偏移量 `3KB`。为了得到正确的反向偏移，我们必须从 3KB 中`减去`最大的段地址：在这个例子中，段可以是`4KB`(图上显示是2KB，假设最大是能到4KB的)，因此正确的偏移量是3KB减去4KB，即`−1KB`。 只要用这个反向偏移量（−1KB）`加上基址`（28KB），就得到了正确的物理地址 `27KB`。用户可以进行界限检查，确保反向偏移量的绝对值小于段的大小。
+假设要访问虚拟地址 `15KB`，它应该映射到物理地址 `27KB`。该虚拟地址的二进制形式是：11 1100 0000 0000（十六进制 0x3C00）。硬件利用`前两位`（11）来指定段，但然后我们要处理偏移量 `3KB`。为了得到正确的反向偏移，我们必须从 3KB 中`减去`最大的段地址：在这个例子中，段可以是`4KB`(图上显示是 2KB，假设最大是能到 4KB 的)，因此正确的偏移量是 3KB 减去 4KB，即`−1KB`。 只要用这个反向偏移量（−1KB）`加上基址`（28KB），就得到了正确的物理地址 `27KB`。用户可以进行界限检查，确保反向偏移量的绝对值小于段的大小。
 
 ## 支持共享
 
