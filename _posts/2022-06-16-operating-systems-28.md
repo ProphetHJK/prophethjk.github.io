@@ -2,7 +2,7 @@
 title: "《Operating Systems: Three Easy Pieces》学习笔记(二十八) I/O 设备"
 author: Jinkai
 date: 2022-06-16 11:00:00 +0800
-published: false
+published: true
 categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
 ---
@@ -58,17 +58,17 @@ While (STATUS == BUSY)
 
 使用中断并非总是最佳方案:
 
-- 假如有一个非常`高性能`的设备，它处理请求很快： 通常在CPU`第一次轮询`时就可以返回结果。此时如果使用中断，反而会使系统变慢:`进程切换`和`处理中断`的代价。可以考虑使用`混合（hybrid）策略`，先尝试轮询一小段时间，如果设备没有完成操作，此时再使用中断。
+- 假如有一个非常`高性能`的设备，它处理请求很快： 通常在 CPU`第一次轮询`时就可以返回结果。此时如果使用中断，反而会使系统变慢:`进程切换`和`处理中断`的代价。可以考虑使用`混合（hybrid）策略`，先尝试轮询一小段时间，如果设备没有完成操作，此时再使用中断。
 - 另一个最好不要使用中断的场景是`网络`。网络端收到大量数据包，如果每一个包都发生一次中断，那么有可能导致操作系统发生活锁（livelock），即不断处理中断而无法处理用户层的请求(高负载场景)，此时`轮询更好`
 - 另一个基于中断的优化就是`合并`（coalescing）。设备在抛出中断之前往往会等待一小段时间，在此期间，其他请求可能很快完成，因此多次中断可以合并为一次中断抛出，从而降低处理中断的代价
 
-## 利用DMA进行更高效的数据传送
+## 利用 DMA 进行更高效的数据传送
 
 ![F3](/assets/img/2022-06-16-operating-systems-28/F3.jpg)
 
-`c`就是写寄存器过程,将数据从内存拷贝到硬件的寄存器。这段时间也占用CPU，浪费了。
+`c`就是写寄存器过程,将数据从内存拷贝到硬件的寄存器。这段时间也占用 CPU，浪费了。
 
-解决方案就是使用`DMA`（Direct Memory Access）。DMA引擎是系统中的一个特殊设备， 它可以协调完成`内存和设备间的数据传递`，`不需要 CPU` 介入。
+解决方案就是使用`DMA`（Direct Memory Access）。DMA 引擎是系统中的一个特殊设备， 它可以协调完成`内存和设备间的数据传递`，`不需要 CPU` 介入。
 
 DMA 工作过程如下。为了能够将数据传送给设备，操作系统会通过编程告诉 DMA 引擎数据在`内存的位置`，要拷贝的大小以及要拷贝到`哪个设备`。在此之后，操作系统就可以处理其他请求了。当 DMA 的任务完成后，DMA 控制器会抛出一个`中断`来告诉操作系统自己已经`完成`数据传输。修改后的时间线如下：
 
@@ -89,7 +89,7 @@ DMA 工作过程如下。为了能够将数据传送给设备，操作系统会�
 > 关键问题：如何实现一个`设备无关`的操作系统
 >
 > 如何保持操作系统的大部分与设备无关，从而对操作系统的主要子系统`隐藏`设备`交互的细节`？
-{: .prompt-warning }
+> {: .prompt-warning }
 
 在`最底层`，操作系统的一部分软件清楚地知道设备`如何工作`，我们将这部分软件称为`设备驱动程序`（device driver），所有设备交互的细节都封装在其中。
 
@@ -100,30 +100,30 @@ DMA 工作过程如下。为了能够将数据传送给设备，操作系统会�
 IDE 硬盘暴露给操作系统的接口比较简单，包含 `4 种`类型的`寄存器`，即`控制`、`命令块`、`状态`和`错误`。在 x86 上，利用 I/O 指令 in 和 out 向特定的 I/O 地址（如下面的 0x3F6）读取或写入时，可以访问这些寄存器，如下所示：
 
 ```console
-Control Register: 
- Address 0x3F6 = 0x80 (0000 1RE0): R=reset, E=0 means "enable interrupt" 
-Command Block Registers: 
- Address 0x1F0 = Data Port 
- Address 0x1F1 = Error 
- Address 0x1F2 = Sector Count 
- Address 0x1F3 = LBA low byte 
- Address 0x1F4 = LBA mid byte 
- Address 0x1F5 = LBA hi byte 
- Address 0x1F6 = 1B1D TOP4LBA: B=LBA, D=drive 
- Address 0x1F7 = Command/status 
-Status Register (Address 0x1F7): 
-   7    6     5     4   3    2    1     0 
- BUSY READY FAULT SEEK DRQ CORR IDDEX ERROR 
-Error Register (Address 0x1F1): (check when Status ERROR==1) 
-  7   6   5   4   3    2    1    0 
- BBK UNC MC IDNF MCR ABRT T0NF AMNF 
- BBK = Bad Block 
- UNC = Uncorrectable data error 
- MC = Media Changed 
- IDNF = ID mark Not Found 
- MCR = Media Change Requested 
- ABRT = Command aborted 
- T0NF = Track 0 Not Found 
+Control Register:
+ Address 0x3F6 = 0x80 (0000 1RE0): R=reset, E=0 means "enable interrupt"
+Command Block Registers:
+ Address 0x1F0 = Data Port
+ Address 0x1F1 = Error
+ Address 0x1F2 = Sector Count
+ Address 0x1F3 = LBA low byte
+ Address 0x1F4 = LBA mid byte
+ Address 0x1F5 = LBA hi byte
+ Address 0x1F6 = 1B1D TOP4LBA: B=LBA, D=drive
+ Address 0x1F7 = Command/status
+Status Register (Address 0x1F7):
+   7    6     5     4   3    2    1     0
+ BUSY READY FAULT SEEK DRQ CORR IDDEX ERROR
+Error Register (Address 0x1F1): (check when Status ERROR==1)
+  7   6   5   4   3    2    1    0
+ BBK UNC MC IDNF MCR ABRT T0NF AMNF
+ BBK = Bad Block
+ UNC = Uncorrectable data error
+ MC = Media Changed
+ IDNF = ID mark Not Found
+ MCR = Media Change Requested
+ ABRT = Command aborted
+ T0NF = Track 0 Not Found
  AMNF = Address Mark Not Found
 ```
 
@@ -140,60 +140,60 @@ xv6 的 IDE 硬盘驱动程序（简化的）：
 
 ```c
 // 在发起请求之前调用，确保驱动处于就绪状态。
-static int ide_wait_ready() { 
-    while (((int r = inb(0x1f7)) & IDE_BSY) || !(r & IDE_DRDY)) 
-        ; // loop until drive isn't busy 
+static int ide_wait_ready() {
+    while (((int r = inb(0x1f7)) & IDE_BSY) || !(r & IDE_DRDY))
+        ; // loop until drive isn't busy
 }
 // 将请求发送到磁盘（在写请求时，可能是发送数据）。
 // 此时 x86 的 in 或 out 指令会被调用，
 // 以读取或写入设备寄存器。
-static void ide_start_request(struct buf *b) { 
-    ide_wait_ready(); 
-    outb(0x3f6, 0); // generate interrupt 
-    outb(0x1f2, 1); // how many sectors? 
-    outb(0x1f3, b->sector & 0xff); // LBA goes here ... 
-    outb(0x1f4, (b->sector >> 8) & 0xff); // ... and here 
-    outb(0x1f5, (b->sector >> 16) & 0xff); // ... and here! 
-    outb(0x1f6, 0xe0 | ((b->dev&1)<<4) | ((b->sector>>24)&0x0f)); 
-    if(b->flags & B_DIRTY){ 
-        outb(0x1f7, IDE_CMD_WRITE); // this is a WRITE 
-        outsl(0x1f0, b->data, 512/4); // transfer data too! 
-    } else { 
-        outb(0x1f7, IDE_CMD_READ); // this is a READ (no data) 
-    } 
+static void ide_start_request(struct buf *b) {
+    ide_wait_ready();
+    outb(0x3f6, 0); // generate interrupt
+    outb(0x1f2, 1); // how many sectors?
+    outb(0x1f3, b->sector & 0xff); // LBA goes here ...
+    outb(0x1f4, (b->sector >> 8) & 0xff); // ... and here
+    outb(0x1f5, (b->sector >> 16) & 0xff); // ... and here!
+    outb(0x1f6, 0xe0 | ((b->dev&1)<<4) | ((b->sector>>24)&0x0f));
+    if(b->flags & B_DIRTY){
+        outb(0x1f7, IDE_CMD_WRITE); // this is a WRITE
+        outsl(0x1f0, b->data, 512/4); // transfer data too!
+    } else {
+        outb(0x1f7, IDE_CMD_READ); // this is a READ (no data)
+    }
 }
 // 将一个请求加入队列（如果前面还有请求未处理完成），
 // 或者直接将请求发送到磁盘（通过 ide_start_request()）
-void ide_rw(struct buf *b) { 
-    acquire(&ide_lock); 
+void ide_rw(struct buf *b) {
+    acquire(&ide_lock);
     // 找ide_queue链表第一个空元素，pp赋值为链表的头元素指针，相当于对链表的引用，
     // *pp表示元素，(*pp)->qnext表示下一个元素，pp=&(*pp)->qnext表示指针移向下个元素，
     // 循环条件是*pp，也就是元素不为空（不是元素指针pp不为空）,由此实现遍历链表中的有效项
-    for (struct buf **pp = &ide_queue; *pp; pp=&(*pp)->qnext) 
-        ; // walk queue 
+    for (struct buf **pp = &ide_queue; *pp; pp=&(*pp)->qnext)
+        ; // walk queue
     // 元素赋值为b(深拷贝)
-    *pp = b; // add request to end 
+    *pp = b; // add request to end
     // 当pp是当前头元素时成立
-    if (ide_queue == b) // if q is empty 
+    if (ide_queue == b) // if q is empty
         ide_start_request(b); // send req to disk
     // 是否不可用或是脏状态
-    while ((b->flags & (B_VALID|B_DIRTY)) != B_VALID) 
-        sleep(b, &ide_lock); // wait for completion 
-    release(&ide_lock); 
+    while ((b->flags & (B_VALID|B_DIRTY)) != B_VALID)
+        sleep(b, &ide_lock); // wait for completion
+    release(&ide_lock);
 }
 // 当发生中断时调用，从设备读取数据（如果是读请求）， 并且在结束后唤醒等待的进程，
 // 如果此时在队列中还有别的未处理的请求，则调用 ide_start_request() 接着处理下一个 I/O 请求。
-void ide_intr() { 
-    struct buf *b; 
-    acquire(&ide_lock); 
-    if (!(b->flags & B_DIRTY) && ide_wait_ready() >= 0) 
+void ide_intr() {
+    struct buf *b;
+    acquire(&ide_lock);
+    if (!(b->flags & B_DIRTY) && ide_wait_ready() >= 0)
         insl(0x1f0, b->data, 512/4); // if READ: get data
-    b->flags |= B_VALID; 
-    b->flags &= ˜B_DIRTY; 
-    wakeup(b); // wake waiting process 
-    if ((ide_queue = b->qnext) != 0) // start next request 
-        ide_start_request(ide_queue); // (if one exists) 
-    release(&ide_lock); 
+    b->flags |= B_VALID;
+    b->flags &= ˜B_DIRTY;
+    wakeup(b); // wake waiting process
+    if ((ide_queue = b->qnext) != 0) // start next request
+        ide_start_request(ide_queue); // (if one exists)
+    release(&ide_lock);
 }
 ```
 
