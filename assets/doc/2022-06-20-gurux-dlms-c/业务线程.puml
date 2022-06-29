@@ -1,0 +1,31 @@
+@startuml 定时执行线程
+
+start
+:创建对象列表createObjects();
+note right:注册和初始化所有用到的对象，还需要配置对应权限，还有15类获取对象列表功能
+repeat
+repeat
+:等待;
+repeat while ( 到达下次执行时间? ) is (no) not (yes)
+:遍历任务列表，找到可以执行的任务svr_run();
+switch (执行任务)
+case ()
+  :曲线冻结;
+case ()
+  :寄存器保存;
+case ()
+  :Schedule脚本执行;
+case ()
+  :Activity calendar脚本执行;
+case ()
+  :事件上报;
+case ()
+  :自动连接;
+endswitch
+:更新最近即将执行的任务的执行时间;
+note left:事件上报实时性？
+repeat while ( 是否终止? ) is (no) not (yes)
+
+stop
+
+@enduml

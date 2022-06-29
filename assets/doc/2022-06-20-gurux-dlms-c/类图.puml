@@ -1,0 +1,48 @@
+@startuml guruxdlms类图
+
+class dlmsServerSettings {
+    dlmsSettings base;
+    gxReplyData info;
+    gxByteBuffer receivedData;
+    gxLongTransaction transaction;
+    unsigned char initialized;
+    gxIecHdlcSetup* hdlc;
+    gxTcpUdpSetup* wrapper;
+    gxClock* defaultClock;
+    uint32_t dataReceived;
+    uint32_t frameReceived;
+    uint16_t pushClientAddress;
+}
+
+
+class gxReplyData {
+    DLMS_DATA_REQUEST_TYPES moreData; //分包标记（GBT）
+    DLMS_COMMAND command; // 内层明文APDU命令字
+    DLMS_COMMAND encryptedCommand; // 外层加密APDU命令字
+    unsigned char commandType; // 客户端使用
+    gxByteBuffer data; // 接收缓存(与发送共用)
+    unsigned char complete; // 客户端使用
+    dlmsVARIANT dataValue; 
+    uint16_t totalCount; // 
+    uint32_t readPosition;
+    uint32_t packetLength;
+    unsigned char peek;
+    unsigned char ignoreValue;
+    DLMS_DATA_TYPE dataType;
+    uint16_t cipherIndex;
+    struct tm time;
+    unsigned char preEstablished;
+    unsigned char invokeId;
+    uint16_t blockNumber; // gbt相关参数
+    uint16_t blockNumberAck;
+    unsigned streaming;
+    unsigned windowSize;
+    uint16_t serverAddress;
+    uint16_t clientAddress;
+}
+
+
+
+
+
+@enduml

@@ -133,14 +133,15 @@ int aio_error(const struct aiocb *aiocbp);
 
 当事件处理程序发出`异步 I/O` 时，它必须打包一些`程序状态`，以便下一个`事件处理程序`在 I/O 最终完成时使用。
 
-这个`额外的工作`在基于线程的程序中是不需要的，因为程序需要的状态在线程栈中。
+这个`额外的工作`在基于线程的程序中是不需要的，因为程序需要的状态在`线程栈`中。
 
 基于事件的系统的`手工栈管理`（manual stack management），这是基于事件编程的基础
 
 例子：
 
 ```c
-int rc = read(fd, buffer, size); rc = write(sd, buffer, size);
+int rc = read(fd, buffer, size);
+rc = write(sd, buffer, size);
 ```
 
 在一个`多线程程序`中，做这种工作很`容易`。当 read()最终返回时，代码`立即知道`要写入哪个`套接字`，因为该信息位于`线程堆栈`中（在`变量 sd` 中）。

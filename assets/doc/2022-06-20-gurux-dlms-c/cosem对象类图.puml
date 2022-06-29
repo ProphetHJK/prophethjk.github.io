@@ -1,0 +1,115 @@
+@startuml cosem对象类图
+note left of gxProfileGeneric::buffer
+    //There is no buffer is malloc is not used.
+    //Reason for this is that we don't know the structure of the data 
+    and where example octect string is saved.
+    //User must do this manually!
+end note
+
+note right of gxProfileGeneric
+    profile类
+end note
+class gxProfileGeneric
+{
+    gxObject base;
+    gxArray buffer;
+    gxArray captureObjects;
+    uint32_t capturePeriod;
+    DLMS_SORT_METHOD sortMethod;
+    gxObject* sortObject;
+    uint32_t profileEntries;
+    uint32_t entriesInUse;
+    signed char sortObjectAttributeIndex;
+    uint16_t sortObjectDataIndex;
+    uint32_t executedTime;
+    obj_clearProfileGenericBuffer();
+    capture();//捕获
+    ...();
+}
+
+note right of gxRegister
+    register类
+end note
+class gxRegister
+{
+    gxObject base;
+    dlmsVARIANT value;
+    signed char scaler;
+    unsigned char unit;
+    unsigned char unitRead;
+}
+
+note left of gxObject
+    object类
+end note
+class gxObject
+{
+    uint16_t objectType;
+    unsigned char version;
+    uint16_t shortName;
+    unsigned char logicalName[6];
+    gxAccess* access;
+    obj_clear();
+    obj_attributeCount();
+    obj_getAttributeIndexToRead();
+    {abstract} virtual ser_saveObjects();//序列化并保存
+    {abstract} virtual ser_loadObjects();//读取并反序列化
+    {abstract} virtual cosem_invoke();//执行方法       
+    {abstract} virtual cosem_get();//获取属性值      
+    ...();
+}
+
+note left of gxAccess
+    权限类
+end note
+class gxAccess
+{
+    gxByteBuffer attributeAccessModes;
+    gxByteBuffer methodAccessModes;
+}
+
+enum objectType
+{
+    DLMS_OBJECT_TYPE_NONE = 0,
+    DLMS_OBJECT_TYPE_DATA = 1,
+    DLMS_OBJECT_TYPE_REGISTER = 3,
+    DLMS_OBJECT_TYPE_EXTENDED_REGISTER = 4,
+    DLMS_OBJECT_TYPE_DEMAND_REGISTER = 5,
+    DLMS_OBJECT_TYPE_REGISTER_ACTIVATION = 6,
+    DLMS_OBJECT_TYPE_PROFILE_GENERIC = 7,
+    ...
+}
+
+class gxArray
+{
+    void* data;
+    uint16_t capacity;
+    uint16_t size;
+    arr_clear();
+    arr_init();
+    arr_attach();
+    arr_getCapacity();
+    arr_push();
+    arr_clear();
+    arr_empty();
+    arr_get();
+    arr_getByIndex();
+}
+
+class gxByteBuffer
+{
+    unsigned char* data;
+    uint16_t capacity;
+    uint16_t size;
+    uint16_t position;
+    ...();
+}
+
+gxProfileGeneric --|> gxObject: 类似于继承
+gxProfileGeneric --> gxArray
+gxRegister --|> gxObject: 类似于继承
+gxObject --> gxAccess
+gxObject --> objectType
+gxAccess --> gxByteBuffer
+
+@enduml

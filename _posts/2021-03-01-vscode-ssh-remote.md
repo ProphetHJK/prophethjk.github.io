@@ -97,3 +97,4 @@ Host myhost
 
 - [【工程调试记录】vscode远程连接卡顿、频繁掉线的一个解决方法](<https://blog.csdn.net/jyhongjax/article/details/106075493>)
 - [Connect over a proxy #117](https://github.com/microsoft/vscode-remote-release/issues/117)
+- [Debug C++ in Visual Studio Code](https://code.visualstudio.com/docs/cpp/cpp-debug)

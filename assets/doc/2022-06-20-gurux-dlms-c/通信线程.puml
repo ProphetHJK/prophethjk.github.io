@@ -1,0 +1,60 @@
+@startuml guruxdlms活动图
+
+start
+:参数初始化svr_init(dlmsServerSettings);
+note right:包括所有AL层和传输层参数(如果是HDLC包括链路层)
+:创建对象列表createObjects();
+note right:注册和初始化所有用到的对象，还需要配置对应权限，还有15类获取对象列表功能
+:绑定tcp端口（HDLC为串口）;
+:创建数据接收线程UnixListenerThread;
+repeat
+  :接收一个字节并处理svr_handleRequest3();
+  if (接收缓存已满bb_isAttached()？) then (true)
+    stop
+  else (false)
+    :放入接收缓存;
+  endif
+repeat while (接收到完整APDU？（尝试解码）) is (false) not (true)
+: 提取APDU,dlms_getData2();
+: 解码解密数据(GBT请求合并)，dlms_getPdu();
+note right:只支持接收GBT，不支持发送GBT，通过重复调用dlms_getPdu接收完整数据
+switch (处理命令svr_handleCommand())
+case ( SET_REQUEST )
+  :处理SET请求;
+case ( GET_REQUEST )
+  switch ( 服务特定分块service-specific )
+  case (NORMAL)
+    :svr_getRequestNormal;
+  case (NEXT_DATA_BLOCK)
+    :svr_getRequestNextDataBlock;
+  case (WITH_LIST)
+    :svr_getRequestWithList;
+  endswitch
+  :数据预处理svr_preRead()（如从flash取曲线数据）;
+  :按固定格式组织数据类型和值cosem_getValue()（每个类独立）;
+  switch ( objectType )
+  case (DLMS_OBJECT_TYPE_REGISTER)
+    :cosem_getRegister;
+  case (DLMS_OBJECT_TYPE_PROFILE_GENERIC)
+    :cosem_getProfileGeneric;
+  case (...)
+    :...;
+  endswitch
+case ( METHOD_REQUEST )
+  :处理ACTION(cosem_invoke());
+case ( AARQ )
+  :处理AARQ;
+  :协商信息校验;
+  :协商结果写入dlmsServerSettings;
+  :生成AARE;
+case ( ... )
+  :...;
+endswitch
+
+:打包回复报文dlms_addFrame();
+note right:接收缓存和reply缓存共用
+:TCP发送回复;
+
+stop
+
+@enduml
