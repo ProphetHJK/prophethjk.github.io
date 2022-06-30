@@ -41,8 +41,4 @@ class gxReplyData {
     uint16_t clientAddress;
 }
 
-
-
-
-
 @enduml

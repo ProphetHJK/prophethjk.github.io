@@ -1,0 +1,131 @@
+@startuml cosem对象类图
+
+allowmixing
+
+class COSEM_Object
+{
+    +class_id: u8
+    +obis: u8[6]
+
+    +num_of_attributes: size_t
+    +attributes: COSEM_Attribute*
+
+    +num_of_methods: size_t
+    +methods: COSEM_Method*
+}
+note left of COSEM_Attribute::type
+    基本类型
+end note
+note left of COSEM_Attribute::ext_type
+    非基本类型，如不定长的string，array，struct
+    用编码的方式表示type，就像compact压缩一样
+    0x01020416111206表示一个数组，未指定数量，
+    包含一个结构体，结构体内有4个元素
+    保存在ROM中
+end note
+
+note left of COSEM_Attribute::value
+    保存映射层提供的句柄。
+    如果是捕获型的值，
+    如profile的buffer或compactdata里的compact_buffer这种，
+    要单独考虑
+end note
+
+note left of COSEM_Attribute::value_load_mothod
+    访问value的方式，包括数据ID以及访问方式
+end note
+
+note left of COSEM_Attribute::load(COSEM_Attribute*)
+    向映射层获取句柄
+    value_get_mothod作为入参。
+    (为void* 指针赋值为映射层提供的地址)，需要调用映射层接口，
+    一般就初始化或者数据位置变动时需要load，
+    这个值应该还是个raw值，不能直接使用，因为涉及结构或精度转换
+    是不是只能通过get接口访问
+end note
+note left of COSEM_Attribute::save
+    通过value_get_mothod指定方式保存value值
+end note
+
+note left of COSEM_Attribute::get
+    根据type、exttype和value值编码为axdr格式数据
+end note
+
+
+class COSEM_Attribute
+{
+    +type: u8
+    +ext_type: u8*
+    +value: void*
+    +value_load_mothod: ValueLoadMothod
+    +{static} load(COSEM_Attribute*)
+    +{static} save(COSEM_Attribute*)
+    +{static} get(COSEM_Attribute*,u8* buf,SelectAccess* selective_access)
+    +{static} set(COSEM_Attribute*,u8* buf)
+}
+
+class ValueLoadMothod
+{
+    +value_id: u16
+    +load_mothod: LoadMethod
+}
+
+class SelectAccess
+{
+
+}
+
+note right of LoadMethod
+    加载和存入方式，将访问方式相同的归为一类
+end note
+enum LoadMethod
+{
+    参数类数据
+    捕获类数据
+    寄存器类数据
+    ...
+}
+
+class COSEM_Method
+{
+    args: void*
+    +action()
+}
+
+file "cosem_object定义文件(asn1、xml、excel)"
+
+class 映射层
+{
+    +open(type,value_id,load_mothod,&value)
+    +read(value)
+    +write(value)
+}
+note left of 映射层
+    将不同介质的地址和访问方式映射成同一套地址和访问方式。
+    包括根据数据ID获取句柄，句柄包含了实际地址和访问方式。
+    通过句柄访问数据
+end note
+database "电表数据ram"
+database "电表数据eeprom"
+database "电表数据flash"
+note bottom of "电表数据flash"
+    电表运行所需数据与COSEM对象的实现分离，
+    通过映射层映射，COSEM对象不存储实际数据，
+    这样也可以支持不同的协议。
+    电表数据要包含COSEM对象需要用到的所有数据
+    
+    TODO:精度转换如何实现
+end note
+
+COSEM_Object "1" *-- "n" COSEM_Attribute
+COSEM_Object "1" *-- "n" COSEM_Method
+"cosem_object定义文件(asn1、xml、excel)" "转换工具" --> COSEM_Object
+COSEM_Attribute <--> 映射层
+映射层 <--> "电表数据flash"
+映射层 <--> "电表数据eeprom"
+映射层 <--> "电表数据ram"
+COSEM_Attribute --> ValueLoadMothod
+ValueLoadMothod --> LoadMethod
+COSEM_Attribute --> SelectAccess
+
+@enduml
