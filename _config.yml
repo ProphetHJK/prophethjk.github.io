@@ -168,6 +168,10 @@ defaults:
       path: 'assets/**/*.pdf'  # see https://github.com/jekyll/jekyll-sitemap#exclusions
     values:
       sitemap: false
+  - scope:
+      path: assets/code  # see https://github.com/jekyll/jekyll-sitemap#exclusions
+    values:
+      sitemap: false
 
 sass:
   style: compressed

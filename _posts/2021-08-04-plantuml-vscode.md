@@ -319,6 +319,20 @@ A2 <-right- B2
 
 使用 right 时，被指向对象在右。
 
+## 问题汇总
+
+### 找不到dot.exe路径
+
+下载[Graphviz](https://plantuml.com/zh/graphviz-dot)，配置环境变量
+
+参考[这里](https://github.com/qjebbs/vscode-plantuml/issues/461)，配置vscode参数。
+
+```conf
+"plantuml.commandArgs": [
+    "-DGRAPHVIZ_DOT=C:\\Program Files (x86)\\Graphviz\\bin\\dot.exe",
+]
+```
+
 ## 总结
 
 画类图，只是 PlantUML 的功能之一，还可以使用它画[时序图](https://plantuml.com/zh/sequence-diagram)、[用例图](https://plantuml.com/zh/use-case-diagram)、`活动图`等。更多用法，请关注后续博客或[访问官网](http://plantuml.com/)。
