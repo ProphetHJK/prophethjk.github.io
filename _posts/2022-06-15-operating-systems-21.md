@@ -7,9 +7,9 @@ categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
 ---
 
-pthread 库介绍
+## pthread 库介绍
 
-## 线程创建
+### 线程创建
 
 ```c
 #include <pthread.h>
@@ -34,7 +34,7 @@ attr
 arg
 : 要运行的函数的参数
 
-## 线程完成
+### 线程完成
 
 通过`pthread_join`阻塞等待线程完成
 
@@ -42,7 +42,7 @@ arg
 pthread_create(&p, NULL, mythread, (void *) 100); pthread_join(p, (void **) &m);
 ```
 
-## 锁
+### 锁
 
 ```c
 int pthread_mutex_lock(pthread_mutex_t *mutex);
@@ -69,7 +69,7 @@ int pthread_mutex_timedlock(pthread_mutex_t *mutex,
 
 这两个调用用于获取锁(`非阻塞`获取锁)。如果锁已被占用，则 trylock 版本将`失败`。获取锁的 timedlock 定版本会在`超时或获取锁后`返回，以先发生者为准。通常应`避免使用`这两种版本
 
-## 条件变量(Condition Variables)
+### 条件变量(Condition Variables)
 
 不同于信号量(semaphore)，信号量应该是条件变量+互斥锁的组合，见[此文](https://www.cnblogs.com/549294286/p/3687678.html)
 
@@ -106,7 +106,7 @@ pthread_mutex_unlock(&lock);
 
 本例通过 while 判断 ready 的值的变更，而不是通过条件变量唤醒判断 ready 已变更。将唤醒视为某种事物可能已经`发生变化`的`暗示`，而不是绝对的事实，这样更安全
 
-## 编译和运行
+### 编译和运行
 
 代码需要包括头文件 pthread.h 才能编译。链接时需要 pthread
 库，增加 `-pthread` 标记。

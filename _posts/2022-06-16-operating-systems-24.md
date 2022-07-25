@@ -1,8 +1,8 @@
 ---
-title: "《Operating Systems: Three Easy Pieces》学习笔记(二十三) 基于锁的并发数据结构"
+title: "《Operating Systems: Three Easy Pieces》学习笔记(二十四) 条件变量"
 author: Jinkai
-date: 2022-06-16 09:01:00 +0800
-published: true
+date: 2022-06-16 09:02:00 +0800
+published: false
 categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
 ---
@@ -77,7 +77,7 @@ int get(counter_t *c)
 
 这样做在`多CPU`环境下`性能很差`。因为这种锁导致了多 CPU 情况下也只允许`一个线程`在运行，其他都在自旋等待，没发挥出多 CPU 的优势。
 
-### 可扩展的计数（扩展的意思是支持多 CPU）
+### 可扩展的计数（扩展的意思是支持多CPU）
 
 懒惰计数器（sloppy counter）
 
@@ -89,7 +89,7 @@ int get(counter_t *c)
 
 局部转全局的`频度`，取决于一个`阈值`，这里称为 `S`（表示 sloppiness）。S 越小，懒惰计数器则越趋近于非扩展的计数器。S 越大，扩展性越强，但是全局计数器与实际计数的偏差越大。
 
-在这个例子中，`阈值 S` 设置为 5，4 个 CPU 上分别有一个线程更新局部计数器 L1,…, L4。随着时间增加，全局计数器 G 的值也会记录下来。每一段时间，局部计数器可能会增加。如果局部计数值增加到阈值 S，就把局部值转移到全局计数器，局部计数器清零。
+在这个例子中，`阈值 S` 设置为 5，4个 CPU 上分别有一个线程更新局部计数器 L1,…, L4。随着时间增加，全局计数器 G 的值也会记录下来。每一段时间，局部计数器可能会增加。如果局部计数值增加到阈值 S，就把局部值转移到全局计数器，局部计数器清零。
 
 | 时间 | L1  | L2  | L3  | L4  |       G       |
 | :--: | :-: | :-: | :-: | :-: | :-----------: |
@@ -369,12 +369,14 @@ int Hash_Lookup(hash_t *H, int key)
 
 本例的散列表使用我们之前实现的`并发链表`，性能特别好。每个`散列桶`（每个桶都是一个链表）都有一个锁，而不是整个散列表只有一个锁，从而支持许多并发操作。
 
-这个简单的并发散列表`扩展性`（性能）极好，相较于单纯的链表。原因就是`缩小了临界区`，`减少`了不同线程间操作的`冲突`
+这个简单的并发散列表扩展性（性能）极好，相较于单纯的链表
 
 ## 小结
 
 `增加并发`不一定能提高性能；有性能问题的时候再做优化。关于最后一点，避免`不成熟的优化`（premature optimization），对于所有关心性能的开发者都有用。我们让整个应用的某`一小部分`变快，却没有提高整体性能，其实没有价值
 
+
+
 ## 参考
 
-- [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/29.pdf)
+- [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/30.pdf)

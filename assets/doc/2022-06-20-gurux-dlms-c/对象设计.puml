@@ -59,6 +59,34 @@ class COSEM_AttributeType
     +value_load_mothod: ValueLoadMothod
 }
 
+class COSEM_DynSimpleType
+{
+    +type: u8
+}
+note top of COSEM_DynComplexType
+    使用二进制保存/读取简单类型数据，type记录类型tag
+end note
+class COSEM_DynComplexType
+{
+    +type: u8
+}
+
+note top of COSEM_StaticSimpleType
+    使用二进制保存/读取简单类型数据，type记录类型tag
+end note
+class COSEM_StaticSimpleType
+{
+    +type: u8
+}
+
+note top of COSEM_StaticComplexType
+    使用二进制保存/读取复杂类型数据，type仅记录基本结构tag，不区分CHOICE
+end note
+class COSEM_StaticComplexType
+{
+    +type: u8
+}
+
 class COSEM_AttributeValue
 {
     +value: void*
@@ -97,6 +125,10 @@ note left of COSEM_AttributeType::type
 
     type的表示还可以用OOP的方式。
     TODO:OOP方式与编码方式的优劣
+
+    对于static的数据，也就是只能通过set方式设置的，
+    是否直接使用二进制保存。使用的时候用单独的反序列化函数读取，利用static
+    主要针对结构体+CHOICE的情况
 end note
 note left of COSEM_AttributeType::ext_type
     非基本类型，如不定长的string，array，struct
