@@ -7,112 +7,99 @@ categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
 ---
 
-锁并不是并发程序设计所需的唯一原语。在很多情况下，线程需要检查某一`条件`（condition）满足之后，才会继续运行。
+可以使用信号量实现锁和条件变量的功能。
+
+## 信号量的定义
+
+信号量是有一个整数值的对象，可以用两个函数来操作它。在 POSIX 标准中，是`sem_wait()`和 `sem_post()`。
 
 ```c
-void *child(void *arg)
+#include <semaphore.h>
+sem_t s;
+sem_init(&s, 0, 1);
+```
+
+sem_init 用于初始化信号量。
+
+```c
+int sem_wait(sem_t *s) {
+    decrement the value of semaphore s by one
+    wait if value of semaphore s is negative
+}
+
+int sem_post(sem_t *s) {
+    increment the value of semaphore s by one
+    if there are one or more threads waiting, wake one
+}
+```
+
+- sem_wait()要么`立刻返回`（调用 sem_wait()时，信号量的值`大于等于 1`），同时`信号量减1`，要么会让调用线程`挂起`，直到之后的一个 post 操作。
+- sem_post()并没有等待某些条件满足。它直接`增加信号量`的值，如果有等待线程，`唤醒`其中一个。
+- 当信号量的值为`负数`时，这个值就是`等待线程`的个数
+
+## 二值信号量（锁）
+
+用信号量作为锁
+
+```c
+sem_t m;
+// 初值要为1
+sem_init(&m, 0, 1);
+
+sem_wait(&m);
+// critical section here
+sem_post(&m);
+```
+
+## 信号量用作条件变量
+
+假设一个线程创建另外一线程，并且等待它结束:
+
+```c
+sem_t s;
+
+void *
+child(void *arg)
 {
     printf("child\n");
-    // XXX how to indicate we are done?
+    sem_post(&s); // signal here: child is done
     return NULL;
 }
 
 int main(int argc, char *argv[])
 {
+    // X初始值应是0
+    sem_init(&s, 0, X); // what should X be?
     printf("parent: begin\n");
     pthread_t c;
-    Pthread_create(&c, NULL, child, NULL); // create child
-    // XXX how to wait for child?
-    // 加个自旋锁等待
-    while (done == 0) 
-        ; // spin 
+    Pthread_create(c, NULL, child, NULL);
+    sem_wait(&s); // wait here for child
     printf("parent: end\n");
     return 0;
 }
 ```
-
-要父线程等待子线程的话，需要加个自旋锁
-
-## 定义和程序
-
-线程可以使用条件变量（condition variable），来等待一个条件变成真。条件变量是一个`显式队列`，当某些执行状态（即条件，condition）不满足时，线程可以把自己`加入队列`，`等待`（waiting）该条件。另外某个线程，当它改变了上述状态时，就可以`唤醒`一个或者多个`等待线程`（通过在该条件上发信号），让它们继续执行。
-
-声明：pthread_cond_t c
-相关操作：wait()和 signal()
-
-父线程等待子线程--使用条件变量:
-
-```c
-pthread_cond_wait(pthread_cond_t *c, pthread_mutex_t *m);
-pthread_cond_signal(pthread_cond_t *c);
-int done = 0;
-pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t c = PTHREAD_COND_INITIALIZER;
-
-void thr_exit()
-{
-    Pthread_mutex_lock(&m);
-    done = 1;
-    // 如果有等待的线程，就唤醒它(们)
-    Pthread_cond_signal(&c);
-    Pthread_mutex_unlock(&m);
-}
-
-void *child(void *arg)
-{
-    printf("child\n");
-    thr_exit();
-    return NULL;
-}
-
-void thr_join()
-{
-    Pthread_mutex_lock(&m);
-    // 这里先判断done防止done为1时永久休眠
-    while (done == 0)
-        // 休眠，等待被唤醒
-        Pthread_cond_wait(&c, &m);
-    Pthread_mutex_unlock(&m);
-}
-
-int main(int argc, char *argv[])
-{
-    printf("parent: begin\n");
-    pthread_t p;
-    Pthread_create(&p, NULL, child, NULL);
-    thr_join();
-    printf("parent: end\n");
-    return 0;
-}
-```
-
-wait()调用有一个`参数`，它是`互斥量`。
-
-它假定在 wait()调用时，这个互斥量是`已上锁`状态。wait()的职责是`释放锁`，并让调用线程`休眠`（原子地）。当线程被`唤醒`时（在另外某个线程发信号给它后），它必须`重新获取锁`，再返回调用者。
-
-> **提示：发信号时总是持有锁**
->
-> 尽管并不是所有情况下都严格需要，但有效且简单的做法，还是在使用条件变量发送信号时持有锁。虽然上面的例子是必须加锁的情况，但也有一些情况可以不加锁，而这可能是你应该避免的。因此，为了简单，请在调用 signal 时`持有锁`（hold the lock when calling signal）。
->
-> 这个提示的反面，即调用 wait 时持有锁，不只是建议，而是 wait 的语义强制要求的。因为 wait 调用总是假设你调用它时已经持有锁、调用者睡眠之前会释放锁以及返回前重新持有锁。因此，这个提示的一般化形式是正确的：调用 signal 和 wait 时要持有锁（hold the lock when calling signal or wait），你会保持身心健康的。
 
 ## 生产者/消费者（有界缓冲区）问题
 
 ```c
-cond_t cond;
-mutex_t mutex;
+sem_t empty;
+sem_t full;
+sem_t mutex;
 
 void *producer(void *arg)
 {
     int i;
     for (i = 0; i < loops; i++)
     {
-        Pthread_mutex_lock(&mutex);           // p1
-        if (count == 1)                       // p2
-            Pthread_cond_wait(&cond, &mutex); // p3
-        put(i);                               // p4
-        Pthread_cond_signal(&cond);           // p5
-        Pthread_mutex_unlock(&mutex);         // p6
+        // empty/full是一个条件变量，用于唤醒和等待
+        // 不过可以自动形成等待队列，比条件变量方便
+        sem_wait(&empty); // line p1
+        // mutex是一个锁，用于商品队列的操作的保护
+        // 锁的作用域很重要，尽可能缩小临界区来避免死锁和提高性能
+        sem_wait(&mutex); // line p1.5 (MOVED MUTEX HERE...)
+        put(i);           // line p2
+        sem_post(&mutex); // line p2.5 (... AND HERE)
+        sem_post(&full);  // line p3
     }
 }
 
@@ -121,122 +108,193 @@ void *consumer(void *arg)
     int i;
     for (i = 0; i < loops; i++)
     {
-        Pthread_mutex_lock(&mutex);           // c1
-        // 1. 此处存在问题，当有两个消费者（Cus1,Cus2）时，其中Cus1进入休眠，
-        // Cus2正好在生产者生产后执行get把count消费掉，此时
-        // 生产者又调用signal唤醒Cus1休眠的，直接执行了get发现
-        // 没有count了,所以要把if改成while，wait出来还要再
-        // 判断一次count
-        // 2. 使用while带来另一个问题，Cus1消费后本该唤醒生产者，
-        // 但如果唤醒了Cus2线程，因为没东西消费，Cus2也会等待，
-        // 就会导致三个线程都在等待中。解决方法是设置两个信号量，
-        // 保证消费者唤醒生产者，生产者唤醒消费者
-        if (count == 0)                       // c2
-            Pthread_cond_wait(&cond, &mutex); // c3
-        int tmp = get();                      // c4
-        Pthread_cond_signal(&cond);           // c5
-        Pthread_mutex_unlock(&mutex);         // c6
+        sem_wait(&full);  // line c1
+        sem_wait(&mutex); // line c1.5 (MOVED MUTEX HERE...)
+        int tmp = get();  // line c2
+        sem_post(&mutex); // line c2.5 (... AND HERE)
+        sem_post(&empty); // line c3
         printf("%d\n", tmp);
     }
 }
+
+int main(int argc, char *argv[])
+{
+    // ...
+    sem_init(&empty, 0, MAX); // MAX buffers are empty to begin with...
+    sem_init(&full, 0, 0);    // ... and 0 are full
+    sem_init(&mutex, 0, 1);   // mutex=1 because it is a lock
+    // ...
+}
 ```
 
-> 一条关于条件变量的简单规则：总是`使用 while 循环`（always use while loop）。
-{: .prompt-tip }
+## 读者—写者锁
 
-最终代码：
+读者之间不互斥，写者之间互斥，读者和写者互斥：
 
 ```c
-int buffer[MAX];
-int fill = 0;
-int use = 0;
-int count = 0;
-
-void put(int value)
+typedef struct _rwlock_t
 {
-    buffer[fill] = value;
-    fill = (fill + 1) % MAX;
-    count++;
+    sem_t lock;      // binary semaphore (basic lock)
+    sem_t writelock; // used to allow ONE writer or MANY readers
+    int readers;     // count of readers reading in critical section
+} rwlock_t;
+
+void rwlock_init(rwlock_t *rw)
+{
+    rw->readers = 0;
+    sem_init(&rw->lock, 0, 1);
+    sem_init(&rw->writelock, 0, 1);
 }
 
-int get()
+void rwlock_acquire_readlock(rwlock_t *rw)
 {
-    int tmp = buffer[use];
-    use = (use + 1) % MAX;
-    count--;
-    return tmp;
-}
-cond_t empty, fill;
-mutex_t mutex;
-
-void *producer(void *arg)
-{
-    int i;
-    for (i = 0; i < loops; i++)
-    {
-        Pthread_mutex_lock(&mutex);            // p1
-        while (count == MAX)                   // p2
-            Pthread_cond_wait(&empty, &mutex); // p3
-        put(i);                                // p4
-        Pthread_cond_signal(&fill);            // p5
-        Pthread_mutex_unlock(&mutex);          // p6
-    }
+    // lock锁保护readers计数器
+    sem_wait(&rw->lock);
+    rw->readers++;
+    // 第一个读者需要获取写锁，来与写者互斥
+    // 不停有新读者进来会导致写者饿死
+    if (rw->readers == 1)
+        sem_wait(&rw->writelock); // first reader acquires writelock
+    sem_post(&rw->lock);
 }
 
-void *consumer(void *arg)
+void rwlock_release_readlock(rwlock_t *rw)
 {
-    int i;
-    for (i = 0; i < loops; i++)
-    {
-        Pthread_mutex_lock(&mutex);           // c1
-        while (count == 0)                    // c2
-            Pthread_cond_wait(&fill, &mutex); // c3
-        int tmp = get();                      // c4
-        Pthread_cond_signal(&empty);          // c5
-        Pthread_mutex_unlock(&mutex);         // c6
-        printf("%d\n", tmp);
-    }
+    sem_wait(&rw->lock);
+    rw->readers--;
+    // 最后一个读者需要释放写锁
+    if (rw->readers == 0)
+        sem_post(&rw->writelock); // last reader releases writelock
+    sem_post(&rw->lock);
+}
+
+void rwlock_acquire_writelock(rwlock_t *rw)
+{
+    // 写者之间互斥，且与读者互斥，用写锁管理
+    sem_wait(&rw->writelock);
+}
+
+void rwlock_release_writelock(rwlock_t *rw)
+{
+    sem_post(&rw->writelock);
 }
 ```
 
-## 覆盖条件
+## 哲学家就餐问题
 
-以下代码用于内存分配管理，free后会唤醒allocate时因空间不够而等待的线程
+![F31.10](/assets/img/2022-06-16-operating-systems-25/F31.10.jpg)
+
+假定有 5 位“哲学家”围着一个圆桌。每两位哲学家之间有一把餐叉（一共 5 把）。哲学家有时要`思考`一会，不需要餐叉；有时又要`就餐`。而一位哲学家只有同时拿到了左手边和右手边的`两把餐叉`，才能吃到东西。
 
 ```c
-// how many bytes of the heap are free?
-int bytesLeft = MAX_HEAP_SIZE;
-
-// need lock and condition too
-cond_t c;
-mutex_t m;
-
-void *
-allocate(int size)
-{
-    Pthread_mutex_lock(&m);
-    while (bytesLeft < size)
-        Pthread_cond_wait(&c, &m);
-    void *ptr = ...; // get mem from heap
-    bytesLeft -= size;
-    Pthread_mutex_unlock(&m);
-    return ptr;
-}
-
-void free(void *ptr, int size)
-{
-    Pthread_mutex_lock(&m);
-    bytesLeft += size;
-    Pthread_cond_signal(&c); // whom to signal??
-    Pthread_mutex_unlock(&m);
+while (1) {
+    think();
+    getforks();
+    eat();
+    putforks();
 }
 ```
 
-但pthread_cond_signal()无法得知应该唤醒哪个线程，比如free(50)后应该唤醒allocate(10)等待线程而不是allocate(100)等待线程。
+关键的挑战就是如何实现 `getforks()`和 `putforks()`函数，保证没有死锁，没有哲学家饿死，并且并发度更高（尽可能让更多哲学家同时吃东西）。
 
-使用pthread_cond_broadcast()唤醒所有等待的线程。这样做，确保了所有应该唤醒的线程都被唤醒。当然，不利的一面是可能会影响性能。
+**查找餐叉的函数：**
 
-Lampson 和 Redell 把这种`条件变量`叫作`覆盖条件`（covering condition），因为它能覆盖所有需要唤醒线程的场景（保守策略）
+```c
+int left(int p) { return p; }
+int right(int p) { return (p + 1) % 5; }
+```
+
+**为每个餐叉分配信号量：**
+
+```c
+sem_t forks[5]
+```
+
+**尝试加锁：**
+
+```c
+void getforks() {
+    sem_wait(forks[left(p)]);
+    sem_wait(forks[right(p)]);
+}
+
+void putforks() {
+    sem_post(forks[left(p)]);
+    sem_post(forks[right(p)]);
+}
+```
+
+使用这个方案会形成死锁，每个人都拿着左手边的叉子就无法继续了（循环等待）
+
+**优化方案：**
+
+选第 4 个人改为先获取右手的叉子，打破循环等待
+
+```c
+void getforks()
+{
+    if (p == 4)
+    {
+        sem_wait(forks[right(p)]);
+        sem_wait(forks[left(p)]);
+    }
+    else
+    {
+        sem_wait(forks[left(p)]);
+        sem_wait(forks[right(p)]);
+    }
+}
+```
+
+> 还有其他一些类似的“著名”问题，比如吸烟者问题（cigarette smoker’s problem），理发师问题（sleeping barber problem）。
+
+## 如何实现信号量
+
+```c
+typedef struct _Zem_t
+{
+    int value;
+    pthread_cond_t cond;
+    // 对value的修改锁
+    pthread_mutex_t lock;
+} Zem_t;
+
+// only one thread can call this
+void Zem_init(Zem_t *s, int value)
+{
+    s->value = value;
+    Cond_init(&s->cond);
+    Mutex_init(&s->lock);
+}
+
+void Zem_wait(Zem_t *s)
+{
+    Mutex_lock(&s->lock);
+    while (s->value <= 0)
+        Cond_wait(&s->cond, &s->lock);
+    // 在这里递减value，value值就不会小于0了。
+    s->value--;
+    Mutex_unlock(&s->lock);
+}
+
+void Zem_post(Zem_t *s)
+{
+    Mutex_lock(&s->lock);
+    s->value++;
+    Cond_signal(&s->cond);
+    Mutex_unlock(&s->lock);
+}
+```
+
+## 小结
+
+信号量是编写并发程序的强大而灵活的原语。有程序员会因为简单实用，只用信号量，不用锁和条件变量
+
+信号量基于锁和条件变量，可以实现两者的功能
+
+作为锁时，可以自动管理等待队列
+
+作为条件变量时，免去了 while 判断是否需要等待的操作，因为内部包含了一个 value 值用于判断
 
 ## 参考
 
