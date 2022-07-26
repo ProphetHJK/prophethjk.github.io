@@ -14,6 +14,8 @@ void *child(void *arg)
 {
     printf("child\n");
     // XXX how to indicate we are done?
+    // 自旋锁标记
+    done = 1;
     return NULL;
 }
 
@@ -23,7 +25,7 @@ int main(int argc, char *argv[])
     pthread_t c;
     Pthread_create(&c, NULL, child, NULL); // create child
     // XXX how to wait for child?
-    // 加个自旋锁等待
+    // 加个自旋锁等待done为1
     while (done == 0)
         ; // spin
     printf("parent: end\n");
@@ -92,7 +94,7 @@ wait()调用有一个`参数`，它是`互斥量`。
 
 > **提示：发信号时总是持有锁**
 >
-> 尽管并不是所有情况下都严格需要，但有效且简单的做法，还是在使用条件变量发送信号时持有锁。虽然上面的例子是必须加锁的情况，但也有一些情况可以不加锁，而这可能是你应该避免的。因此，为了简单，请在调用 signal 时`持有锁`（hold the lock when calling signal）。
+> 尽管并不是所有情况下都严格需要，但有效且简单的做法，还是在使用条件变量发送信号时持有锁。虽然上面的例子是必须加锁的情况，但也有一些情况可以不加锁，而这可能是你应该避免的。因此，为了简单，请在`调用 signal` 时`持有锁`（hold the lock when calling signal）。
 >
 > 这个提示的反面，即调用 wait 时持有锁，不只是建议，而是 wait 的语义强制要求的。因为 wait 调用总是假设你调用它时已经持有锁、调用者睡眠之前会释放锁以及返回前重新持有锁。因此，这个提示的一般化形式是正确的：调用 signal 和 wait 时要持有锁（hold the lock when calling signal or wait），你会保持身心健康的。
 
