@@ -1,8 +1,8 @@
 ---
-title: "《Operating Systems: Three Easy Pieces》学习笔记(二十四) 条件变量"
+title: "《Operating Systems: Three Easy Pieces》学习笔记(二十五) 信号量"
 author: Jinkai
-date: 2022-06-16 09:02:00 +0800
-published: true
+date: 2022-06-16 09:03:00 +0800
+published: false
 categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
 ---
@@ -24,8 +24,8 @@ int main(int argc, char *argv[])
     Pthread_create(&c, NULL, child, NULL); // create child
     // XXX how to wait for child?
     // 加个自旋锁等待
-    while (done == 0)
-        ; // spin
+    while (done == 0) 
+        ; // spin 
     printf("parent: end\n");
     return 0;
 }
@@ -129,7 +129,7 @@ void *consumer(void *arg)
         // 判断一次count
         // 2. 使用while带来另一个问题，Cus1消费后本该唤醒生产者，
         // 但如果唤醒了Cus2线程，因为没东西消费，Cus2也会等待，
-        // 就会导致三个线程都在等待中。解决方法是设置两个条件变量，
+        // 就会导致三个线程都在等待中。解决方法是设置两个信号量，
         // 保证消费者唤醒生产者，生产者唤醒消费者
         if (count == 0)                       // c2
             Pthread_cond_wait(&cond, &mutex); // c3
@@ -142,7 +142,7 @@ void *consumer(void *arg)
 ```
 
 > 一条关于条件变量的简单规则：总是`使用 while 循环`（always use while loop）。
-> {: .prompt-tip }
+{: .prompt-tip }
 
 最终代码：
 
@@ -201,7 +201,7 @@ void *consumer(void *arg)
 
 ## 覆盖条件
 
-以下代码用于内存分配管理，free 后会唤醒 allocate 时因空间不够而等待的线程
+以下代码用于内存分配管理，free后会唤醒allocate时因空间不够而等待的线程
 
 ```c
 // how many bytes of the heap are free?
@@ -232,12 +232,12 @@ void free(void *ptr, int size)
 }
 ```
 
-但 pthread_cond_signal()无法得知应该唤醒哪个线程，比如 free(50)后应该唤醒 allocate(10)等待线程而不是 allocate(100)等待线程。
+但pthread_cond_signal()无法得知应该唤醒哪个线程，比如free(50)后应该唤醒allocate(10)等待线程而不是allocate(100)等待线程。
 
-使用 pthread_cond_broadcast()唤醒所有等待的线程。这样做，确保了所有应该唤醒的线程都被唤醒。当然，不利的一面是可能会影响性能。
+使用pthread_cond_broadcast()唤醒所有等待的线程。这样做，确保了所有应该唤醒的线程都被唤醒。当然，不利的一面是可能会影响性能。
 
 Lampson 和 Redell 把这种`条件变量`叫作`覆盖条件`（covering condition），因为它能覆盖所有需要唤醒线程的场景（保守策略）
 
 ## 参考
 
-- [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/30.pdf)
+- [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/31.pdf)
