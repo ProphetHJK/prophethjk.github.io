@@ -1,7 +1,7 @@
 ---
-title: "《Operating Systems: Three Easy Pieces》学习笔记(三十四) 崩溃一致性：FSCK和日志(未完成)"
+title: "《Operating Systems: Three Easy Pieces》学习笔记(三十五) 崩溃一致性：FSCK和日志(未完成)"
 author: Jinkai
-date: 2022-06-17 09:00:00 +0800
+date: 2022-06-17 09:01:00 +0800
 published: true
 categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]

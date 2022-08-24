@@ -1,0 +1,71 @@
+@startuml
+note right of ConfigFlag::replay_mode
+    操作中断恢复后重放模式：
+    1-重放
+    0-不重放
+end note
+note right of ConfigFlag::is_flash
+    是否flash:
+    1-flash
+    0-eeprom
+end note
+note right of ConfigFlag::write_mode
+    写入方式：
+    1-新数据添加
+    2-老数据修改
+    对flash有用
+end note
+note right of ConfigFlag::async_mode
+    写入方式：
+    1-异步，合并执行
+    0-同步，立即执行
+end note
+class ConfigFlag{
+    u8 is_flash:1
+    u8 write_mode:2
+}
+
+note right of logfilesystem::start_flag
+    日志开始标记，用于表明该记录存在
+    可以保存在其他位置
+end note
+note right of logfilesystem::log_length
+    日志主体长度
+    TODO：如何保证长度可靠，校验或定长
+end note
+note right of logfilesystem::log_length_crc
+    日志主体长度的校验或是结束标记，
+    保证长度可靠
+end note
+note right of logfilesystem::config_flag
+    配置
+end note
+note right of logfilesystem::dst_addr
+    要写入的地址
+end note
+note right of logfilesystem::data
+    要写入的数据
+end note
+note right of logfilesystem::crc16 
+    日志主体校验码或日志主体结束(提交)标志。
+    如果存储介质可信，则无需校验码，使用单字节的标志即可，
+    此时需要硬件保证标志的写入是原子性的
+end note
+note right of logfilesystem::end_flag
+    日志结束标志，表示日志内容全部执行完成，该日志作废。
+    该标志无需和日志主体放在一起，可以单独存储于其他位置
+    可以选择继续标记，后面紧跟下个日志主体，表示多条日志合并执行
+end note
+class logfilesystem{
+    u8 start_flag;
+    u16 log_length;
+    u8 log_length_crc;
+    ConfigFlag config_flag;
+    u32 dst_addr;
+    u8* data;
+    u16 crc16;
+    u8 end_flag;
+}
+
+logfilesystem --> ConfigFlag
+@enduml

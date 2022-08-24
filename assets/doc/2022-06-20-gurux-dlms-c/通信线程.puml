@@ -4,7 +4,10 @@ start
 :参数初始化svr_init(dlmsServerSettings);
 note right:包括所有AL层和传输层参数(如果是HDLC包括链路层)
 :创建对象列表createObjects();
-note right:注册和初始化所有用到的对象，还需要配置对应权限，还有15类获取对象列表功能
+note right
+注册和初始化所有用到的对象，还需要配置对应权限，
+还有15类获取对象列表功能
+end note
 :绑定tcp端口（HDLC为串口）;
 :创建数据接收线程UnixListenerThread;
 repeat
@@ -17,7 +20,10 @@ repeat
 repeat while (接收到完整APDU？（尝试解码）) is (false) not (true)
 : 提取APDU,dlms_getData2();
 : 解码解密数据(GBT请求合并)，dlms_getPdu();
-note right:只支持接收GBT，不支持发送GBT，通过重复调用dlms_getPdu接收完整数据
+note right
+只支持接收GBT，不支持发送GBT，
+通过重复调用dlms_getPdu接收完整数据
+end note
 switch (处理命令svr_handleCommand())
 case ( SET_REQUEST )
   :处理SET请求;
