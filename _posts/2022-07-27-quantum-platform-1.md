@@ -1242,6 +1242,30 @@ while (QEP_TRIG_(t, Q_INIT_SIG) == Q_RET_TRAN)
 
 QF 框架规定了一些`断言宏`来处理错误
 
+## 实时框架的实现
+
+QF框架的代码实现详解，对上一章的补充
+
+TODO：还未看
+
+## 移植和配置 QF
+
+QF 包含了一个被清楚定义的`平台抽象层 PAL`（ platform abstraction layer ），它封装了所有平台相关的代码，清晰把它和平台无关的代码区分开
+
+### QP 平台抽象层
+
+#### 生成 QP 应用程序
+
+你在使用的 QP 移植由 `qf_port.h` 头文件和 `QF 库文件`所在的目录分支决定。
+
+![qpport](/assets/img/2022-07-27-quantum-platform-1/qpport.jpg)
+
+编译+链接，QP 库允许连接器在链接时消除任何没有被引用的 QP 代码
+
+#### 创建 QP 库
+
+
+
 ## 参考
 
 - [UML 状态图的实用 C/C++设计](https://www.state-machine.com/doc/PSiCC2-CN.pdf)
