@@ -7,6 +7,89 @@ categories: [学习笔记]
 tags: [quantum platform, QP状态机]
 ---
 
+- [架构](#架构)
+- [UML 状态图](#uml-状态图)
+  - [状态机分类](#状态机分类)
+  - [正交区域](#正交区域)
+  - [转换的执行次序](#转换的执行次序)
+  - [本地转换和外部转换的对比](#本地转换和外部转换的对比)
+  - [UML 实例](#uml-实例)
+  - [计算器设计实例](#计算器设计实例)
+    - [高层设计](#高层设计)
+    - [寻找重用 (Reuse)](#寻找重用-reuse)
+    - [operandX 状态设计](#operandx-状态设计)
+    - [处理负号的两种情况](#处理负号的两种情况)
+    - [最终状态图](#最终状态图)
+- [标准状态机的实现方法](#标准状态机的实现方法)
+  - [嵌套的 switch 语句](#嵌套的-switch-语句)
+  - [状态表 (State Table)](#状态表-state-table)
+  - [面向对象的状态设计模式](#面向对象的状态设计模式)
+    - [增加进入退出状态操作](#增加进入退出状态操作)
+    - [封装事件处理](#封装事件处理)
+  - [QEP FSM 实现方法](#qep-fsm-实现方法)
+  - [状态机实现技术的一般性讨论](#状态机实现技术的一般性讨论)
+- [层次式事件处理器的实现](#层次式事件处理器的实现)
+  - [层次式状态处理函数](#层次式状态处理函数)
+  - [层次式状态机的类](#层次式状态机的类)
+    - [顶状态和初始伪状态](#顶状态和初始伪状态)
+    - [进入 / 退出动作和嵌套的初始转换](#进入--退出动作和嵌套的初始转换)
+    - [最顶层初始转换 (QHsm_init())](#最顶层初始转换-qhsm_init)
+    - [分派事件（ QHsm_dispatch(), 通用结构）](#分派事件-qhsm_dispatch-通用结构)
+    - [在状态机里实施一个转换（ QHsm_dispatch(), 转换）](#在状态机里实施一个转换-qhsm_dispatch-转换)
+  - [使用 QEP 实现 HSM 步骤的概要](#使用-qep-实现-hsm-步骤的概要)
+  - [常见问题](#常见问题)
+- [实时框架的概念](#实时框架的概念)
+  - [CPU 管理](#cpu-管理)
+  - [活动对象计算模式](#活动对象计算模式)
+    - [系统结构](#系统结构)
+    - [异步通讯](#异步通讯)
+    - [运行 - 到 - 完成 RTC](#运行---到---完成-rtc)
+    - [封装](#封装)
+  - [事件派发机制](#事件派发机制)
+    - [直接事件发送](#直接事件发送)
+    - [订阅派发机制](#订阅派发机制)
+  - [事件内存管理](#事件内存管理)
+    - [零复制的事件派发](#零复制的事件派发)
+    - [静态和动态的事件](#静态和动态的事件)
+    - [多路传输事件和引用计数器算法](#多路传输事件和引用计数器算法)
+    - [事件的所有权](#事件的所有权)
+    - [内存池](#内存池)
+    - [时间管理](#时间管理)
+    - [系统时钟节拍](#系统时钟节拍)
+  - [错误和例外的处理](#错误和例外的处理)
+- [实时框架的实现](#实时框架的实现)
+- [移植和配置 QF](#移植和配置-qf)
+  - [QP 平台抽象层](#qp-平台抽象层)
+    - [生成 QP 应用程序](#生成-qp-应用程序)
+    - [创建 QP 库](#创建-qp-库)
+- [事件驱动型系统的软件追踪](#事件驱动型系统的软件追踪)
+  - [QS 目标系统驻留构件](#qs-目标系统驻留构件)
+    - [QS 源代码的组织](#qs-源代码的组织)
+    - [QS 的平台无关头文件 qs.h 和 qs_dummy.h](#qs-的平台无关头文件-qsh-和-qs_dummyh)
+    - [QS 的临界区](#qs-的临界区)
+    - [QS 记录的一般结构](#qs-记录的一般结构)
+    - [QS 的过滤器](#qs-的过滤器)
+      - [全局开/关过滤器](#全局开关过滤器)
+      - [本地过滤器](#本地过滤器)
+    - [QS 数据协议](#qs-数据协议)
+      - [透明](#透明)
+      - [大小端](#大小端)
+    - [QS 追踪缓存区](#qs-追踪缓存区)
+      - [初始化 QS 追踪缓存区 QS_initBuf()](#初始化-qs-追踪缓存区-qs_initbuf)
+    - [面向字节的接口： QS_getByte()](#面向字节的接口-qs_getbyte)
+    - [面向块的接口： QS_getBlock()](#面向块的接口-qs_getblock)
+    - [字典追踪记录](#字典追踪记录)
+    - [应用程序相关的 QS 追踪记录](#应用程序相关的-qs-追踪记录)
+    - [移植和配置 QS](#移植和配置-qs)
+  - [QSPY 主机应用程序](#qspy-主机应用程序)
+  - [向 MATLAB 输出追踪数据](#向-matlab-输出追踪数据)
+  - [向 QP 应用程序添加 QS 软件追踪](#向-qp-应用程序添加-qs-软件追踪)
+    - [定义平台相关的 QS 回调函数](#定义平台相关的-qs-回调函数)
+    - [使用回调函数 QS_onGetTime() 产生 QS 时间戳](#使用回调函数-qs_ongettime-产生-qs-时间戳)
+    - [](#)
+- [问题](#问题)
+- [参考](#参考)
+
 ## 架构
 
 ![qp1](/assets/img/2022-07-27-quantum-platform-1/qp1.jpg)
@@ -1101,7 +1184,7 @@ while (QEP_TRIG_(t, Q_INIT_SIG) == Q_RET_TRAN)
 
 ## 实时框架的概念
 
-## CPU 管理
+### CPU 管理
 
 传统的事件驱动型架构对实时框架不是非常适合。最起码在三个方面存在问题：
 
@@ -1244,7 +1327,7 @@ QF 框架规定了一些`断言宏`来处理错误
 
 ## 实时框架的实现
 
-QF框架的代码实现详解，对上一章的补充
+QF 框架的代码实现详解，对上一章的补充
 
 TODO：还未看
 
@@ -1264,7 +1347,732 @@ QF 包含了一个被清楚定义的`平台抽象层 PAL`（ platform abstractio
 
 #### 创建 QP 库
 
+## 事件驱动型系统的软件追踪
 
+![tracemodel](/assets/img/2022-07-27-quantum-platform-1/tracemodel.jpg)
+
+上图展示了软件追踪的一个典型设置
+
+嵌入式目标系统在运行被监测的代码，它在目标系统的 RAM 缓存区记录追踪数据。追踪数据通过一个数据连接被从这个缓存区送给一个主机，它存储、显示和分析这些信息。这个配置意味着软件追踪总是需要 2 个构件：
+
+- 用来收集和发送追踪数据的[目标系统驻留构件](#qs-目标系统驻留构件)
+- 用来接收，解压，可视化和分析这些数据的[主机驻留构件](#qspy-主机应用程序)。
+
+### QS 目标系统驻留构件
+
+![qstarget](/assets/img/2022-07-27-quantum-platform-1/qstarget.jpg)
+
+- 侵入性小 - 数据格式化工作被从目标系统里移到主机执行
+- 数据记录和发送数据给主机是分隔的，例如在目标 CPU 的空闲循环处传输数据。减少了发送数据的开销
+- 支持数据压缩，如数据字典
+- 带级别过滤器
+- 带可配精度时间戳
+- 探测传输错误并重传机制（高级数据连接控制协议 [High Level Data Link Control, HLDLC]）
+- 轻量级传输API
+
+#### QS 源代码的组织
+
+```console
+<qp>\qpc\ - QP/C root directory (<qp>\qpcpp for QP/C++)
+    |
+    +-include/ - QP platform-independent header files
+    | +-qs.h - QS platform-independent active interface
+    | +-qs_dummy.h - QS platform-independent inactive interface
+    |
+    +-qs/ - QS target component
+    | +-source/ - QS platform-independent source code (*.C files)
+    | | +-qs_pkg.h - internal, packet-scope interface for QS implementation
+    | | +-qs.c - internal ring buffer and formatted output functions
+    | | +-qs_.c - definition of basic unformatted output functions
+    | | +-qs_blk.c - definition of block-oriented interface QS_getBlock()
+    | | +-qs_byte.c - definition of byte-oriented interface QS_getByte()
+    | | +-qs_f32.c - definition of 32-bit floating point output QS_f32()
+    | | +-qs_f64.c - definition of 64-bit floating point output QS_f64()
+    | | +-qs_mem.c - definition of memory-block output
+    | | +-qs_str.c - definition of zero-terminated string output
+    |
+    +-ports\ - Platform-specific QP ports
+    | +- . . .
+    +-examples\ - Platform-specific QP examples
+    | +- . . .<qp>\qpc\ - QP/C root directory (<qp>\qpcpp for QP/C++)
+    |
+    +-include/ - QP platform-independent header files
+    | +-qs.h - QS platform-independent active interface
+    | +-qs_dummy.h - QS platform-independent inactive interface
+    |
+    +-qs/ - QS target component
+    | +-source/ - QS platform-independent source code (*.C files)
+    | | +-qs_pkg.h - internal, packet-scope interface for QS implementation
+    | | +-qs.c - internal ring buffer and formatted output functions
+    | | +-qs_.c - definition of basic unformatted output functions
+    | | +-qs_blk.c - definition of block-oriented interface QS_getBlock()
+    | | +-qs_byte.c - definition of byte-oriented interface QS_getByte()
+    | | +-qs_f32.c - definition of 32-bit floating point output QS_f32()
+    | | +-qs_f64.c - definition of 64-bit floating point output QS_f64()
+    | | +-qs_mem.c - definition of memory-block output
+    | | +-qs_str.c - definition of zero-terminated string output
+    |
+    +-ports\ - Platform-specific QP ports
+    | +- . . .
+    +-examples\ - Platform-specific QP examples
+    | +- . . .
+```
+
+QS 源文件通常在`每个文件`里只包含**一个函数**或**一个数据结构**。这种设计的目的在于把 QS 部署成一个`精细粒度`的库，你可以把它静态的和里的应用程序链接。精细粒度意味着 QS 库由许多小的松散耦合的模块（目标文件）组成，而不是由一个包含所有功能的单一模块组成。
+
+#### QS 的平台无关头文件 qs.h 和 qs_dummy.h
+
+- `qs.h` - QS 功能的所有“活动”接口
+- `qs_dummy.h` - QS 功能的所有“不活动”接口
+
+*qs.h*:
+
+```c
+#ifndef qs_h
+#define qs_h
+#ifndef Q_SPY
+#error "Q_SPY must be defined to include qs.h"
+#endif /* Q_SPY */
+
+// 枚举QS记录类型，相当于日志标记
+enum QSpyRecords
+{
+    /* QEP records */
+    QS_QEP_STATE_ENTRY, /**< a state was entered */
+    QS_QEP_STATE_EXIT,  /**< a state was exited */
+    ...
+    /* QF records */
+    QS_QF_ACTIVE_ADD,         /**< an AO has been added to QF (started) */
+    QS_QF_ACTIVE_REMOVE,      /**< an AO has been removed from QF (stopped) */
+    QS_QF_ACTIVE_SUBSCRIBE,   /**< an AO subscribed to an event */
+    QS_QF_ACTIVE_UNSUBSCRIBE, /**< an AO unsubscribed to an event */
+    QS_QF_ACTIVE_POST_FIFO,   /**< an event was posted (FIFO) directly to AO */
+    ...
+    /* QK records */
+    QS_QK_MUTEX_LOCK,   /**< the QK mutex was locked */
+    QS_QK_MUTEX_UNLOCK, /**< the QK mutex was unlocked */
+    QS_QK_SCHEDULE,     /**< the QK scheduled a new task to execute */
+    ...
+    /* Miscellaneous QS records */
+    QS_SIG_DICTIONARY, /**< signal dictionary entry */
+    QS_OBJ_DICTIONARY, /**< object dictionary entry */
+    QS_FUN_DICTIONARY, /**< function dictionary entry */
+    QS_ASSERT,         /** assertion failed */
+    ...
+    /* User records */
+    QS_USER /**< the first record available for user QS records */
+    // 从QS_USER开始可以自定义记录类型
+};
+...
+/* Macros for adding QS instrumentation to the client code .................*/
+//所有 QS 服务被定义为预处理器的宏。这样，即使软件追踪被禁止，你也可以把它们留在代码中。
+#define QS_INIT(arg_) QS_onStartup(arg_)
+#define QS_EXIT() QS_onCleanup()
+// 全局 QS 过滤器，它把某个给定 QS 追踪记录打开或关闭。
+#define QS_FILTER_ON(rec_) QS_filterOn(rec_)
+#define QS_FILTER_OFF(rec_) QS_filterOff(rec_)
+// 本地 QS 过滤器。这个过滤器允许你有选择的追踪那些特定的状态机对象。
+#define QS_FILTER_SM_OBJ(obj_) (QS_smObj_ = (obj_))
+#define QS_FILTER_AO_OBJ(obj_) (QS_aoObj_ = (obj_))
+#define QS_FILTER_MP_OBJ(obj_) (QS_mpObj_ = (obj_))
+#define QS_FILTER_EQ_OBJ(obj_) (QS_eqObj_ = (obj_))
+#define QS_FILTER_TE_OBJ(obj_) (QS_teObj_ = (obj_))
+#define QS_FILTER_AP_OBJ(obj_) (QS_apObj_ = (obj_))
+/* Macros to generate user QS records (formatted data output) ..............*/
+// 互斥锁，BEGIN上锁，END解锁，用于保护QS 追踪缓存
+#define QS_BEGIN(rec_, obj_) ...
+#define QS_END() ...
+// 不上锁（比如在临界区内再调用就不需要关中断了）
+#define QS_BEGIN_NOLOCK(rec_, obj_) ...
+#define QS_END_NOLOCK() ...
+    ...
+#define QS_I8 (w_, d_) QS_u8((uint8_t)(((w_) << 4)) | QS_I8_T, (d_))
+#define QS_U8 (w_, d_) QS_u8((uint8_t)(((w_) << 4)) | QS_U8_T, (d_))
+#define QS_I16(w_, d_) QS_u16((uint8_t)(((w_) << 4)) | QS_I16_T, (d_))
+#define QS_U16(w_, d_) QS_u16((uint8_t)(((w_) << 4)) | QS_U16_T, (d_))
+#define QS_I32(w_, d_) QS_u32((uint8_t)(((w_) << 4)) | QS_I32_T, (d_))
+#define QS_U32(w_, d_) QS_u32((uint8_t)(((w_) << 4)) | QS_U32_T, (d_))
+#define QS_F32(w_, d_) QS_f32((uint8_t)(((w_) << 4)) | QS_F32_T, (d_))
+#define QS_F64(w_, d_) QS_f64((uint8_t)(((w_) << 4)) | QS_F64_T, (d_))
+#define QS_STR(str_) QS_str(str_)
+#define QS_STR_ROM(str_) QS_str_ROM(str_)
+#define QS_MEM(mem_, size_) QS_mem((mem_), (size_))
+#if (QS_OBJ_PTR_SIZE == 1)
+#define QS_OBJ(obj_) QS_u8(QS_OBJ_T, (uint8_t)(obj_))
+#elif (QS_OBJ_PTR_SIZE == 2)
+#define QS_OBJ(obj_) QS_u16(QS_OBJ_T, (uint16_t)(obj_))
+#elif (QS_OBJ_PTR_SIZE == 4)
+#define QS_OBJ(obj_) QS_u32(QS_OBJ_T, (uint32_t)(obj_))
+#else
+#define QS_OBJ(obj_) QS_u32(QS_OBJ_T, (uint32_t)(obj_))
+#endif
+#if (QS_FUN_PTR_SIZE == 1)
+#define QS_FUN(fun_) QS_u8(QS_FUN_T, (uint8_t)(fun_))
+#elif (QS_FUN_PTR_SIZE == 2)
+    ...
+#endif
+#if (Q_SIGNAL_SIZE == 1)
+#define QS_SIG(sig_, obj_)   \
+    QS_u8(QS_SIG_T, (sig_)); \
+    QS_OBJ_(obj_)
+#elif (Q_SIGNAL_SIZE == 2)
+    ...
+#endif
+/* Dictionary records ......................................................*/
+#define QS_OBJ_DICTIONARY(obj_) ...
+#define QS_FUN_DICTIONARY(fun_) ...
+#define QS_SIG_DICTIONARY(sig_, obj_) ...
+    ...
+/* Macros used only internally in the QP code ..............................*/
+#define QS_BEGIN_(rec_, obj_) ...
+#define QS_END_() ...
+#define QS_BEGIN_NOLOCK_(rec_, obj_) ...
+#define QS_END_NOLOCK_() ...
+/* QS functions for managing the QS trace buffer ...........................*/
+void
+QS_initBuf(uint8_t sto[], uint32_t stoSize);
+uint16_t QS_getByte(void);                     /* byte-oriented interface */
+uint8_t const *QS_getBlock(uint16_t *pNbytes); /* block-oriented interface */
+/* QS callback functions, typically implemented in the BSP .................*/
+uint8_t QS_onStartup(void const *arg);
+void QS_onCleanup(void);
+void QS_onFlush(void);
+QSTimeCtr QS_onGetTime(void);
+#endif /* qs_h */
+```
+
+*qs_dummy.h*:
+
+```c
+#ifndef qs_dummy_h
+#define qs_dummy_h
+#ifdef Q_SPY
+#error "Q_SPY must NOT be defined to include qs_dummy.h"
+#endif
+#define QS_INIT(arg_) ((uint8_t)1)
+#define QS_EXIT() ((void)0)
+#define QS_DUMP() ((void)0)
+#define QS_FILTER_ON(rec_) ((void)0)
+#define QS_FILTER_OFF(rec_) ((void)0)
+#define QS_FILTER_SM_OBJ(obj_) ((void)0)
+...
+#define QS_GET_BYTE(pByte_) ((uint16_t)0xFFFF)
+#define QS_GET_BLOCK(pSize_) ((uint8_t *)0)
+#define QS_BEGIN(rec_, obj_) \
+    if (0)                   \
+    {
+#define QS_END() }
+#define QS_BEGIN_NOLOCK(rec_, obj_) QS_BEGIN(rec_, obj_)
+#define QS_END_NOLOCK() QS_END()
+#define QS_I8(width_, data_) ((void)0)
+#define QS_U8(width_, data_) ((void)0)
+    ...
+#define QS_SIG(sig_, obj_) ((void)0)
+#define QS_OBJ(obj_) ((void)0)
+#define QS_FUN(fun_) ((void)0)
+#define QS_SIG_DICTIONARY(sig_, obj_) ((void)0)
+#define QS_OBJ_DICTIONARY(obj_) ((void)0)
+#define QS_FUN_DICTIONARY(fun_) ((void)0)
+#define QS_FLUSH() ((void)0)
+    ...
+#endif
+```
+
+#### QS 的临界区
+
+QS 目标构件必须保护`追踪缓存`的内部完整性，它在并发运行的任务和中断之间被共享，所以需要被视为`临界区`
+
+当 QS 探测 `QF 临界区`的宏 QF_INT_LOCK() ， QF_INT_UNLOCK() 被定义时， QS 使用了**这个定义**作为它自己的临界区。
+
+然而，当你在**没有** QF 实时框架的情况下使用 QS 时，你需要在`qs_port.h`头文件里定义 QS 的`平台相关`的中断上锁 / 解锁策略
+
+> QS_BEGIN和QS_END()就是利用的`qs_port.h`里定义的锁宏
+
+自定义的锁*qs_port.h*:
+
+```c
+#define QS_INT_KEY_TYPE . . .
+    #define QS_INT_LOCK(key_) . . .
+    #define QS_INT_UNLOCK(key_) . . .
+```
+
+#### QS 记录的一般结构
+
+QS 在分离的被称为 `QS“追踪记录”` 的小块里记录追踪数据。
+
+```c
+QS_BEGIN_xxx(record_type) /* trace record begin */
+    QS_yyy(data); /* QS data element */
+    QS_zzz(data); /* QS data element */
+    . . . /* QS data element */
+QS_END_xxx() /* trace record end */
+```
+
+- `QS_BEGIN/QS_END()`: 在记录的开始处`上锁`中断，在记录的结尾`解锁`中断。
+- `QS_BEGIN_NOLOCK()/QS_END_NOLOCK()`: 用来创建应用程序相关的记录而`不需进入`临界区，它们仅能被用于某个`临界区内部`。
+
+> TODO:NOLOCK有什么意义
+
+#### QS 的过滤器
+
+##### 全局开/关过滤器
+
+预定义的类型就是`qs.h`中的`QSpyRecords`枚举型，通过过滤器启用/禁用对应类型的日志记录
+
+全局开 / 关过滤器使用一个位掩码数据`QS_glbFilter_[]`而高效的实现，这个数组的`每一位`代表一个追踪记录。当前 QS_glbFilter_[]包含 32字节，总共 32×8位可以代表 `256` 个不同的追踪记录。其中大约四分之一已经被用于预定义的 QP 追踪记录。剩下四分之三可以用于应用程序。
+
+```c
+#define QS_BEGIN(rec_, obj_) \
+    if (((QS_glbFilter_[(uint8_t)(rec_) >> 3U] \
+        & (1U << ((uint8_t)(rec_) & 7U))) != 0) . . .\
+```
+
+`rec_`表示记录类型枚举id，从0到255，右移三位表示整除8，因为最后三位被右移掉了，相当于把余数抹除了。这样`QS_glbFilter_[]`就能定位到该id对应的字节,如255对应第32个字节，46对应第5个字节。然后再以上一步余数（和7进行与操作）为`mask`找到对应的位，代码中就是将1左移余数值生成一个字节8位里的某个mask。如46余数是6，1左移6位，mask就是0x40，找到第5个字节中的0x40 mask对应的位
+
+> 上述表达式中需要重复计算的部分可以作为编译时常数值。 如(QS_glbFilter_[5] & 0x40) != 0)
+
+> 这里将QS_glbFilter_定义为单字节数组而不是多字节数组是为了兼容性。
+
+- 宏`QS_FILTER_ON(rec_)`: 打开和记录 rec_ 对应的位
+- 宏`QS_FILTER_OFF(rec_)`: 关闭和记录 rec_ 相对应的位
+
+##### 本地过滤器
+
+以对象为单位管理过滤器。如只开启对某个活动对象的打印，关闭其他的
+
+对象类型有：状态机、活动对象、内存池、事件队列、时间事件、一般的应用程序对象
+
+#### QS 数据协议
+
+类似HDLC协议
+
+QS 协议被特别设计用来简化在目标系统里的数据管理的开销，同时允许探测到任何由于追踪缓存不足造成的`数据丢失`。这个协议不但可以探测到在数据和其他错误之间的缺陷，而且允许在任何错误后立即`重新同步`，把数据丢失减到最小。
+
+![qstransport](../assets/img/2022-07-27-quantum-platform-1/qstransport.jpg)
+
+帧序号+记录类型ID+数据域+校验码+帧尾标记
+
+##### 透明
+
+就是对帧内出现的帧尾标记字节(0x7E)做`转义`
+
+使用0x7D做转义前导符，对0x7E做转义，当然0x7D本身也要转义，方法为对要转义的字符和0x20异或
+
+一个例子也许可以更清楚的说明这点。假设以下的追踪记录需要被插入追踪缓存（透明字节用粗
+体字显示）：
+
+```plaintext
+Record ID = 0x7D, Record Data = 0x7D 0x08 0x01
+```
+
+假设当前的帧顺序号码是 0x7E，校验和通过计算下列字节而得到：
+
+```plaintext
+Checksum == (uint8_t)(~(0x7E + 0x7D + 0x7D + 0x08 + 0x01)) == 0x7E
+```
+
+实际被插入到 QS 追踪缓存的帧如下：
+
+```plaintext
+0x7D 0x5E 0x7D 0x5D 0x7D 0x5D 0x08 0x01 0x7D 0x5E 0x7E
+```
+
+##### 大小端
+
+QS 传输协议规定了数据是小端（ little-endian ）
+
+高位高地址，低位低地址，优先传输低位
+
+#### QS 追踪缓存区
+
+追踪缓存区内保存的就是`HDLC`帧
+
+特点：
+
+- 第一，在追踪缓存使用 HDLC 格式的数据，允许把向追踪缓存插入数据和从指针缓存已走数据
+解除耦合。可以按个数丢弃，**无需考虑边界(自动检测边界)**
+- 第二，在缓存里使用格式化的数据能够使用“最后的是最好的”追踪策略。因为`校验码`可以检测**覆盖导致的错误**，自动丢弃被覆盖的数据
+
+##### 初始化 QS 追踪缓存区 QS_initBuf()
+
+需要为 QS 追踪缓存分配`静态存储`，当日志数据量大时，缓存也要大，防止绕尾破坏数据（虽然该错误能被检测和处理，但数据还是丢了）
+
+```c
+#ifdef Q_SPY /* define QS callbacks */
+uint8_t QS_onStartup(void const *arg)
+{
+    static uint8_t qsBuf[2 * 1024]; /* buffer for Quantum Spy */
+    QS_initBuf(qsBuf, sizeof(qsBuf));
+
+    // Initialize the QS data link
+    ...
+
+    return success; /* return 1 for success and 0 for failure */
+}
+#endif
+```
+
+#### 面向字节的接口： QS_getByte()
+
+可以在任何时候从缓存移走一个字节
+
+函数 QS_getByte() 不上锁中断，也不是可重入的。也就是用的时候要应用自己加锁
+
+TODO：为什么要这么设计，函数体内关中断不行吗
+
+```c
+QF_INT_LOCK(igonre);
+while ((fifo != 0) && ((b = QS_getByte()) != QS_EOD)) /* get the next byte */
+{
+    QF_INT_UNLOCK(igonre);
+    // 从缓存读取(移走)一个字节放入TX发送缓存
+    outportb(l_base + 0, (uint8_t)b); /* insert byte into TX FIFO */
+    --fifo;
+
+    QF_INT_LOCK(igonre);
+}
+QF_INT_UNLOCK(igonre);
+```
+
+#### 面向块的接口： QS_getBlock()
+
+获取一个块，fifo入参表示希望获取的长度，出参表示实际获得长度。函数返回块起始指针
+
+需要应用加锁
+
+返回长度小于输入长度时表示缓存读尽或还有回绕，再读一次，如果长度是0表示缓存读尽
+
+```c
+uint16_t fifo = UART_16550_TXFIFO_DEPTH; /* 16550 Tx FIFO depth */
+uint8_t const *block;
+QF_INT_LOCK(dummy);
+block = QS_getBlock(&fifo); /* try to get next block to transmit */
+QF_INT_UNLOCK(dummy);
+while (fifo-- != 0) { /* any bytes in the block? */
+    outportb(l_uart_base + 0, *block++);
+}
+```
+
+#### 字典追踪记录
+
+当你编译并把应用程序映像装入目标系统后，关于对象名，函数名和信号名的符号信息被从代码中剥离。
+
+QS 提供了专门的追踪记录，特别被设计用来在追踪记录本身包含目标代码的`符号信息`。用于QSPY 主机应用程序的包含在追踪记录里的`字典记录`，非常类似传统的`单步调试器`使用的嵌入在目标文件里的`符号信息`。
+
+QS 支持 3 类字典追踪记录：对象字典，函数字典和信号字典。
+
+- 对象字典
+  用宏 `QS_OBJ_DICTONARY()` 来生成对象字典，它把对象在内存的`地址`和它的`符号名`联合起来。
+
+  ```c
+  // 通过活动对象0的内存地址获取对象的名字
+  QS_OBJ_DICTIONARY(&l_philo[0]);
+  ```
+
+- 函数字典
+  使用宏 `QS_FUN_DICTONARY()` 来生成函数字典，它把`函数`在内存的`地址`和它的`符号名`联系起来。
+  
+- 信号字典
+  使用宏 `QS_SIG_DICTONARY()` 来生成信号字典，它把事件信号的`数值`和`状态机对象`这两者和信号的`符号名`联系起来。
+
+  同时使用信号的数值和状态对象的理由是，仅使用信号值不能有效的把符号化信号区分出来。只有全局发行的信号在系统范围内才是唯一的。其他信号，仅在本地使用，在系统的不同状态机里有完全不同的意义。
+
+#### 应用程序相关的 QS 追踪记录
+
+应用程序相关的 QS 记录允许你从应用层代码生成追踪信息。你可以把应用相关的记录想像成和 `printf()` 等效的功能，但是它有更少的开销。
+
+```c
+QS_BEGIN(MY_QS_RECORD, myObjectPointer) /* trace record begin */
+  QS_STR("Hello"); /* string data element */
+  QS_U8(3, n); /* uint8_t data, 3-decimal digits format */
+  . . . /* QS data */
+  QS_MEM(buf, sizeof(buf)); /* memory block of a given size */
+QS_END() /* trace record end */
+```
+
+由QS_BEGIN开始，QS_BEGIN自带上锁功能，参数为一个QS记录类型MY_QS_RECORD（用于[全局过滤器](#全局开关过滤器)）和一个对象指针myObjectPointer（用于[本地过滤器](#本地过滤器)）
+
+![qsapp](../assets/img/2022-07-27-quantum-platform-1/qsapp.jpg)
+
+上图是上述示例代码的表示
+
+#### 移植和配置 QS
+
+修改qs_port.h
+
+### QSPY 主机应用程序
+
+使用C++实现，它的用途仅是提供 QS 数据语法分析，存储，并把数据输出到其他强大的工具比如 MATLAB。
+
+### 向 MATLAB 输出追踪数据
+
+略
+
+### 向 QP 应用程序添加 QS 软件追踪
+
+```c
+#include "qp_port.h"
+#include "dpp.h"
+#include "bsp.h"
+/* Local-scope objects -----------------------------------------------------*/
+static QEvent const *l_tableQueueSto[N_PHILO];
+static QEvent const *l_philoQueueSto[N_PHILO][N_PHILO];
+static QSubscrList l_subscrSto[MAX_PUB_SIG];
+static union SmallEvent
+{
+    void *min_size;
+    TableEvt te;
+    /* other event types to go into this pool */
+} l_smlPoolSto[2 * N_PHILO]; /* storage for the small event pool */
+/*..........................................................................*/
+int main(int argc, char *argv[])
+{
+    uint8_t n;
+    Philo_ctor();         /* instantiate all Philosopher active objects */
+    Table_ctor();         /* instantiate the Table active object */
+    BSP_init(argc, argv); /* initialize the BSP (including QS) */
+    QF_init();            /* initialize the framework and the underlying RT kernel */
+    /* setup the QS filters ... */
+    // 全局过滤器默认全禁止，这里全开一下
+    QS_FILTER_ON(QS_ALL_RECORDS);
+    // 关闭一些打印较频繁的记录类型（全局过滤器）
+    QS_FILTER_OFF(QS_QF_INT_LOCK);
+    QS_FILTER_OFF(QS_QF_INT_UNLOCK);
+    QS_FILTER_OFF(QS_QK_SCHEDULE);
+    /* provide object dictionaries... */
+    // 创建对象字典
+    QS_OBJ_DICTIONARY(l_smlPoolSto);
+    QS_OBJ_DICTIONARY(l_tableQueueSto);
+    QS_OBJ_DICTIONARY(l_philoQueueSto[0]);
+    QS_OBJ_DICTIONARY(l_philoQueueSto[1]);
+    QS_OBJ_DICTIONARY(l_philoQueueSto[2]);
+    QS_OBJ_DICTIONARY(l_philoQueueSto[3]);
+    QS_OBJ_DICTIONARY(l_philoQueueSto[4]);
+    QF_psInit(l_subscrSto, Q_DIM(l_subscrSto)); /* init publish-subscribe */
+    /* initialize event pools... */
+    QF_poolInit(l_smlPoolSto, sizeof(l_smlPoolSto), sizeof(l_smlPoolSto[0]));
+    for (n = 0; n < N_PHILO; ++n)
+    { /* start the active objects... */
+        QActive_start(AO_Philo[n], (uint8_t)(n + 1),
+                      l_philoQueueSto[n], Q_DIM(l_philoQueueSto[n]),
+                      (void *)0, 0, (QEvent *)0);
+    }
+    QActive_start(AO_Table, (uint8_t)(N_PHILO + 1),
+                  l_tableQueueSto, Q_DIM(l_tableQueueSto),
+                  (void *)0, 0, (QEvent *)0);
+    QF_run(); /* run the QF application */
+    return 0;
+}
+```
+
+#### 定义平台相关的 QS 回调函数
+
+```c
+#include "qp_port.h"
+#include "dpp.h"
+#include "bsp.h"
+...
+/* Local-scope objects -----------------------------------------------------*/
+#ifdef Q_SPY
+    static uint16_t l_uart_base; /* QS data uplink UART base address */
+...
+#define UART_16550_TXFIFO_DEPTH 16
+#endif
+...
+/*..........................................................................*/
+void
+BSP_init(int argc, char *argv[])
+{
+    char const *com = "COM1";
+    uint8_t n;
+    if (argc > 1)
+    {
+        l_delay = atol(argv[1]); /* set the delay counter for busy delay */
+    }
+    if (argc > 2)
+    {
+        com = argv[2];
+        (void)com; /* avoid compiler warning if Q_SPY not defined */
+    }
+    // QS未启用，QS_INIT()未自定义时，总是返回True
+    if (!QS_INIT(com))
+    { /* initialize QS */
+        // 断言
+        Q_ERROR();
+    }
+    ...
+}
+/*..........................................................................*/
+// 在空闲循环里， QK 可抢占式内核调用 QK_onIdle()回调函数
+void QK_onIdle(void)
+{
+#ifdef Q_SPY
+    if ((inportb(l_uart_base + 5) & (1 << 5)) != 0)
+    {                                            /* Tx FIFO empty? */
+        uint16_t fifo = UART_16550_TXFIFO_DEPTH; /* 16550 Tx FIFO depth */
+        uint8_t const *block;
+        QF_INT_LOCK(dummy);
+        block = QS_getBlock(&fifo); /* try to get next block to transmit */
+        QF_INT_UNLOCK(dummy);
+        while (fifo-- != 0)
+        { /* any bytes in the block? */
+            outportb(l_uart_base + 0, *block++);
+        }
+    }
+#endif
+}
+...
+/*--------------------------------------------------------------------------*/
+#ifdef Q_SPY /* define QS callbacks */
+/*..........................................................................*/
+// 配置 80x86 系列 PC 的某个标准 UART （ COM1 到 COM4 ）
+static uint8_t
+UART_config(char const *comName, uint32_t baud)
+{
+    switch (comName[3])
+    { /* Set the base address of the COMx port */
+    case '1':
+        l_uart_base = (uint16_t)0x03F8;
+        break; /* COM1 */
+    case '2':
+        l_uart_base = (uint16_t)0x02F8;
+        break; /* COM2 */
+    case '3':
+        l_uart_base = (uint16_t)0x03E8;
+        break; /* COM3 */
+    case '4':
+        l_uart_base = (uint16_t)0x02E8;
+        break; /* COM4 */
+    default:
+        return (uint8_t)0; /* COM port out of range failure */
+    }
+    baud = (uint16_t)(115200UL / baud);       /* divisor for baud rate */
+    outportb(l_uart_base + 3, (1 << 7));      /* Set divisor access bit (DLAB) */
+    outportb(l_uart_base + 0, (uint8_t)baud); /* Load divisor */
+    outportb(l_uart_base + 1, (uint8_t)(baud >> 8));
+    outportb(l_uart_base + 3, (1 << 1) | (1 << 0));            /* LCR:8-bits,no p,1stop */
+    outportb(l_uart_base + 4, (1 << 3) | (1 << 1) | (1 << 0)); /*DTR,RTS,Out2*/
+    outportb(l_uart_base + 1, 0);                              /* Put UART into the polling FIFO mode */
+    outportb(l_uart_base + 2, (1 << 2) | (1 << 0));            /* FCR: enable, TX clear */
+    return (uint8_t)1;                                         /* success */
+}
+/*..........................................................................*/
+// 初始化 QS 构件
+uint8_t QS_onStartup(void const *arg)
+{
+    static uint8_t qsBuf[2 * 1024]; /* buffer for Quantum Spy */
+    // 初始化 QS 追踪缓存
+    QS_initBuf(qsBuf, sizeof(qsBuf));
+    return UART_config((char const *)arg, 115200UL);
+}
+/*..........................................................................*/
+// 执行 QS 的清理工作
+void QS_onCleanup(void)
+{
+}
+/*..........................................................................*/
+// 回调函数 QS_onFlush() 把整个追踪缓存发送给主机。在每个字典追踪记录后调用这个函数， 用来避免在系统初始化时追踪缓存的溢出。
+void QS_onFlush(void)
+{
+    uint16_t fifo = UART_16550_TXFIFO_DEPTH; /* 16550 Tx FIFO depth */
+    uint8_t const *block;
+    QF_INT_LOCK(dummy);
+    while ((block = QS_getBlock(&fifo)) != (uint8_t *)0)
+    {
+        QF_INT_UNLOCK(dummy);
+        /* busy-wait until TX FIFO empty */
+        // 忙等待意味着阻塞，所有这个函数仅能在初始化时调用
+        while ((inportb(l_uart_base + 5) & (1 << 5)) == 0)
+        {
+        }
+
+        while (fifo-- != 0)
+        { /* any bytes in the block? */
+            outportb(l_uart_base + 0, *block++);
+        }
+        fifo = UART_16550_TXFIFO_DEPTH; /* re-load 16550 Tx FIFO depth */
+        QF_INT_LOCK(dummy);
+    }
+    QF_INT_UNLOCK(dummy);
+}
+/*..........................................................................*/
+// 获取时间戳
+QSTimeCtr QS_onGetTime(void)
+{ /* see Listing 11.18 */
+    ...
+}
+#endif /* Q_SPY */
+/*--------------------------------------------------------------------------*/
+```
+
+#### 使用回调函数 QS_onGetTime() 产生 QS 时间戳
+
+8254芯片的计时器 0 是一个 16位`向下`计数器，它被设置成当它从 0xFFFF 到 0 `下溢时`产生标准的 18.2Hz时钟节拍中断。 计数速率是 1.193182MHz ，大约每个计数是 0.838 微秒。
+
+每次系统节拍中断就记一次0x10000，精度就是0x10000，还要获取`更精细`的值就要读上面说的计时器了，它的值会从 0xFFFF 到 0 。中断计数成上0x10000加上计数器的值就是完整的值了。
+
+有个问题就是如果系统节拍中断丢失，就会少加0x10000，需要通过手段规避
+
+```c
+/* Local-scope objects -----------------------------------------------------*/
+#ifdef Q_SPY
+    static QSTimeCtr l_tickTime; /* keeps timestamp at tick */
+    static uint32_t l_lastTime;  /* last timestamp */
+#endif
+...
+// 系统时钟节拍中断
+void interrupt ISR_tmr(void)
+{
+    uint8_t pin;
+#ifdef Q_SPY
+    // 在中断处理程序里加0x10000
+    l_tickTime += 0x10000; /* add 16-bit rollover */
+#endif
+    QK_ISR_ENTRY(pin, TMR_ISR_PRIO); /* inform QK about entering the ISR */
+    QF_tick();                       /* call QF_tick() outside of critical section */
+    QK_ISR_EXIT(pin);                /* inform QK about exiting the ISR */
+}
+/*..........................................................................*/
+#ifdef Q_SPY /* define QS callbacks */
+...
+// 总是在代码的某个临界区调用 QS_onGetTime() 函数。
+QSTimeCtr QS_onGetTime(void)
+{ /* invoked with interrupts locked */
+    uint32_t now;
+    uint16_t count16; /* 16-bit count from the 8254 */
+    if (l_tickTime != 0) // 系统节拍器已使能
+    {                                              /* time tick has started? */
+        // 8254的计数器 0 被锁住。这样才能安全读取
+        outportb(0x43, 0);                         /* latch the 8254's counter-0 count */
+        count16 = (uint16_t)inportb(0x40);         /* read the low byte of counter-0 */
+        count16 += ((uint16_t)inportb(0x40) << 8); /* add on the hi byte */
+        now = l_tickTime + (0x10000 - count16);
+        // 说明丢失了一次系统节拍中断（这个检查假设 QS_onGetTime() 在每个回绕周期被调用一次。）
+        // 因为每个中断周期内都调用一次，所以now正常肯定是大于l_lastTime的
+        // 当然如果丢了两个中断就没办法了
+        if (l_lastTime > now)
+        {                   /* are we going "back" in time? */
+            // 手动加1
+            now += 0x10000; /* assume that there was one rollover */
+        }
+        l_lastTime = now;
+    }
+    else // 系统节拍器还未使能
+    {
+        now = 0;
+    }
+    return (QSTimeCtr)now;
+}
+#endif /* Q_SPY */
+```
+
+#### 
+
+## 问题
+
+1. 单过程处理时间，是否在DMA时主动让出控制权（时间较短，让出利用率也低，还有一致性问题）
+2. 内存分配，由于没有栈空间，需要堆类型的空间（QP自带的内存池）
+3. state local memory，每个AO自己的内部变量，即使是临时变量也会占用固定空间，为了退出后下次进入状态时使用，如果是临时变量会浪费空间
 
 ## 参考
 
