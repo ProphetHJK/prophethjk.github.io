@@ -57,7 +57,23 @@ tags: [quantum platform, QP状态机]
     - [时间管理](#时间管理)
     - [系统时钟节拍](#系统时钟节拍)
   - [错误和例外的处理](#错误和例外的处理)
+  - [基于框架的软件追踪](#基于框架的软件追踪)
 - [实时框架的实现](#实时框架的实现)
+  - [QF 实时框架的关键特征](#qf-实时框架的关键特征)
+  - [QF 的结构](#qf-的结构)
+    - [QF 源代码的组织](#qf-源代码的组织)
+  - [QF 里的临界区](#qf-里的临界区)
+    - [保存和恢复中断状态](#保存和恢复中断状态)
+    - [无条件上锁和解锁中断](#无条件上锁和解锁中断)
+    - [中断上锁/解锁的内部 QF 宏](#中断上锁解锁的内部-qf-宏)
+  - [主动对象](#主动对象)
+    - [活动对象的内部状态机](#活动对象的内部状态机)
+    - [活动对象的事件队列](#活动对象的事件队列)
+    - [执行线程和活动对象优先级](#执行线程和活动对象优先级)
+  - [QF 的事件管理](#qf-的事件管理)
+    - [事件的结构](#事件的结构)
+    - [动态事件分配](#动态事件分配)
+    - [自动垃圾收集](#自动垃圾收集)
 - [移植和配置 QF](#移植和配置-qf)
   - [QP 平台抽象层](#qp-平台抽象层)
     - [生成 QP 应用程序](#生成-qp-应用程序)
@@ -86,7 +102,8 @@ tags: [quantum platform, QP状态机]
   - [向 QP 应用程序添加 QS 软件追踪](#向-qp-应用程序添加-qs-软件追踪)
     - [定义平台相关的 QS 回调函数](#定义平台相关的-qs-回调函数)
     - [使用回调函数 QS_onGetTime() 产生 QS 时间戳](#使用回调函数-qs_ongettime-产生-qs-时间戳)
-    - [](#)
+    - [从主动对象产生 QS 字典](#从主动对象产生-qs-字典)
+    - [添加应用程序相关的追踪记录](#添加应用程序相关的追踪记录)
 - [问题](#问题)
 - [参考](#参考)
 
@@ -1204,7 +1221,7 @@ while (QEP_TRIG_(t, Q_INIT_SIG) == Q_RET_TRAN)
 
 应用程序包含了多个`活动对象`，每个都封装了一个`控制线程（事件循环）`，一个私有的`事件队列`和一个`状态机`。
 
-- `控制线程（事件循环）`: 图(a)中为一个环形标记，具体见图(b)，事件循环调用和这个活动对象联合的 dispatch()函数。 dispatch()函数执行调度和处理事件的工作， 类似于在传统事件驱动型架构的事件处理函数。
+- `控制线程（事件循环）`: 图(a)中为一个环形标记（方框右下角），具体见图(b)，事件循环调用和这个活动对象联合的 dispatch()函数。 dispatch()函数执行调度和处理事件的工作， 类似于在传统事件驱动型架构的事件处理函数。
 - `事件队列`：(a)中的 event queue
 - `状态机`：(a)中的 internal state machine
 
@@ -1226,9 +1243,9 @@ while (QEP_TRIG_(t, Q_INIT_SIG) == Q_RET_TRAN)
 
 #### 封装
 
-封装意味着活动对象 不共享数据和任何其他资源。
+封装意味着活动对象`不共享数据`和任何其他资源。
 
-数据通过消息机制传递
+数据通过`消息`机制传递
 
 ### 事件派发机制
 
@@ -1289,7 +1306,7 @@ while (QEP_TRIG_(t, Q_INIT_SIG) == Q_RET_TRAN)
 
 `堆`一般有碎片化、泄露、悬空指针、难以预测、无法重入、空间浪费（管理信息）等问题
 
-内存池会有一定优势，QF 实时框架，可以管理多达 3 个拥有不同块尺寸（小，中，大）的事件池。
+内存池会有一定优势，QF 实时框架，可以管理多达 3 个拥有不同块尺寸（`小，中，大`）的事件池。
 
 #### 时间管理
 
@@ -1311,7 +1328,7 @@ while (QEP_TRIG_(t, Q_INIT_SIG) == Q_RET_TRAN)
 
 ![systemtick](/assets/img/2022-07-27-quantum-platform-1/systemtick.jpg)
 
-高优先级的任务能更及时获得节拍，且跳动(jitter)较少。
+`高优先级`的任务能更`及时`获得节拍，且跳动(jitter)较少。
 
 一个仅为了一个节拍而准备的时间事件会立刻过期，比如上图第 3 个节拍处理时已经在第 4 个节拍之后了，因为还在处理第 3 个节拍对应的的事件动作，可能会导致第 4 个节拍事件`没有产生`(类似中断丢失)，导致第 4 个节拍对应的动作无法执行。解决方法是事件要对应两个节拍，也就是原来指定第 4 个节拍发生的动作应该指定为 4 和 5 都能发生。
 
@@ -1319,17 +1336,462 @@ while (QEP_TRIG_(t, Q_INIT_SIG) == Q_RET_TRAN)
 
 契约式设计 Design by Contract, DbC 方法
 : 通过`断言assertion`来保证程序正常，它们既`不预防`错误也实际上`不处理`错误
+: 更适合小型系统，正常状态不应该有错误，有错误就复位，不允许跑飞的程序继续运行
 
 防御式编程
 : 通过接收`更宽范围`的输入或允许操作的次序不必定符合对象的状态，让操作对错误更加`强壮`。
+: 适合大型系统，尽可能规避错误，即使有错误也要尝试处理和恢复，不能退出进程或重启。因为大型系统运行有很高的不确定性，比如用户的输入无法预测。
 
 QF 框架规定了一些`断言宏`来处理错误
+
+### 基于框架的软件追踪
+
+简单的讲，软件追踪类似于在代码里安排一些 printf()语句，它被称为`检测代码`，记录并分析以后从目标系统取回来的所感兴趣的分立事件。当然，一个好的软件追踪检测设备可以做到比简单的 printf()更少的侵入并更有效。
+
+从框架自身得到的软件追踪数据，允许你为全部系统里的活动对象生成完整的，带有时间戳的顺序图和详细的状态机活动图。
+
+使用 QS 构件(Q-Spy)实现
 
 ## 实时框架的实现
 
 QF 框架的代码实现详解，对上一章的补充
 
-TODO：还未看
+### QF 实时框架的关键特征
+
+- 可移植性
+
+  所以 QF 源代码使用可移植的 ANSI-C ，或者[`嵌入式 C++子集`](http://www.caravan.net/ec2plus/)（wiki 上说这个项目从 2002 年开始就停止了，而且 C++之父也不看好）编写，所有处理器相关的，编译器相关的，或操作系统相关的代码被抽象成一个清楚定义的平台抽象层 PAL（ platform abstraction layer）。
+
+- 可伸缩性
+
+  QF 被设计用于一个`细粒度`的对象库的部署，你可以静态的把它链接到你的应用程序。这个策略把责任交给链接器，让它在链接时自动排除任何没用到的代码，应用程序员不需为每个应用程序在编译时刻去配置 QF 代码。
+
+- 对现代状态机的支持
+
+  QF 实时框架被设计为和 QEP 层次式事件处理紧密的工作，QEP 提供了 UML 兼容的直接实现，而 QF 提了并发执行这类状态机的基础设施。
+
+- 直接事件发送和发布 - 订阅式事件派发
+
+  QF 实时框架支持使用 FIFO 和 LIFO 策略对特点活动对象进行直接事件发送。QF 也支持更加先进的发行 - 订阅事件派发机制。
+
+- 零复制的事件内存管理
+
+  QF 支持 事件的基于引用计数算法的多路发送，对事件的`自动垃圾收集`，`高效`的静态事件，“`零复制`”事件延迟， 和可多多达 3 个为了最佳内存使用而拥有`不同块尺寸`的`事件池`。
+
+- 开放式序号的时间事件
+
+  每个时间事件可以被作为一个一次性或周期性超时发生器而被激活。只有被激活（ active ） 的时间事件才消耗 CPU 周期。
+
+- 原生的事件队列
+
+  QF 提供原生事件队列的 2 个版本。
+
+  第一个版本是为活动对象优化的，包含一个可移植的可以为`阻塞型内核`、`简单的合作式 vanilla 内核`或 `QK 可抢占型内核`而做修改的层。
+
+  第二个版本是一个简单的“线程安全的”队列，它不能阻塞，被设计为给中断发送事件和存储延迟的事件。
+
+- 原生的内存池
+
+  QF 提供了一个快的，可确定的，和线程安全的内场池。 QF 在内部把内存池作为管理动态事件的事件池，但是你也可以为了在你系统中分配任何其他对象而使用内存池。
+
+- 内置 Vanilla 调度器
+
+  QF 实时框架包含了一个可移植的，合作式 vanilla 内核
+
+- 和 QK 可抢占式内核的紧密集成
+
+  QF 实时框架也可以和可确定的，可抢占的，非阻塞 QK 内核工作。
+
+- 低功耗构架
+
+  绝大多数嵌入式微处理器 MCU 提供了一个低功耗睡眠模式的选择，用来通过调节给 CPU 和其他外设的时钟来节省能量。睡眠模式通过软件控制进入，在某个外部中断时退出。
+
+- 基于断言的错误处理
+
+  契约式设计（ DbC）哲学
+
+- 内置软件追踪测试设备
+
+  一个实时框架可以使用软件追踪技术提供比任何传统的 RTOS 更广泛和更详细的，关于运行中应用系统的信息。关闭 Q_SPY 宏时不产生空间和性能开销
+
+### QF 的结构
+
+![qf](/assets/img/2022-07-27-quantum-platform-1/qf.jpg)
+
+QF 提供了核心基本类 `QActive` ，用于活动对象类的派生。 `QActive` 类是`抽象`的，意味着它不是打算用于被直接实例化，而是为了派生具体的活动对象类，比如图内的`Ship`，`Missile`和 `Tunnel` 。
+
+QActive 类默认是从在 `QEP`事件处理器的 `QHsm` 层次式状态机类`派生`。这意味着，凭借着继承，`活动对象`是 HSM，并继承了 init() 和 dispatch() 状态机接口。 QActive 也包含了一个`执行线程`和一个`事件队列`，它可以是原生的 QF 类，或者由底层 RTOS 提供。
+
+和`QEP`事件处理器一样， QF 使用同样的 `QEvent` 类来表示事件。另外，框架提供了时间事件类 `QTimeEvt`，应用程序使用它来产生超时请求。
+
+QF 也提供了几个服务给应用程序，它们没有在图的类图展示出来。这些额外的 QF 服务包括`生成新的动态事件` (Q_NEW()) ，`发行事件`（ QF_publish()），`原生 QF 事件队列类` (QEQueue) ，`原生 QF 内存池类`（ QMPool ），和内建的`合作式 vanilla 内核`
+
+#### QF 源代码的组织
+
+QF 源代码文件典型地每个文件`只包含`一个函数或一个数据结构的定义。这个设计是为了把 QF 当作一个`细粒度`的库来部署，你可以静态的把它和你的应用程序链接。
+
+这个策略把负担交给`链接器`，让它去在链接时排除任何没用的代码，而不是让程序员为每个应用程序在编译时配置 QF 代码。
+
+TODO:新版本还是这样的吗，感觉整合了不少
+
+### QF 里的临界区
+
+QF 和其他任何系统层软件一样，必须保护某些指令的顺序不被破坏从而担保线程安全的操作。这个必须被`不可分割`地执行的代码区被称为`临界区`。
+
+`嵌入式`系统可以在进入临界区时`关中断`，在从临界区退出时`解锁中断`。
+
+在不允许锁中断的系统里， QF 可以采用其他的由底层`操作系统`支持的机制，比如`互斥体`（ mutex ）
+
+QF 平台抽象层包含 了 2 个宏 QF_INT_LOCK()和 QF_INT_UNLOCK() ，分别用来`进入临界区`和`退出临界区`。
+
+#### 保存和恢复中断状态
+
+一种临界区实现方式：
+
+```c
+{
+  unsigned int lock_key;
+  . . .
+  // 关中断前保存当前中断状态，用于后面恢复
+  lock_key = get_int_status();
+  // 关闭中断，功能由编译器提供
+  int_lock();
+  . . .
+  /* critical section of code */
+  . . .
+  // 恢复中断状态，相当于开中断
+  set_int_status(lock_key);
+  . . .
+}
+```
+
+用于实现这个功能的宏定义：
+
+```c
+// 这个宏用于在预编译时告诉QF框架是否使用“保存和恢复中断状态”策略(该宏定义)，
+// 还是下一节的“无条件锁住和解锁中断”策略(该宏不定义)
+#define QF_INT_KEY_TYPE unsigned int
+#define QF_INT_LOCK(key_)          \
+    do                             \
+    {                              \
+        (key_) = get_int_status(); \
+        int_lock();                \
+    } while (0)
+#define QF_INT_UNLOCK(key_) set_int_status(key_)
+```
+
+> QF_INT_LOCK()宏的 do {…} while (0) 循环是语法正确的用来`组合指令`的`标准做法`。你确信这个宏可以被安全的用于 `if-else` 语句（在宏后加分号），而不会造成[“悬吊 if”（ dangling-if ）](https://en.wikipedia.org/wiki/Dangling_else)问题。
+
+“保存和恢复中断状态”政策的主要优点是可以`嵌套临界区`的能力。当 QF 函数从一个已经建立的临界段比如 ISR 里调用时，且`部分处理器`在进入 ISR 后自动关中断(进临界区)，需要在 ISR 内部先解锁中断才能使用 QF 函数(详见下节例子)，如果做不到就需要使用上述的办法`嵌套临界区`。
+
+> 为什么要解锁中断才能调用 QF 函数
+
+#### 无条件上锁和解锁中断
+
+```c
+/* QF_INT_LOCK_KEY not defined */
+#define QF_INT_LOCK(key_) int_lock()
+#define QF_INT_UNLOCK(key_) int_unlock()
+```
+
+“无条件上锁和解锁”策略是简单和快捷的，但是不允许临界区的嵌套，理由见上节
+
+使用一个`基于优先级`的中断控制器时一个 ISR 的常规结构：
+
+```c
+// 这是个ISR中断处理程序
+// 绝大多数控制器在进入 ISR 时，中断被硬件上锁。中断控制器被关闭，所有中断被关闭，不论优先级
+// 不能嵌套临界区并不意味着你不能嵌套中断。许多处理器拥有基于优先级的中断控制器
+void interrupt ISR(void) { /* entered with interrupts locked in hardware */
+    // 中断控制器必须被通知要进入这个中断。这个通知常在定向（跳转）到 ISR 之前自动在硬件层发生。
+    Acknowledge the interrupt to the interrupt controller (optional)
+    // 如果中断源是电平触发的，你需要明确的清除它，以便触发下一次该中断。
+    // 因为这里同优先级的中断也被关闭了，本来就不能触发，所以之后清除也没关系
+    Clear the interrupt source, if level triggered
+    // 如果之前被关中断了就执行开中断，使能中断控制器，这样高优先级的中断可以执行，
+    // 更低或相同优先级的中断依旧不能执行。此时临界区结束
+    QF_INT_UNLOCK(dummy); /* unlock the interrupts at the processor level */
+    // 主 ISR 代码在临界区外执行，因此 QF 可以被安全的调用而不需嵌套临界区。
+    Handle the interrupt, use QF calls, e.g., QF_tick(), Q_NEW or QF_publish()
+    // 中断被锁住，为中断的离开建立临界区。
+    QF_INT_LOCK(dummy); /* lock the interrupts at the processor level */
+    // EOI (end of interrupt) 指令被发往中断控制器，停止这个中断的优先权
+    Write End-Of-Interrupt (EOI) instruction to the Interrupt Controller
+    // 由编译器提供的中断退出步骤，从堆栈恢复 CPU寄存器，包括 CPU状态寄存器。典型地这个步骤会解锁中断。
+}
+```
+
+> `基于优先级`的中断控制器`记忆`当前所服务的中断的优先级，并仅允许比当前优先级高的中断抢占这个 ISR 。`较低`的或`相同`优先级的中断在中断控制器层次被`锁住`，`即使`这些中断在处理器层次`被解锁`。中断优先排序发生在中断控制器硬件层，直到中断控制器接受到中断结束 EOI 指令为止。
+
+> TODO: 开中断是为了什么？是不是为了防止执行主 ISR 代码(QF 函数)的过程太长导致临界区时间太长。还是为了主 ISR 代码执行时需要用到某些中断
+
+#### 中断上锁/解锁的内部 QF 宏
+
+QF 平台抽象层 (platform abstraction layer)PAL 使用中断上锁/解锁宏`QF_INT_LOCK()`， `QF_INT_UNLOCK()` ，和 `QF_INT_KEY_TYPE` 。
+
+中断上锁 / 解锁的内部宏:
+
+```c
+#ifndef QF_INT_KEY_TYPE /* simple unconditional interrupt locking/unlocking */
+    #define QF_INT_LOCK_KEY_
+    #define QF_INT_LOCK_() QF_INT_LOCK(ignore)
+    #define QF_INT_UNLOCK_() QF_INT_UNLOCK(ignore)
+#else /* policy of saving and restoring interrupt status */
+    #define QF_INT_LOCK_KEY_ QF_INT_KEY_TYPE intLockKey_;
+    #define QF_INT_LOCK_() QF_INT_LOCK(intLockKey_)
+    #define QF_INT_UNLOCK_() QF_INT_UNLOCK(intLockKey_)
+#endif
+```
+
+末尾带下划线的宏保持使用两种不同策略时的`一致性`（自动选择）
+
+示例：
+
+```c
+void QF_service_xyz(arguments)
+{
+    QF_INT_LOCK_KEY_
+    ...
+    QF_INT_LOCK_();
+    ...
+    /* critical section of code */
+    ...
+    QF_INT_UNLOCK_();
+}
+```
+
+### 主动对象
+
+QF 实时框架提供了基础结构 QActive 用于派生应用程序的特定好的对象。 QActive 结合了后面三个基本要素：
+
+1. 它是一个`状态机`（从 QHsm 或其他拥有兼容接口的类派生）
+2. 它是一个`事件队列`
+3. 它有一个带有唯一优先级的`执行线程`
+
+```c
+// 可以自定义基础类，只要实现了状态机接口，也就是可以不用QEP框架里的QHsm
+#ifndef QF_ACTIVE_SUPER_
+    // 基础类默认为QEP提供的QHsm类
+    #define QF_ACTIVE_SUPER_ QHsm
+    // 基础类构造函数名字
+    #define QF_ACTIVE_CTOR_(me_, initial_) QHsm_ctor((me_), (initial_))
+    // 基础类init初始化函数的名字
+    #define QF_ACTIVE_INIT_(me_, e_) QHsm_init((me_), (e_))
+    // 基础类dispatch()函数的名字
+    #define QF_ACTIVE_DISPATCH_(me_, e_) QHsm_dispatch((me_), (e_))
+    // 基础类构造函数的参数的类型
+    #define QF_ACTIVE_STATE_ QState
+#endif
+typedef struct QActiveTag
+{
+    /// QActive 的基础类(继承)
+    QF_ACTIVE_SUPER_ super; /* derives from QF_ACTIVE_SUPER_ */
+    // 事件队列，可自定义
+    QF_EQUEUE_TYPE eQueue;  /* event queue of active object */
+    // TODO:这个osObject在 #[POSIX的 QF 移植] 中会提到
+#ifdef QF_OS_OBJECT_TYPE
+    QF_OS_OBJECT_TYPE osObject; /* OS-object for blocking the queue */
+#endif
+    // 线程处理
+#ifdef QF_THREAD_TYPE
+    QF_THREAD_TYPE thread; /* execution thread of the active object */
+#endif
+    // 每个主动对象有唯一的优先级
+    uint8_t prio;    /* QF priority of the active object */
+    // 用于一些移植，写入0会终止活动对象
+    uint8_t running; /* flag indicating if the AO is running */
+} QActive;
+
+// 开始执行
+void QActive_start(QActive *me, uint8_t prio,
+                   QEvent const *qSto[], uint32_t qLen,
+                   void *stkSto, uint32_t stkSize,
+                   QEvent const *ie);
+// FIFO方式发送到活动对象的事件队列
+void QActive_postFIFO(QActive *me, QEvent const *e);
+// LIFO方式发送到活动对象的事件队列
+void QActive_postLIFO(QActive *me, QEvent const *e);
+// 构造函数
+void QActive_ctor(QActive *me, QState initial);
+// 停止活动对象执行线程
+void QActive_stop(QActive *me);
+// 和事件订阅相关
+void QActive_subscribe(QActive const *me, QSignal sig);
+void QActive_unsubscribe(QActive const *me, QSignal sig);
+void QActive_unsubscribeAll(QActive const *me);
+// 用于高效的（“零复制”）事件延迟和事件恢复
+void QActive_defer(QActive *me, QEQueue *eq, QEvent const *e);
+QEvent const *QActive_recall(QActive *me, QEQueue *eq);
+// 从活动对象的事件队列每次移除一个事件,这个函数仅被用在 QF 内部，并且从不用于应用程序层
+QEvent const *QActive_get_(QActive *me);
+```
+
+通过把宏 `QF_ACTIVE_XXX_` 定义到你`自己的类`，你可以排除在 `QF` 框架和 `QEP` 事件处理器之间的`依赖性`。
+
+自定义示例：
+
+```c
+#define QF_ACTIVE_SUPER_ MyClass
+#define QF_ACTIVE_CTOR_(me_, ini_) MyClass_ctor((me_), (ini_))
+#define QF_ACTIVE_INIT_(me_, e_) MyClass_init((me_), (e_))
+#define QF_ACTIVE_DISPATCH_(me_, e_) MyClass_dispatch((me_), (e_))
+#define QF_ACTIVE_STATE_ void*
+```
+
+#### 活动对象的内部状态机
+
+每个`活动对象`都是一个`状态机`，如飞行和射击”游戏例子里的 Ship，Missile，或 Tunnel
+
+活动对象由 QHsm 派生，利用`多态`特性可以使用`QHsm指针`使用派生活动对象的`状态机函数`(QEP 层)，所以无论活动对象添加了多少自定义的变量，都可以当作状态机使用。
+
+#### 活动对象的事件队列
+
+QF 的事件队列需要“`多写单读`”的存取权限，可以从其他地方(不同线程)发送事件到活动对象，活动对象线程每次取一个使用。所以需要`读写互斥锁`和`写者互斥锁`
+
+"`零复制`"事件队列不存储实际事件，仅存储执行`事件实例`的`指针`。
+
+可以使用操作系统提供的消息队列，尽管有点大材小用
+
+#### 执行线程和活动对象优先级
+
+活动对象线程的步骤：
+
+```c
+// 从事件队列获取事件，没事件时可以阻塞让线程休眠。
+QEvent const *e = QActive_get_(a);  /* get the next event for AO 'a' */
+// 利用多态使用基类函数和基类指针作为参数执行派生后的函数实现
+QF_ACTIVE_DISPATCH_(&a->super, e)   /* dispatch to the AO 'a' */
+// QF垃圾回收器回收无用的事件
+QF_gc(e);   /* determine if event 'e' is garbage and collect it if so */
+```
+
+QF 应用程序需要`代表`系统里的每个活动对象调用`QActive_start()`函数(启动活动对象)
+
+```c
+void QActive_start(QActive *me,
+                   uint8_t prio,                        /* 唯一优先级，the unique priority */
+                   QEvent const *qSto[], uint32_t qLen, /* 事件队列空间，event queue */
+                   void *stkSto, uint32_t stkSize,      /* 栈空间，per-task stack */
+                   QEvent const *ie)                    /* 初始事件，the initialization event */
+{
+    me->prio = prio;         /* set the QF priority */
+    // 注册到QF
+    QF_add(me);              /* make QF aware of this active object */
+    // 执行在活动对象里的状态机的最顶初始转换,需要配合ie提供的信息
+    QF_ACTIVE_INIT_(me, ie); /* execute the initial transition */
+    // 初始化事件队列
+    Initialize the event queue object 'me->eQueue' using qSto and qLen
+    // 创建活动对象线程
+    Create and start the thread 'me->thread' of the underlying kernel
+}
+```
+
+> “`初始事件`” ie 让你有机会提供一些信息给活动对象，这个活动对象(这里原文用的`which`，是指代上一句的`一些信息`还是`活动对象`？)在后面的初始化过程才被知道（比如，在 GUI 系统里的一个窗口处理句柄）。请注意，（在 C++里）活动对象的构造函数在 main() 之前运行，这时你没有所有的信息来初始化一个活动对象的全部方面。
+
+### QF 的事件管理
+
+“零复制”事件派发方案
+
+1. 被框架管理的`动态`事件
+2. 其他不被 QF 管理的（`静态`分配的）事件
+
+#### 事件的结构
+
+```c
+typedef struct QEventTag { /* QEvent base structure */
+    QSignal sig; /* public signal of the event instance */
+    // 动态还是静态事件
+    uint8_t dynamic_; /* attributes of a dynamic event (0 for static event) */
+} QEvent;
+```
+
+![qeventdyn](/assets/img/2022-07-27-quantum-platform-1/qeventdyn.jpg)
+
+7,6 表示事件池 id(大、中、小、静态 0)，5-0 表示事件引用计数器，引用计数器归 0 才回收
+
+#### 动态事件分配
+
+大中小三个事件池，事件用完空间可回收
+
+```c
+/* Package-scope objects ---------------------------------------------------*/
+// 事件池管理信息，不包含实际空间
+QF_EPOOL_TYPE_ QF_pool_[3]; /* allocate 3 event pools */
+// 实际使用的池的数量
+uint8_t QF_maxPool_;        /* number of initialized event pools */
+/*..........................................................................*/
+void QF_poolInit(void *poolSto, uint32_t poolSize, QEventSize evtSize)
+{
+    /* cannot exceed the number of available memory pools */
+    // 合法性检查
+    Q_REQUIRE(QF_maxPool_ < (uint8_t)Q_DIM(QF_pool_));
+    /* please initialize event pools in ascending order of evtSize: */
+    Q_REQUIRE((QF_maxPool_ == (uint8_t)0) ||
+                (QF_EPOOL_EVENT_SIZE_(QF_pool_[QF_maxPool_ - 1]) < evtSize));
+    /* perfom the platform-dependent initialization of the pool */
+    // 所以框架操作需要的内存由应用程序提供给框架。这里实际分配空间为poolSto指向的内存
+    QF_EPOOL_INIT_(QF_pool_[QF_maxPool_], poolSto, poolSize, evtSize);
+    // 变量 QF_maxPool_ 被增加，表示多个池已被初始化
+    ++QF_maxPool_; /* one more pool */
+}
+```
+
+> 所有 QP 构件，包括 QF 框架，一致地假设，在`系统开始`时，没有明确初始值的变量被`初始化为 0` ，这是 ANSI-C 标准的要求。在嵌入式系统，这个初始化步骤对应于`清除.BSS段`(用来放`全局变量`)。你应该确信在你的系统里，在 main() 被调用前 .BSS 段确实被清除了。
+
+_从最小事件尺寸池分配一个事件的简单策略_:
+
+```c
+QEvent *QF_new_(QEventSize evtSize, QSignal sig)
+{
+    QEvent *e;
+    /* find the pool id that fits the requested event size ... */
+    uint8_t idx = (uint8_t)0;
+    // 从小到大找到合适的池
+    while (evtSize > QF_EPOOL_EVENT_SIZE_(QF_pool_[idx]))
+    {
+        ++idx;
+        Q_ASSERT(idx < QF_maxPool_); /* cannot run out of registered pools */
+    }
+    // 从池中获取e（分配空间）
+    QF_EPOOL_GET_(QF_pool_[idx], e); /* get e -- platform-dependent */
+    // 断言池未枯竭
+    Q_ASSERT(e != (QEvent *)0);      /* pool must not run out of events */
+    e->sig = sig;                    /* set signal for this event */
+    /* store the dynamic attributes of the event:
+     * the pool ID and the reference counter == 0
+     */
+    e->dynamic_ = (uint8_t)((idx + 1) << 6);
+    return e;
+}
+```
+
+#### 自动垃圾收集
+
+动态事件的引用计数器被存储在事件属性 dynamic\_的`低 6 位` LSB 里，发送事件时递增，`归 0` 由 QF 自动检测`回收`
+
+```c
+void QF_gc(QEvent const *e)
+{
+    // 判断是否动态事件
+    if (e->dynamic_ != (uint8_t)0)
+    { /* is it a dynamic event? */
+        QF_INT_LOCK_KEY_
+        QF_INT_LOCK_();
+        if ((e->dynamic_ & 0x3F) > 1)
+        {                              /* isn't this the last reference? */
+            --((QEvent *)e)->dynamic_; /* decrement the reference counter */
+            QF_INT_UNLOCK_();
+        }
+        else
+        { /* this is the last reference to this event, recycle it */
+            uint8_t idx = (uint8_t)((e->dynamic_ >> 6) - 1);
+            QF_INT_UNLOCK_();
+            Q_ASSERT(idx < QF_maxPool_); /* index must be in range */
+            QF_EPOOL_PUT_(QF_pool_[idx], (QEvent *)e);
+        }
+    }
+}
+```
 
 ## 移植和配置 QF
 
@@ -1368,7 +1830,7 @@ QF 包含了一个被清楚定义的`平台抽象层 PAL`（ platform abstractio
 - 带级别过滤器
 - 带可配精度时间戳
 - 探测传输错误并重传机制（高级数据连接控制协议 [High Level Data Link Control, HLDLC]）
-- 轻量级传输API
+- 轻量级传输 API
 
 #### QS 源代码的组织
 
@@ -1425,7 +1887,7 @@ QS 源文件通常在`每个文件`里只包含**一个函数**或**一个数据
 - `qs.h` - QS 功能的所有“活动”接口
 - `qs_dummy.h` - QS 功能的所有“不活动”接口
 
-*qs.h*:
+_qs.h_:
 
 ```c
 #ifndef qs_h
@@ -1541,7 +2003,7 @@ QSTimeCtr QS_onGetTime(void);
 #endif /* qs_h */
 ```
 
-*qs_dummy.h*:
+_qs_dummy.h_:
 
 ```c
 #ifndef qs_dummy_h
@@ -1586,7 +2048,7 @@ QS 目标构件必须保护`追踪缓存`的内部完整性，它在并发运行
 
 然而，当你在**没有** QF 实时框架的情况下使用 QS 时，你需要在`qs_port.h`头文件里定义 QS 的`平台相关`的中断上锁 / 解锁策略
 
-> QS_BEGIN和QS_END()就是利用的`qs_port.h`里定义的锁宏
+> QS_BEGIN 和 QS_END()就是利用的`qs_port.h`里定义的锁宏
 
 自定义的锁*qs_port.h*:
 
@@ -1611,7 +2073,7 @@ QS_END_xxx() /* trace record end */
 - `QS_BEGIN/QS_END()`: 在记录的开始处`上锁`中断，在记录的结尾`解锁`中断。
 - `QS_BEGIN_NOLOCK()/QS_END_NOLOCK()`: 用来创建应用程序相关的记录而`不需进入`临界区，它们仅能被用于某个`临界区内部`。
 
-> TODO:NOLOCK有什么意义
+> TODO:NOLOCK 有什么意义
 
 #### QS 的过滤器
 
@@ -1619,7 +2081,7 @@ QS_END_xxx() /* trace record end */
 
 预定义的类型就是`qs.h`中的`QSpyRecords`枚举型，通过过滤器启用/禁用对应类型的日志记录
 
-全局开 / 关过滤器使用一个位掩码数据`QS_glbFilter_[]`而高效的实现，这个数组的`每一位`代表一个追踪记录。当前 QS_glbFilter_[]包含 32字节，总共 32×8位可以代表 `256` 个不同的追踪记录。其中大约四分之一已经被用于预定义的 QP 追踪记录。剩下四分之三可以用于应用程序。
+全局开 / 关过滤器使用一个位掩码数据`QS_glbFilter_[]`而高效的实现，这个数组的`每一位`代表一个追踪记录。当前 QS*glbFilter*[]包含 32 字节，总共 32×8 位可以代表 `256` 个不同的追踪记录。其中大约四分之一已经被用于预定义的 QP 追踪记录。剩下四分之三可以用于应用程序。
 
 ```c
 #define QS_BEGIN(rec_, obj_) \
@@ -1627,14 +2089,14 @@ QS_END_xxx() /* trace record end */
         & (1U << ((uint8_t)(rec_) & 7U))) != 0) . . .\
 ```
 
-`rec_`表示记录类型枚举id，从0到255，右移三位表示整除8，因为最后三位被右移掉了，相当于把余数抹除了。这样`QS_glbFilter_[]`就能定位到该id对应的字节,如255对应第32个字节，46对应第5个字节。然后再以上一步余数（和7进行与操作）为`mask`找到对应的位，代码中就是将1左移余数值生成一个字节8位里的某个mask。如46余数是6，1左移6位，mask就是0x40，找到第5个字节中的0x40 mask对应的位
+`rec_`表示记录类型枚举 id，从 0 到 255，右移三位表示整除 8，因为最后三位被右移掉了，相当于把余数抹除了。这样`QS_glbFilter_[]`就能定位到该 id 对应的字节,如 255 对应第 32 个字节，46 对应第 5 个字节。然后再以上一步余数（和 7 进行与操作）为`mask`找到对应的位，代码中就是将 1 左移余数值生成一个字节 8 位里的某个 mask。如 46 余数是 6，1 左移 6 位，mask 就是 0x40，找到第 5 个字节中的 0x40 mask 对应的位
 
-> 上述表达式中需要重复计算的部分可以作为编译时常数值。 如(QS_glbFilter_[5] & 0x40) != 0)
+> 上述表达式中需要重复计算的部分可以作为编译时常数值。 如(QS*glbFilter*[5] & 0x40) != 0)
 
-> 这里将QS_glbFilter_定义为单字节数组而不是多字节数组是为了兼容性。
+> 这里将 QS*glbFilter*定义为单字节数组而不是多字节数组是为了兼容性。
 
-- 宏`QS_FILTER_ON(rec_)`: 打开和记录 rec_ 对应的位
-- 宏`QS_FILTER_OFF(rec_)`: 关闭和记录 rec_ 相对应的位
+- 宏`QS_FILTER_ON(rec_)`: 打开和记录 rec\_ 对应的位
+- 宏`QS_FILTER_OFF(rec_)`: 关闭和记录 rec\_ 相对应的位
 
 ##### 本地过滤器
 
@@ -1642,21 +2104,30 @@ QS_END_xxx() /* trace record end */
 
 对象类型有：状态机、活动对象、内存池、事件队列、时间事件、一般的应用程序对象
 
+| 本地过滤器                        | 对象类型           | 例子                                       | 适用的 QS 记录                                                                                                                                                                                        |
+| :-------------------------------- | :----------------- | :----------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| QS_FILTER_SM_OBJ()                | 状态机             | QS_FILTER_SM_OBJ(<br>&l_qhsmTst);          | QS_QEP_STATE_EMPTY,<br>QS_QEP_STATE_ENTRY,<br>QS_QEP_STATE_EXIT,<br>QS_QEP_STATE_INIT,<br>QS_QEP_INIT_TRAN,<br>QS_QEP_INTERN_TRAN,<br>QS_QEP_TRAN,<br>QS_QEP_IGNORED                                  |
+| QS_FILTER_AO_OBJ()                | 活动对象 t         | QS_FILTER_AO_OBJ(<br>&l_philo[3]);         | QS_QF_ACTIVE_ADD,<br>QS_QF_ACTIVE_REMOVE,<br>QS_QF_ACTIVE_SUBSCRIBE,<br>QS_QF_ACTIVE_UNSUBSCRIBE,<br>QS_QF_ACTIVE_POST_FIFO,<br>QS_QF_ACTIVE_POST_LIFO,<br>QS_QF_ACTIVE_GET,<br>QS_QF_ACTIVE_GET_LAST |
+| QS_FILTER_MP_OBJ()<br>( 见注释 1) | 内存池             | QS_FILTER_MP_OBJ(<br>l_regPoolSto);        | QS_QF_MPOOL_INIT,<br>QS_QF_MPOOL_GET<br>QS_QF_MPOOL_PUT                                                                                                                                               |
+| QS_FILTER_EQ_OBJ()<br>( 见注释 2) | 事件队列           | QS_FILTER_EQ_OBJ(<br>l_philQueueSto[3]);   | QS_QF_EQUEUE_INIT,<br>QS_QF_EQUEUE_POST_FIFO,<br>QS_QF_EQUEUE_POST_LIFO,<br>QS_QF_EQUEUE_GET,<br>QS_QF_EQUEUE_GET_LAST                                                                                |
+| QS_FILTER_TE_OBJ()                | 时间事件           | QS_FILTER_TE_OBJ(<br>&l_philo[3].timeEvt); | QS_QF_TICK,<br>QS_QF_TIMEEVT_ARM,<br>QS_QF_TIMEEVT_AUTO_DISARM,<br>QS_QF_TIMEEVT_DISARM_ATTEMPT,<br>QS_QF_TIMEEVT_DISARM,<br>QS_QF_TIMEEVT_REARM,<br>QS_QF_TIMEEVT_POST,<br>QS_QF_TIMEEVT_PUBLISH     |
+| QS_FILTER_AP_OBJ()                | 一般的应用程序对象 | QS_FILTER_AP_OBJ(<br>&myAppObject);        | 以 QS_USER 开始的应用程序相关的记录                                                                                                                                                                   |
+
 #### QS 数据协议
 
-类似HDLC协议
+类似 HDLC 协议
 
 QS 协议被特别设计用来简化在目标系统里的数据管理的开销，同时允许探测到任何由于追踪缓存不足造成的`数据丢失`。这个协议不但可以探测到在数据和其他错误之间的缺陷，而且允许在任何错误后立即`重新同步`，把数据丢失减到最小。
 
 ![qstransport](../assets/img/2022-07-27-quantum-platform-1/qstransport.jpg)
 
-帧序号+记录类型ID+数据域+校验码+帧尾标记
+帧序号+记录类型 ID+数据域+校验码+帧尾标记
 
 ##### 透明
 
 就是对帧内出现的帧尾标记字节(0x7E)做`转义`
 
-使用0x7D做转义前导符，对0x7E做转义，当然0x7D本身也要转义，方法为对要转义的字符和0x20异或
+使用 0x7D 做转义前导符，对 0x7E 做转义，当然 0x7D 本身也要转义，方法为对要转义的字符和 0x20 异或
 
 一个例子也许可以更清楚的说明这点。假设以下的追踪记录需要被插入追踪缓存（透明字节用粗
 体字显示）：
@@ -1690,7 +2161,7 @@ QS 传输协议规定了数据是小端（ little-endian ）
 特点：
 
 - 第一，在追踪缓存使用 HDLC 格式的数据，允许把向追踪缓存插入数据和从指针缓存已走数据
-解除耦合。可以按个数丢弃，**无需考虑边界(自动检测边界)**
+  解除耦合。可以按个数丢弃，**无需考虑边界(自动检测边界)**
 - 第二，在缓存里使用格式化的数据能够使用“最后的是最好的”追踪策略。因为`校验码`可以检测**覆盖导致的错误**，自动丢弃被覆盖的数据
 
 ##### 初始化 QS 追踪缓存区 QS_initBuf()
@@ -1736,11 +2207,11 @@ QF_INT_UNLOCK(igonre);
 
 #### 面向块的接口： QS_getBlock()
 
-获取一个块，fifo入参表示希望获取的长度，出参表示实际获得长度。函数返回块起始指针
+获取一个块，fifo 入参表示希望获取的长度，出参表示实际获得长度。函数返回块起始指针
 
 需要应用加锁
 
-返回长度小于输入长度时表示缓存读尽或还有回绕，再读一次，如果长度是0表示缓存读尽
+返回长度小于输入长度时表示缓存读尽或还有回绕，再读一次，如果长度是 0 表示缓存读尽
 
 ```c
 uint16_t fifo = UART_16550_TXFIFO_DEPTH; /* 16550 Tx FIFO depth */
@@ -1757,11 +2228,12 @@ while (fifo-- != 0) { /* any bytes in the block? */
 
 当你编译并把应用程序映像装入目标系统后，关于对象名，函数名和信号名的符号信息被从代码中剥离。
 
-QS 提供了专门的追踪记录，特别被设计用来在追踪记录本身包含目标代码的`符号信息`。用于QSPY 主机应用程序的包含在追踪记录里的`字典记录`，非常类似传统的`单步调试器`使用的嵌入在目标文件里的`符号信息`。
+QS 提供了专门的追踪记录，特别被设计用来在追踪记录本身包含目标代码的`符号信息`。用于 QSPY 主机应用程序的包含在追踪记录里的`字典记录`，非常类似传统的`单步调试器`使用的嵌入在目标文件里的`符号信息`。
 
 QS 支持 3 类字典追踪记录：对象字典，函数字典和信号字典。
 
 - 对象字典
+
   用宏 `QS_OBJ_DICTONARY()` 来生成对象字典，它把对象在内存的`地址`和它的`符号名`联合起来。
 
   ```c
@@ -1770,9 +2242,11 @@ QS 支持 3 类字典追踪记录：对象字典，函数字典和信号字典�
   ```
 
 - 函数字典
+
   使用宏 `QS_FUN_DICTONARY()` 来生成函数字典，它把`函数`在内存的`地址`和它的`符号名`联系起来。
-  
+
 - 信号字典
+
   使用宏 `QS_SIG_DICTONARY()` 来生成信号字典，它把事件信号的`数值`和`状态机对象`这两者和信号的`符号名`联系起来。
 
   同时使用信号的数值和状态对象的理由是，仅使用信号值不能有效的把符号化信号区分出来。只有全局发行的信号在系统范围内才是唯一的。其他信号，仅在本地使用，在系统的不同状态机里有完全不同的意义。
@@ -1790,19 +2264,19 @@ QS_BEGIN(MY_QS_RECORD, myObjectPointer) /* trace record begin */
 QS_END() /* trace record end */
 ```
 
-由QS_BEGIN开始，QS_BEGIN自带上锁功能，参数为一个QS记录类型MY_QS_RECORD（用于[全局过滤器](#全局开关过滤器)）和一个对象指针myObjectPointer（用于[本地过滤器](#本地过滤器)）
+由 QS_BEGIN 开始，QS_BEGIN 自带上锁功能，参数为一个 QS 记录类型 MY_QS_RECORD（用于[全局过滤器](#全局开关过滤器)）和一个对象指针 myObjectPointer（用于[本地过滤器](#本地过滤器)）
 
-![qsapp](../assets/img/2022-07-27-quantum-platform-1/qsapp.jpg)
+![qsapp](/assets/img/2022-07-27-quantum-platform-1/qsapp.jpg)
 
 上图是上述示例代码的表示
 
 #### 移植和配置 QS
 
-修改qs_port.h
+修改 qs_port.h
 
 ### QSPY 主机应用程序
 
-使用C++实现，它的用途仅是提供 QS 数据语法分析，存储，并把数据输出到其他强大的工具比如 MATLAB。
+使用 C++实现，它的用途仅是提供 QS 数据语法分析，存储，并把数据输出到其他强大的工具比如 MATLAB。
 
 ### 向 MATLAB 输出追踪数据
 
@@ -2007,11 +2481,13 @@ QSTimeCtr QS_onGetTime(void)
 
 #### 使用回调函数 QS_onGetTime() 产生 QS 时间戳
 
-8254芯片的计时器 0 是一个 16位`向下`计数器，它被设置成当它从 0xFFFF 到 0 `下溢时`产生标准的 18.2Hz时钟节拍中断。 计数速率是 1.193182MHz ，大约每个计数是 0.838 微秒。
+![getqstime](/assets/img/2022-07-27-quantum-platform-1/getqstime.jpg)
 
-每次系统节拍中断就记一次0x10000，精度就是0x10000，还要获取`更精细`的值就要读上面说的计时器了，它的值会从 0xFFFF 到 0 。中断计数成上0x10000加上计数器的值就是完整的值了。
+8254 芯片的计时器 0 是一个 16 位`向下`计数器，它被设置成当它从 0xFFFF `到 0` 下溢，每次到 0 时产生标准的 18.2Hz 时钟`节拍中断`，下一次计数时计数器回绕成 0xFFFF。 计数速率是 1.193182MHz ，大约每个计数是 0.838 微秒。
 
-有个问题就是如果系统节拍中断丢失，就会少加0x10000，需要通过手段规避
+每次系统节拍中断就记一次 0x10000，精度就是 0x10000，还要获取`更精细`的值就要读上面说的计时器了，它的值会从 0xFFFF 到 0 。中断计数成上 0x10000 加上计数器的值就是完整的值了。
+
+有个问题就是如果系统节拍中断丢失，就会少加 0x10000，需要通过手段规避
 
 ```c
 /* Local-scope objects -----------------------------------------------------*/
@@ -2048,8 +2524,8 @@ QSTimeCtr QS_onGetTime(void)
         count16 += ((uint16_t)inportb(0x40) << 8); /* add on the hi byte */
         now = l_tickTime + (0x10000 - count16);
         // 说明丢失了一次系统节拍中断（这个检查假设 QS_onGetTime() 在每个回绕周期被调用一次。）
-        // 因为每个中断周期内都调用一次，所以now正常肯定是大于l_lastTime的
-        // 当然如果丢了两个中断就没办法了
+        // 因为假设了每个中断周期内至少调用一次，所以now正常肯定是大于等于l_lastTime的
+        // 而且要假设周期内调用的时间是一样的
         if (l_lastTime > now)
         {                   /* are we going "back" in time? */
             // 手动加1
@@ -2066,13 +2542,94 @@ QSTimeCtr QS_onGetTime(void)
 #endif /* Q_SPY */
 ```
 
-#### 
+#### 从主动对象产生 QS 字典
+
+_table.c_:
+
+```c
+// 这个是哲学家就餐问题，有叉子、饥饿等名词，Table是活动对象类
+static Table l_table; /* the single instance of the Table active object */
+...
+// 初始伪装态比较适合做生成字典操作
+void Table_initial(Table *me, QEvent const *e)
+{
+    (void)e; /* suppress the compiler warning about unused parameter */
+    // 这个宏可以获取参数的名字，所以要用l_table而不是me，即使它们的值相同
+    QS_OBJ_DICTIONARY(&l_table);
+    // 函数字典
+    QS_FUN_DICTIONARY(&QHsm_top);
+    QS_FUN_DICTIONARY(&Table_initial);
+    QS_FUN_DICTIONARY(&Table_serving);
+    // 全局发行的信号的信号字典记录必须和系统里所有的状态机相联系。
+    // 所以要给这种信号添加额外信息，这里是第二个参数
+    // 比如在另一个状态机里是1而不是0
+    QS_SIG_DICTIONARY(DONE_SIG, 0); /* global signals */
+    QS_SIG_DICTIONARY(EAT_SIG, 0);
+    QS_SIG_DICTIONARY(TERMINATE_SIG, 0);
+    // 可以直接用me的值(一个地址)作为额外信息，保证不会重复
+    QS_SIG_DICTIONARY(HUNGRY_SIG, me); /* signal just for Table */
+    /* signal HUNGRY_SIG is posted directly */
+    QActive_subscribe((QActive *)me, DONE_SIG);
+    QActive_subscribe((QActive *)me, TERMINATE_SIG);
+
+    Q_TRAN(&Table_serving);
+}
+```
+
+按照[本地过滤器](#本地过滤器)中的对象说明，这个 l_table 应该是`活动对象`
+
+#### 添加应用程序相关的追踪记录
+
+```c
+#ifdef Q_SPY
+    ...
+    enum AppRecords { /* application-specific trace records */
+        // 自定义的记录类型需要从QS_USER开始
+        PHILO_STAT = QS_USER
+    };
+#endif
+...
+/*..........................................................................*/
+void
+BSP_displyPhilStat(uint8_t n, char const *stat)
+{
+    Video_printStrAt(17, 12 + n, VIDEO_FGND_YELLOW, stat);
+    // 第一个是记录类型，用于全局过滤器，第二个是应用对象，用于本地过滤器，
+    // 这里是活动对象类型，表示只记录这个活动对象相关记录
+    // QS_BEGIN和QS_END划定临界区
+    QS_BEGIN(PHILO_STAT, AO_Philo[n]) /* application-specific record begin */
+        QS_U8(1, n);                  /* Philosopher number */
+        QS_STR(stat);                 /* Philosopher status */
+    QS_END()
+}
+```
+
+```log
+// 笔者注：格式是 时间 记录类型: n stat
+ 0000525113 User000: 4 eating
+ . . .
+ 0000591471 User000: 3 hungry
+ . . .
+ 0000591596 User000: 2 hungry
+ . . .
+ 0000591730 User000: 0 hungry
+ . . .
+ 0000852276 User000: 4 thinking
+ . . .
+ 0000852387 User000: 3 eating
+ . . .
+ 0000983937 User000: 1 thinking
+ . . .
+ 0000984047 User000: 0 eating
+ . . .
+ 0001246064 User000: 3 thinking
+```
 
 ## 问题
 
-1. 单过程处理时间，是否在DMA时主动让出控制权（时间较短，让出利用率也低，还有一致性问题）
-2. 内存分配，由于没有栈空间，需要堆类型的空间（QP自带的内存池）
-3. state local memory，每个AO自己的内部变量，即使是临时变量也会占用固定空间，为了退出后下次进入状态时使用，如果是临时变量会浪费空间
+1. 单过程处理时间，是否在 DMA 时主动让出控制权（时间较短，让出利用率也低，还有一致性问题）
+2. 内存分配，由于没有栈空间，需要堆类型的空间（QP 自带的内存池）
+3. state local memory，每个 AO 自己的内部变量，即使是临时变量也会占用固定空间，为了退出后下次进入状态时使用，如果是临时变量会浪费空间
 
 ## 参考
 
