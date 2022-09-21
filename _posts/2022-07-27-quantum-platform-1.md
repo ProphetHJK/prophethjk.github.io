@@ -20,6 +20,11 @@ tags: [quantum platform, QP状态机]
     - [operandX 状态设计](#operandx-状态设计)
     - [处理负号的两种情况](#处理负号的两种情况)
     - [最终状态图](#最终状态图)
+- [状态模式](#状态模式)
+  - [延迟的事件](#延迟的事件)
+    - [目的](#目的)
+    - [问题](#问题)
+    - [解决](#解决)
 - [标准状态机的实现方法](#标准状态机的实现方法)
   - [嵌套的 switch 语句](#嵌套的-switch-语句)
   - [状态表 (State Table)](#状态表-state-table)
@@ -74,6 +79,10 @@ tags: [quantum platform, QP状态机]
     - [事件的结构](#事件的结构)
     - [动态事件分配](#动态事件分配)
     - [自动垃圾收集](#自动垃圾收集)
+    - [延迟和恢复事件](#延迟和恢复事件)
+  - [QF 的事件派发机制](#qf-的事件派发机制)
+    - [直接事件发送](#直接事件发送-1)
+    - [发行-订阅事件发送](#发行-订阅事件发送)
 - [移植和配置 QF](#移植和配置-qf)
   - [QP 平台抽象层](#qp-平台抽象层)
     - [生成 QP 应用程序](#生成-qp-应用程序)
@@ -104,7 +113,7 @@ tags: [quantum platform, QP状态机]
     - [使用回调函数 QS_onGetTime() 产生 QS 时间戳](#使用回调函数-qs_ongettime-产生-qs-时间戳)
     - [从主动对象产生 QS 字典](#从主动对象产生-qs-字典)
     - [添加应用程序相关的追踪记录](#添加应用程序相关的追踪记录)
-- [问题](#问题)
+- [问题](#问题-1)
 - [参考](#参考)
 
 ## 架构
@@ -284,6 +293,34 @@ operator   ::= '+' | '-' | '*' | '/'
 #### 最终状态图
 
 ![calculater5](/assets/img/2022-07-27-quantum-platform-1/calculater5.jpg)
+
+## 状态模式
+
+状态机面向对象的设计模式，设计模式就是用于解决实际问题的最佳实践
+
+### 延迟的事件
+
+#### 目的
+
+通过改变事件的顺序来简化状态机。
+
+#### 问题
+
+有时候一个事件在某个`不方便`的时刻到达，这时刻系统正在某个`复杂的事件队列`的中间。
+
+> `复杂的事件队列`指一系列不应该被打断的事件，如发送请求、等待收到回复事件后处理回复，两个事件不是同时发生，但中间也不希望被插入新事件打断
+
+实例：服务器程序处理业务（如从 ATM 终端）的案例。一旦业务开始了，它典型地要走完一个处理序列，从一个远距离终端接受数据开始，然后是业务的授权。这几个事件被视为`连续事件`，虽然事件产生有一定时间间隔，但希望它们能连续执行而不应该被新到达的业务打断。（可以理解为中断，中断的话需要保存上下文，退出中断后恢复，同理状态机处理“中断”也要保存当前状态和上下文，等新事件处理完恢复，太麻烦了）
+
+#### 解决
+
+添加一个`等待队列`，当新业务事件到达时加入这个队列而不是事件队列，在 idle 时再去读取等待队列，把等待队列里的事件加入事件队列
+
+![deferevent](/assets/img/2022-07-27-quantum-platform-1/deferevent.jpg)
+
+![deferevent2](/assets/img/2022-07-27-quantum-platform-1/deferevent2.jpg)
+
+处于 busy 状态的子状态(receiving 和 authorizing)时，收到新的请求事件，处理方法为不执行并加入等待队列，然后该事件会被移除出事件队列，原业务得以继续正常执行。
 
 ## 标准状态机的实现方法
 
@@ -1596,7 +1633,7 @@ typedef struct QActiveTag
 #ifdef QF_THREAD_TYPE
     QF_THREAD_TYPE thread; /* execution thread of the active object */
 #endif
-    // 每个主动对象有唯一的优先级
+    // 每个主动对象有唯一的优先级，最大为63，0是特殊的休眠优先级，也就是最大支持63个主动对象
     uint8_t prio;    /* QF priority of the active object */
     // 用于一些移植，写入0会终止活动对象
     uint8_t running; /* flag indicating if the AO is running */
@@ -1776,14 +1813,17 @@ void QF_gc(QEvent const *e)
     if (e->dynamic_ != (uint8_t)0)
     { /* is it a dynamic event? */
         QF_INT_LOCK_KEY_
+        // 中断上锁,操作引用计数器需要临界区
         QF_INT_LOCK_();
         if ((e->dynamic_ & 0x3F) > 1)
         {                              /* isn't this the last reference? */
+            // 大于1，递减
             --((QEvent *)e)->dynamic_; /* decrement the reference counter */
             QF_INT_UNLOCK_();
         }
         else
         { /* this is the last reference to this event, recycle it */
+            // 小于1，回收，先从高2位获取index索引，找到对应池，然后归还空间
             uint8_t idx = (uint8_t)((e->dynamic_ >> 6) - 1);
             QF_INT_UNLOCK_();
             Q_ASSERT(idx < QF_maxPool_); /* index must be in range */
@@ -1792,6 +1832,183 @@ void QF_gc(QEvent const *e)
     }
 }
 ```
+
+#### 延迟和恢复事件
+
+QF 分别通过 QActive 的类函数 QActive_defer() 和 QActive_recall() 实现明确的事件延迟和恢复。见[延迟的事件](#延迟的事件)
+
+当事件在某个特别`不方便的时刻`到达时，可以被`延迟`一些时间直到系统有一个比较好的状态去处理这个事件，事件的延迟是很方便的
+
+```c
+void QActive_defer(QActive *me, QEQueue *eq, QEvent const *e)
+{
+    (void)me;                /* avoid compiler warning about 'me' not used */
+    // 发送给等待队列，这里计数器会被加1，防止被回收
+    // 因为事件被处理后即使不执行操作放入等待队列，计数器也会被减1
+    QEQueue_postFIFO(eq, e); /* increments ref-count of a dynamic event */
+}
+/*..........................................................................*/
+QEvent const *QActive_recall(QActive *me, QEQueue *eq)
+{
+    // 从等待队列取一个事件
+    QEvent const *e = QEQueue_get(eq); /* get an event from deferred queue */
+    if (e != (QEvent *)0)
+    { /* event available? */
+        QF_INT_LOCK_KEY_
+        // 发送到事件队列，用LIFO插队到第一个，引用计数器会被加1
+        QActive_postLIFO(me, e); /* post it to the front of the AO's queue */
+        QF_INT_LOCK_();
+        if (e->dynamic_ != (uint8_t)0)
+        { /* is it a dynamic event? */
+            Q_ASSERT((e->dynamic_ & 0x3F) > 1);
+            // 从等待队列里拿出来了，引用计数器要减1(事件队列里的处理后会自动减)
+            --((QEvent *)e)->dynamic_; /* decrement the reference counter */
+        }
+        QF_INT_UNLOCK_();
+    }
+    return e; /*pass the recalled event to the caller (NULL if not recalled) */
+}
+```
+
+### QF 的事件派发机制
+
+QF 仅支持异步事件交换，发送者不等待事件处理
+
+派发机制：
+
+- **直接事件发送的简单机制** -- 一个事件的生产者直接发送这个事件给消费者活动对象的事件队列。
+- **订阅事件发送机制** -- 事件的生产者把事件发行给框架，框架然后把事件发行给所有订阅了这个事件的活动对象。
+
+#### 直接事件发送
+
+QF 通过 `QActive_postFIFO()` 和 `QActive_postLIFO()` 函数支持直接事件发送
+
+```c
+QActive_postFIFO(AO_ship, (QEvent *)e); /* post event 'e' to the Ship AO */
+```
+
+这里参数 `AO_ship` 是 `QActive` 基类类型，利用了多态
+
+```c
+extern QActive * const AO_Ship; /* opaque pointer to the Ship AO */
+```
+
+#### 发行-订阅事件发送
+
+- 初始化`发行-订阅`机制: QF_psInit()
+- 订阅：QActive_subscribe(), QActive_unsubscribe(), QActive_unsubscribeAll()
+- 发行：QF_publish()
+
+_管理订阅信息的数据结构_：
+
+```c
+typedef struct QSubscrListTag {
+    // QF_MAX_ACTIVE - 1表示需要的位数
+    // 除以8向上取整，表示需要的字节数
+    uint8_t bits[((QF_MAX_ACTIVE - 1) / 8) + 1];
+} QSubscrList;
+```
+
+![subscriberbitmap](/assets/img/2022-07-27-quantum-platform-1/subscriberbitmap.jpg)
+
+每类信号为一行，每行中的每一位对应一个主动对象，因为优先级和主动对象一一对应，所以通过优先级(1-63)对应位唯一标识，置位表示该事件被对应的主动对象订阅。如图中bit15对应优先级16的主动对象。
+
+上图例子中每行 bit 为 64 个(目前 QF_MAX_ACTIVE的范围是 1 到 63)，这也是[主动对象](#主动对象)提到的优先级上限为 63 的原因
+
+- 初始化
+
+    ```c
+    QSubscrList *QF_subscrList_; /* initialized to zero per C-standard */
+    QSignal QF_maxSignal_;
+    /* initialized to zero per C-standard */
+    void QF_psInit(QSubscrList *subscrSto, QSignal maxSignal)
+    {
+        QF_subscrList_ = subscrSto;
+        QF_maxSignal_ = maxSignal;
+    }
+    ```
+
+- 订阅
+
+    ```c
+    // me: 本对象，sig：要订阅的信号
+    void QActive_subscribe(QActive const *me, QSignal sig)
+    {
+
+        uint8_t p = me->prio;
+        // 字节索引，QF_div8Lkup[p] = (p – 1)/8，
+        // 可以每次算也可以用预生成在ROM的查找表
+        uint8_t i = Q_ROM_BYTE(QF_div8Lkup[p]);
+        QF_INT_LOCK_KEY_
+        Q_REQUIRE(((QSignal)Q_USER_SIG <= sig) && (sig < QF_maxSignal_)
+                    && ((uint8_t)0 < p)
+                    && (p <= (uint8_t)QF_MAX_ACTIVE)
+                    && (QF_active_[p] == me));
+        QF_INT_LOCK_();
+        // 找到字节内偏移，QF_pwr2Lkup[p] = 1 << ((p – 1) % 8)，
+        // 可以每次算也可以用预生成在ROM的查找表
+        QF_subscrList_[sig].bits[i] |= Q_ROM_BYTE(QF_pwr2Lkup[p]);
+        QF_INT_UNLOCK_();
+    }
+    ```
+
+- 发行
+
+    ```c
+    // 给所有订阅者发行一个给定事件 e
+    void QF_publish(QEvent const *e)
+    {
+        QF_INT_LOCK_KEY_
+        /* make sure that the published signal is within the configured range */
+        Q_REQUIRE(e->sig < QF_maxSignal_);
+        // 读取加修改，典型的临界区
+        QF_INT_LOCK_();
+        if (e->dynamic_ != (uint8_t)0)
+        { /* is it a dynamic event? */
+            /*lint -e1773 Attempt to cast away const */
+            // 
+            ++((QEvent *)e)->dynamic_; /* increment reference counter, NOTE01 */
+        }
+        QF_INT_UNLOCK_();
+    #if (QF_MAX_ACTIVE <= 8)
+        {
+            uint8_t tmp = QF_subscrList_[e->sig].bits[0];
+            while (tmp != (uint8_t)0)
+            {
+                uint8_t p = Q_ROM_BYTE(QF_log2Lkup[tmp]);
+                tmp &= Q_ROM_BYTE(QF_invPwr2Lkup[p]);    /* clear subscriber bit */
+                Q_ASSERT(QF_active_[p] != (QActive *)0); /* must be registered */
+                /* internally asserts if the queue overflows */
+                QActive_postFIFO(QF_active_[p], e);
+            }
+        }
+    #else
+
+        {
+            uint8_t i = Q_DIM(QF_subscrList_[0].bits);
+            do
+            { /* go through all bytes in the subscription list */
+                uint8_t tmp;
+                --i;
+                tmp = QF_subscrList_[e->sig].bits[i];
+                while (tmp != (uint8_t)0)
+                {
+                    uint8_t p = Q_ROM_BYTE(QF_log2Lkup[tmp]);
+                    tmp &= Q_ROM_BYTE(QF_invPwr2Lkup[p]);    /*clear subscriber bit */
+                    p = (uint8_t)(p + (i << 3));             /* adjust the priority */
+                    Q_ASSERT(QF_active_[p] != (QActive *)0); /*must be registered*/
+                    /* internally asserts if the queue overflows */
+                    QActive_postFIFO(QF_active_[p], e);
+                }
+            } while (i != (uint8_t)0);
+        }
+    #endif
+
+        QF_gc(e); /* run the garbage collector, see NOTE01 */
+    }
+    ```
+
+    > 为什么加锁，见[比较并交换](/posts/operating-systems-22/#比较并交换)
 
 ## 移植和配置 QF
 
@@ -2119,7 +2336,7 @@ QS_END_xxx() /* trace record end */
 
 QS 协议被特别设计用来简化在目标系统里的数据管理的开销，同时允许探测到任何由于追踪缓存不足造成的`数据丢失`。这个协议不但可以探测到在数据和其他错误之间的缺陷，而且允许在任何错误后立即`重新同步`，把数据丢失减到最小。
 
-![qstransport](../assets/img/2022-07-27-quantum-platform-1/qstransport.jpg)
+![qstransport](/assets/img/2022-07-27-quantum-platform-1/qstransport.jpg)
 
 帧序号+记录类型 ID+数据域+校验码+帧尾标记
 
@@ -2160,8 +2377,7 @@ QS 传输协议规定了数据是小端（ little-endian ）
 
 特点：
 
-- 第一，在追踪缓存使用 HDLC 格式的数据，允许把向追踪缓存插入数据和从指针缓存已走数据
-  解除耦合。可以按个数丢弃，**无需考虑边界(自动检测边界)**
+- 第一，在追踪缓存使用 HDLC 格式的数据，允许把向追踪缓存插入数据和从指针缓存已走数据解除耦合。可以按个数丢弃，**无需考虑边界(自动检测边界)**
 - 第二，在缓存里使用格式化的数据能够使用“最后的是最好的”追踪策略。因为`校验码`可以检测**覆盖导致的错误**，自动丢弃被覆盖的数据
 
 ##### 初始化 QS 追踪缓存区 QS_initBuf()
