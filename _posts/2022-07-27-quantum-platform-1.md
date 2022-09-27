@@ -98,6 +98,8 @@ tags: [quantum platform, QP状态机]
     - [把一个内存块回收到池内](#把一个内存块回收到池内)
   - [原生 QF 优先级集合](#原生-qf-优先级集合)
   - [原生合作式 vanilla 内核](#原生合作式-vanilla-内核)
+    - [qvanilla.c 源文件](#qvanillac-源文件)
+    - [qvanilla.h 头文件](#qvanillah-头文件)
 - [移植和配置 QF](#移植和配置-qf)
   - [QP 平台抽象层](#qp-平台抽象层)
     - [生成 QP 应用程序](#生成-qp-应用程序)
@@ -1578,7 +1580,7 @@ void interrupt ISR(void) { /* entered with interrupts locked in hardware */
 
 > TODO: 开中断是为了什么？是不是为了防止执行主 ISR 代码(QF 函数)的过程太长导致临界区时间太长。还是为了主 ISR 代码执行时需要用到某些中断
 >
-> 解答：QF函数执行部分`内部`有些也使用的`关开中断`创建临界区的部分，为了防止`中断嵌套`，也就是`外面`关了中断，进了函数`内部`又关一次就会造成阻塞，也就是`死锁`。
+> 解答：QF 函数执行部分`内部`有些也使用的`关开中断`创建临界区的部分，为了防止`中断嵌套`，也就是`外面`关了中断，进了函数`内部`又关一次就会造成阻塞，也就是`死锁`。
 
 #### 中断上锁/解锁的内部 QF 宏
 
@@ -2044,7 +2046,7 @@ typedef struct QSubscrListTag {
 
   > 为什么加锁，见[比较并交换](/posts/operating-systems-22/#比较并交换)
 
-  二进制算法查找表 `QF_log2Lkup[]` 映射`字节值`到 MSB 的 bit`数字` (找一个字节里的`最高有效位`所在的位置1-8，可以通过表一一对应)：
+  二进制算法查找表 `QF_log2Lkup[]` 映射`字节值`到 MSB 的 bit`数字` (找一个字节里的`最高有效位`所在的位置 1-8，可以通过表一一对应)：
 
   ![log2Lkup](/assets/img/2022-07-27-quantum-platform-1/log2Lkup.jpg)
 
@@ -2332,7 +2334,7 @@ QEvent const *QActive_get_(QActive *me)
   QEvent const *e;
   QF_INT_LOCK_KEY_
   QF_INT_LOCK_();
-  // 阻塞直到队列不为空
+  // 阻塞直到队列不为空（视实现而定，非抢占式的可能不阻塞）
   QACTIVE_EQUEUE_WAIT_(me); /* wait for event queue to get an event */
   // 取frontEvt的值，而不是找ring内的tail
   e = me->eQueue.frontEvt;
@@ -2412,7 +2414,7 @@ void QActive_postFIFO(QActive *me, QEvent const *e)
 
 ```c
 /* Application header file -----------------------------------------------*/
-#include “qequeue.h”
+#include "qequeue.h"
 extern QEQueue APP_isrQueue; /* global “raw” queue */
 typedef struct IsrEvtTag
 { /* event with parameters to be passed to the ISR */
@@ -2431,7 +2433,7 @@ void interrupt myISR()
   if (e != (QEvent *)0)
   {// 执行事件
     Process the event e(could be dispatching to a state machine)
-    ... 
+    ...
     // 因为是ISR管理事件，不是QF框架，要记得回收空间
     QF_gc(e); /* explicitly recycle the event */
   }
@@ -2442,7 +2444,7 @@ QState MyAO_stateB(MyAO *me, QEvent const *e)
 {
   switch (e->sig)
   {
-    ... 
+    ...
     case SOMETHING_INTERESTING_SIG:
     {
       IsrEvt *pe = Q_NEW(IsrEvt, ISR_SIG);
@@ -2467,7 +2469,7 @@ main()
 }
 ```
 
-QEQueue 函数 QEQueue_postFIFO() ， QEQueue_postLIFO() 和QEQueue_get()的实现是非常直接的，因为不需要平台相关的宏。所有这些函数都是`可重入`的(多线程安全)，因为它们使用`临界区`代码维护队列的完整性。
+QEQueue 函数 QEQueue_postFIFO() ， QEQueue_postLIFO() 和 QEQueue_get()的实现是非常直接的，因为不需要平台相关的宏。所有这些函数都是`可重入`的(多线程安全)，因为它们使用`临界区`代码维护队列的完整性。
 
 ### 原生 QF 内存池
 
@@ -2497,11 +2499,11 @@ typedef struct QMPoolTag
 
 #### 原生 QF 内存池的初始化
 
-_QFreeBlock结构用于对不同架构CPU实现内存对齐_：
+_QFreeBlock 结构用于对不同架构 CPU 实现内存对齐_：
 
 ```c
 // 空闲链表节点，里面就一个指针
-typedef struct QFreeBlockTag { 
+typedef struct QFreeBlockTag {
     struct QFreeBlockTag *next;
 } QFreeBlock;
 ```
@@ -2582,7 +2584,7 @@ void QMPool_init(QMPool *me, void *poolSto,
 
 使用 `QMPool_get()` 从内存池获取一个块，支持耗尽，耗尽返回 `NULL`。
 
-> 之前在[动态事件分配](#动态事件分配)中提到如果是内存池用于动态事件队列，由于QF不支持`满队列`（耗尽），所以用完`无法插入`队列时会直接断言`报错`。
+> 之前在[动态事件分配](#动态事件分配)中提到如果是内存池用于动态事件队列，由于 QF 不支持`满队列`（耗尽），所以用完`无法插入`队列时会直接断言`报错`。
 
 ```c
 void *QMPool_get(QMPool *me)
@@ -2639,9 +2641,9 @@ typedef struct QPSet64Tag
 
 ![qpset](/assets/img/2022-07-27-quantum-platform-1/qpset.jpg)
 
-`uint8_t bits[8]`一共是8个1字节共64位，对应图上的 8x8 矩阵(bitmask)，`bits[0]`表示第 1 行,`bits[7]`表示第 8 行
+`uint8_t bits[8]`一共是 8 个 1 字节共 64 位，对应图上的 8x8 矩阵(bitmask)，`bits[0]`表示第 1 行,`bits[7]`表示第 8 行
 
-`uint8_t bytes`用于加快 bitmask `查找`，用来指示对应行的位中是否有`至少一个 1`(字节值大于等于1)。如`bytes`的`第0位`指示`bits[0]`是否大于等于1，如大于等于1则为1。bytes为`0x10010001`表示`bytes[0]`、`bytes[4]`、`bytes[7]`大于等于1。
+`uint8_t bytes`用于加快 bitmask `查找`，用来指示对应行的位中是否有`至少一个 1`(字节值大于等于 1)。如`bytes`的`第0位`指示`bits[0]`是否大于等于 1，如大于等于 1 则为 1。bytes 为`0x10010001`表示`bytes[0]`、`bytes[4]`、`bytes[7]`大于等于 1。
 
 _判断集合是否为空_:
 
@@ -2674,9 +2676,9 @@ _插入一个值_:
   } while (0)
 ```
 
-> 字节索引 `QF_div8Lkup[p] = (p – 1)/8`（把值转为bits的索引），找字节内偏移 `QF_pwr2Lkup[p] = 1 << ((p – 1) % 8)`（p-1是因为偏移和索引都是从0开始，参数p是从1开始）
+> 字节索引 `QF_div8Lkup[p] = (p – 1)/8`（把值转为 bits 的索引），找字节内偏移 `QF_pwr2Lkup[p] = 1 << ((p – 1) % 8)`（p-1 是因为偏移和索引都是从 0 开始，参数 p 是从 1 开始）
 
-先给bits赋值，再给bytes赋值
+先给 bits 赋值，再给 bytes 赋值
 
 _移除一个值_:
 
@@ -2698,15 +2700,129 @@ _移除一个值_:
 
 QF 包含了一个简单的合作式 `vanilla` 内核
 
-> 在计算机科学领域，`香草vanilla`是一个用于表示“一个事物没有经过自定义的改动而仍然保留着它们`默认`的形式”的术语。这个术语已经广为流传并成为事实标准。香草一词来自于传统冰淇淋的`标准口味`，香草味。根据Eric S. Raymond的《The New Hacker's Dictionary》一书记载，香草一词在感觉上比普通一词更能表达“`默认`”的含义。[维基百科:香草软件](https://zh.m.wikipedia.org/zh-hans/%E9%A6%99%E8%8D%89%E8%BD%AF%E4%BB%B6)
+> 在计算机科学领域，`香草vanilla`是一个用于表示“一个事物没有经过自定义的改动而仍然保留着它们`默认`的形式”的术语。这个术语已经广为流传并成为事实标准。香草一词来自于传统冰淇淋的`标准口味`，香草味。根据 Eric S. Raymond 的《The New Hacker's Dictionary》一书记载，香草一词在感觉上比普通一词更能表达“`默认`”的含义。[维基百科:香草软件](https://zh.m.wikipedia.org/zh-hans/%E9%A6%99%E8%8D%89%E8%BD%AF%E4%BB%B6)
 
 vanilla 内核通过在一个`无限循环`内不断查询所有活动对象的事件队列来工作。内核总是挑选`最高优先级`的`预备运行`(非空事件队列)的`活动对象`
 
 ![readyset](/assets/img/2022-07-27-quantum-platform-1/readyset.jpg)
 
-图中所示 QPSet64 类型的 QF_readySet_ 优先级集合用于表示系统内所有`非空事件队列`的“`预备集合`”，每一位对应一个活动对象。活动对象的事件队列为非空时对应位置 1 ，为空时置 0
+图中所示 QPSet64 类型的 QF*readySet* 优先级集合用于表示系统内所有`非空事件队列`的“`预备集合`”，每一位对应一个活动对象。活动对象的事件队列为非空时对应位置 1 ，为空时置 0
 
+#### qvanilla.c 源文件
 
+```c
+#include "qf_pkg.h"
+#include "qassert.h"
+/* Package-scope objects -----------------------------------------------*/
+// 禁止优化，因为可能在中断中改变
+QPSet64 volatile QF_readySet_; /* QF-ready set of active objects */
+/*.....................................................................*/
+void QF_init(void)
+{
+  /* nothing to do for the “vanilla” kernel */
+}
+/*.....................................................................*/
+void QF_stop(void)
+{
+  /* nothing to cleanup for the “vanilla” kernel */
+  QF_onCleanup(); /* cleanup callback */
+}
+/*.....................................................................*/
+// main()中调用QF_run()，把控制权转让给QF框架，也就是运行 vanilla 内核
+void QF_run(void)
+{ /* see NOTE01 */
+  uint8_t p;
+  QActive *a;
+  QEvent const *e;
+  QF_INT_LOCK_KEY_
+  // 配置回调函数并启动中断
+  QF_onStartup(); /* invoke the QF startup callback */
+  for (;;)
+  { /* the background loop */
+    QF_INT_LOCK_();// 处理QF_readySet_上锁
+    // 是否有事件要处理
+    if (QPSet64_notEmpty(&QF_readySet_))
+    { // 获取有事件的最高优先级的活动对象
+      QPSet64_findMax(&QF_readySet_, p);
+      a = QF_active_[p];
+      QF_INT_UNLOCK_(); // 中断上锁是为了处理QF_readySet_，现在可以解锁了
+      // 找这个活动对象的第一个待处理事件
+      e = QActive_get_(a);               /* get the next event for this AO */
+      // 执行状态函数
+      QF_ACTIVE_DISPATCH_(&a->super, e); /* dispatch to the AO */
+      QF_gc(e);                          /* determine if event is garbage and collect it if so */
+    }
+    else // 没有事件的话不阻塞，要做其他事情，比如进入低功耗模式
+         // 进入Idle函数前必须上锁，进入后在开启低功耗模式前必须解锁中断，防止死锁
+    { /* all active object queues are empty */
+#ifndef QF_INT_KEY_TYPE // QF_onIdle是否有参数取决于临界区机制
+      QF_onIdle(); /* see NOTE02 */
+#else
+      QF_onIdle(intLockKey_); /* see NOTE02 */
+#endif /* QF_INT_KEY_TYPE */
+    }
+  }
+}
+/*.....................................................................*/
+// 启动活动对象线程
+void QActive_start(QActive *me, uint8_t prio,
+                   QEvent const *qSto[], uint32_t qLen,
+                   void *stkSto, uint32_t stkSize,
+                   QEvent const *ie)
+{
+  Q_REQUIRE(((uint8_t)0 < prio) && (prio <= (uint8_t)QF_MAX_ACTIVE)
+            && (stkSto == (void *)0)); /* does not need per-actor stack */
+  (void)stkSize;                                     /* avoid the “unused parameter” compiler warning */
+  QEQueue_init(&me->eQueue, qSto, (QEQueueCtr)qLen); /* initialize QEQueue */
+  me->prio = prio;                                   /* set the QF priority of this active object */
+  QF_add_(me);                                       /* make QF aware of this active object */
+  QF_ACTIVE_INIT_(&me->super, ie);                   /* execute initial transition */
+}
+/*.....................................................................*/
+void QActive_stop(QActive *me)
+{
+  QF_remove_(me);
+}
+```
+
+QF_onIdle()是否有参数取决于[QF 里的临界区](#qf-里的临界区)类型，当使用简单的“`无条件中断解锁`”策略时，这个函数没有参数，但是在使用“`保存和恢复中断状态`” 策略时，它需要中断状态参数。
+
+![vanillaidle](/assets/img/2022-07-27-quantum-platform-1/vanillaidle.jpg)
+
+如图，如果进入 `Idle` 函数前`不关中断`，就会产生`竞争`，可能就有`新事件`插入了。然后 Idle 处理进入`低功耗模式`就不能`及时响应`这个事件了。
+
+解决办法就是进 Idle 前关中断，然后在进入低功耗模式的`同时`开中断，注意这个“同时”，需要实现`原子操作`，也就是 MCU 的支持。
+
+#### qvanilla.h 头文件
+
+这个头文件最重要的功能是在事件被`发送`到和从活动对象事件队列`移除`时`更新预备集合` (`QF_readySet_`)
+
+```c
+#ifndef qvanilla_h
+#define qvanilla_h
+#include "qequeue.h" /* “Vanilla” kernel uses the native QF event queue */
+#include "qmpool.h"  /* “Vanilla” kernel uses the native QF memory pool */
+#include "qpset.h"   /* “Vanilla” kernel uses the native QF priority set */
+                     /* the event queue and thread types for the “Vanilla” kernel */
+#define QF_EQUEUE_TYPE QEQueue // 使用QEQueue作为事件队列
+/* native QF event queue operations */
+#define QACTIVE_EQUEUE_WAIT_(me_) \  // 不阻塞，仅当它确信事件队列拥有最少一个事件时，它才调用 QActive_get_()
+  Q_ASSERT((me_)->eQueue.frontEvt != (QEvent *)0)
+#define QACTIVE_EQUEUE_SIGNAL_(me_) \  // 发给空队列时修改优先集合
+  QPSet64_insert(&QF_readySet_, (me_)->prio)
+#define QACTIVE_EQUEUE_ONEMPTY_(me_) \ // 删除后成空队列时修改优先集合
+  QPSet64_remove(&QF_readySet_, (me_)->prio)
+/* native QF event pool operations */
+#define QF_EPOOL_TYPE_ QMPool // 使用QMPool作为事件池
+#define QF_EPOOL_INIT_(p_, poolSto_, poolSize_, evtSize_) \
+  QMPool_init(&(p_), poolSto_, poolSize_, evtSize_)
+#define QF_EPOOL_EVENT_SIZE_(p_) ((p_).blockSize)
+#define QF_EPOOL_GET_(p_, e_) ((e_) = (QEvent *)QMPool_get(&(p_)))
+#define QF_EPOOL_PUT_(p_, e_) (QMPool_put(&(p_), e_))
+// 共享变量声明为volatile不允许优化
+extern QPSet64 volatile QF_readySet_; /** QF-ready set of active objects */
+#endif                                /* qvanilla_h */
+```
 
 ## 移植和配置 QF
 
