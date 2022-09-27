@@ -144,7 +144,7 @@ void *consumer(void *arg)
 ```
 
 > 一条关于条件变量的简单规则：总是`使用 while 循环`（always use while loop）。
-> {: .prompt-tip }
+{: .prompt-tip }
 
 最终代码：
 

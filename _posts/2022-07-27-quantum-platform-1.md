@@ -83,6 +83,21 @@ tags: [quantum platform, QP状态机]
   - [QF 的事件派发机制](#qf-的事件派发机制)
     - [直接事件发送](#直接事件发送-1)
     - [发行-订阅事件发送](#发行-订阅事件发送)
+  - [时间管理](#时间管理-1)
+    - [时间事件结构和接口](#时间事件结构和接口)
+    - [系统时钟节拍和 QF_tick() 函数](#系统时钟节拍和-qf_tick-函数)
+    - [arming 和 disarm 一个时间事件](#arming-和-disarm-一个时间事件)
+  - [原生 QF 事件队列](#原生-qf-事件队列)
+    - [QEQueue 结构](#qequeue-结构)
+    - [QEQueue 的初始化](#qequeue-的初始化)
+    - [原生 QF 活动对象队列](#原生-qf-活动对象队列)
+    - [“ 原始的”线程安全的队列](#-原始的线程安全的队列)
+  - [原生 QF 内存池](#原生-qf-内存池)
+    - [原生 QF 内存池的初始化](#原生-qf-内存池的初始化)
+    - [从池里获得一个内存块](#从池里获得一个内存块)
+    - [把一个内存块回收到池内](#把一个内存块回收到池内)
+  - [原生 QF 优先级集合](#原生-qf-优先级集合)
+  - [原生合作式 vanilla 内核](#原生合作式-vanilla-内核)
 - [移植和配置 QF](#移植和配置-qf)
   - [QP 平台抽象层](#qp-平台抽象层)
     - [生成 QP 应用程序](#生成-qp-应用程序)
@@ -1518,10 +1533,11 @@ QF 平台抽象层包含 了 2 个宏 QF_INT_LOCK()和 QF_INT_UNLOCK() ，分别
 ```
 
 > QF_INT_LOCK()宏的 do {…} while (0) 循环是语法正确的用来`组合指令`的`标准做法`。你确信这个宏可以被安全的用于 `if-else` 语句（在宏后加分号），而不会造成[“悬吊 if”（ dangling-if ）](https://en.wikipedia.org/wiki/Dangling_else)问题。
+{: .prompt-tip }
 
 “保存和恢复中断状态”政策的主要优点是可以`嵌套临界区`的能力。当 QF 函数从一个已经建立的临界段比如 ISR 里调用时，且`部分处理器`在进入 ISR 后自动关中断(进临界区)，需要在 ISR 内部先解锁中断才能使用 QF 函数(详见下节例子)，如果做不到就需要使用上述的办法`嵌套临界区`。
 
-> 为什么要解锁中断才能调用 QF 函数
+> 为什么要解锁中断才能调用 QF 函数，见下一节
 
 #### 无条件上锁和解锁中断
 
@@ -1531,7 +1547,7 @@ QF 平台抽象层包含 了 2 个宏 QF_INT_LOCK()和 QF_INT_UNLOCK() ，分别
 #define QF_INT_UNLOCK(key_) int_unlock()
 ```
 
-“无条件上锁和解锁”策略是简单和快捷的，但是不允许临界区的嵌套，理由见上节
+“无条件上锁和解锁”策略是简单和快捷的，但是`不允许`临界区的`嵌套`，理由见上节
 
 使用一个`基于优先级`的中断控制器时一个 ISR 的常规结构：
 
@@ -1561,6 +1577,8 @@ void interrupt ISR(void) { /* entered with interrupts locked in hardware */
 > `基于优先级`的中断控制器`记忆`当前所服务的中断的优先级，并仅允许比当前优先级高的中断抢占这个 ISR 。`较低`的或`相同`优先级的中断在中断控制器层次被`锁住`，`即使`这些中断在处理器层次`被解锁`。中断优先排序发生在中断控制器硬件层，直到中断控制器接受到中断结束 EOI 指令为止。
 
 > TODO: 开中断是为了什么？是不是为了防止执行主 ISR 代码(QF 函数)的过程太长导致临界区时间太长。还是为了主 ISR 代码执行时需要用到某些中断
+>
+> 解答：QF函数执行部分`内部`有些也使用的`关开中断`创建临界区的部分，为了防止`中断嵌套`，也就是`外面`关了中断，进了函数`内部`又关一次就会造成阻塞，也就是`死锁`。
 
 #### 中断上锁/解锁的内部 QF 宏
 
@@ -1757,6 +1775,7 @@ QF_EPOOL_TYPE_ QF_pool_[3]; /* allocate 3 event pools */
 // 实际使用的池的数量
 uint8_t QF_maxPool_;        /* number of initialized event pools */
 /*..........................................................................*/
+// poolSto参数才是分配的实际事件空间
 void QF_poolInit(void *poolSto, uint32_t poolSize, QEventSize evtSize)
 {
     /* cannot exceed the number of available memory pools */
@@ -1766,7 +1785,7 @@ void QF_poolInit(void *poolSto, uint32_t poolSize, QEventSize evtSize)
     Q_REQUIRE((QF_maxPool_ == (uint8_t)0) ||
                 (QF_EPOOL_EVENT_SIZE_(QF_pool_[QF_maxPool_ - 1]) < evtSize));
     /* perfom the platform-dependent initialization of the pool */
-    // 所以框架操作需要的内存由应用程序提供给框架。这里实际分配空间为poolSto指向的内存
+    // 所有框架操作需要的内存由应用程序提供给框架。这里实际分配空间为poolSto指向的内存
     QF_EPOOL_INIT_(QF_pool_[QF_maxPool_], poolSto, poolSize, evtSize);
     // 变量 QF_maxPool_ 被增加，表示多个池已被初始化
     ++QF_maxPool_; /* one more pool */
@@ -1793,10 +1812,12 @@ QEvent *QF_new_(QEventSize evtSize, QSignal sig)
     QF_EPOOL_GET_(QF_pool_[idx], e); /* get e -- platform-dependent */
     // 断言池未枯竭
     Q_ASSERT(e != (QEvent *)0);      /* pool must not run out of events */
+    // 设置信号
     e->sig = sig;                    /* set signal for this event */
     /* store the dynamic attributes of the event:
      * the pool ID and the reference counter == 0
      */
+    // 设置池标记(高两位)
     e->dynamic_ = (uint8_t)((idx + 1) << 6);
     return e;
 }
@@ -1911,104 +1932,781 @@ typedef struct QSubscrListTag {
 
 ![subscriberbitmap](/assets/img/2022-07-27-quantum-platform-1/subscriberbitmap.jpg)
 
-每类信号为一行，每行中的每一位对应一个主动对象，因为优先级和主动对象一一对应，所以通过优先级(1-63)对应位唯一标识，置位表示该事件被对应的主动对象订阅。如图中bit15对应优先级16的主动对象。
+每类信号为一行，每行中的每一位对应一个主动对象，因为优先级和主动对象一一对应，所以通过优先级(1-63)对应位唯一标识，置位表示该事件被对应的主动对象订阅。如图中 bit15 对应优先级 16 的主动对象。
 
-上图例子中每行 bit 为 64 个(目前 QF_MAX_ACTIVE的范围是 1 到 63)，这也是[主动对象](#主动对象)提到的优先级上限为 63 的原因
+上图例子中每行 bit 为 64 个(目前 QF_MAX_ACTIVE 的范围是 1 到 63)，这也是[主动对象](#主动对象)提到的优先级上限为 63 的原因
 
 - 初始化
 
-    ```c
-    QSubscrList *QF_subscrList_; /* initialized to zero per C-standard */
-    QSignal QF_maxSignal_;
-    /* initialized to zero per C-standard */
-    void QF_psInit(QSubscrList *subscrSto, QSignal maxSignal)
-    {
-        QF_subscrList_ = subscrSto;
-        QF_maxSignal_ = maxSignal;
-    }
-    ```
+  ```c
+  QSubscrList *QF_subscrList_; /* initialized to zero per C-standard */
+  QSignal QF_maxSignal_;
+  /* initialized to zero per C-standard */
+  void QF_psInit(QSubscrList *subscrSto, QSignal maxSignal)
+  {
+      QF_subscrList_ = subscrSto;
+      QF_maxSignal_ = maxSignal;
+  }
+  ```
 
 - 订阅
 
-    ```c
-    // me: 本对象，sig：要订阅的信号
-    void QActive_subscribe(QActive const *me, QSignal sig)
-    {
+  ```c
+  // me: 本对象，sig：要订阅的信号
+  void QActive_subscribe(QActive const *me, QSignal sig)
+  {
 
-        uint8_t p = me->prio;
-        // 字节索引，QF_div8Lkup[p] = (p – 1)/8，
-        // 可以每次算也可以用预生成在ROM的查找表
-        uint8_t i = Q_ROM_BYTE(QF_div8Lkup[p]);
-        QF_INT_LOCK_KEY_
-        Q_REQUIRE(((QSignal)Q_USER_SIG <= sig) && (sig < QF_maxSignal_)
-                    && ((uint8_t)0 < p)
-                    && (p <= (uint8_t)QF_MAX_ACTIVE)
-                    && (QF_active_[p] == me));
-        QF_INT_LOCK_();
-        // 找到字节内偏移，QF_pwr2Lkup[p] = 1 << ((p – 1) % 8)，
-        // 可以每次算也可以用预生成在ROM的查找表
-        QF_subscrList_[sig].bits[i] |= Q_ROM_BYTE(QF_pwr2Lkup[p]);
-        QF_INT_UNLOCK_();
-    }
-    ```
+      uint8_t p = me->prio;
+      // 字节索引，QF_div8Lkup[p] = (p – 1)/8，
+      // 可以每次算也可以用预生成在ROM的查找表
+      uint8_t i = Q_ROM_BYTE(QF_div8Lkup[p]);
+      QF_INT_LOCK_KEY_
+      Q_REQUIRE(((QSignal)Q_USER_SIG <= sig) && (sig < QF_maxSignal_)
+                  && ((uint8_t)0 < p)
+                  && (p <= (uint8_t)QF_MAX_ACTIVE)
+                  && (QF_active_[p] == me));
+      QF_INT_LOCK_();
+      // 找到字节内偏移，QF_pwr2Lkup[p] = 1 << ((p – 1) % 8)，
+      // 可以每次算也可以用预生成在ROM的查找表
+      QF_subscrList_[sig].bits[i] |= Q_ROM_BYTE(QF_pwr2Lkup[p]);
+      QF_INT_UNLOCK_();
+  }
+  ```
 
 - 发行
 
-    ```c
-    // 给所有订阅者发行一个给定事件 e
-    void QF_publish(QEvent const *e)
-    {
-        QF_INT_LOCK_KEY_
-        /* make sure that the published signal is within the configured range */
-        Q_REQUIRE(e->sig < QF_maxSignal_);
-        // 读取加修改，典型的临界区
-        QF_INT_LOCK_();
-        if (e->dynamic_ != (uint8_t)0)
-        { /* is it a dynamic event? */
-            /*lint -e1773 Attempt to cast away const */
-            // 
-            ++((QEvent *)e)->dynamic_; /* increment reference counter, NOTE01 */
-        }
-        QF_INT_UNLOCK_();
-    #if (QF_MAX_ACTIVE <= 8)
-        {
-            uint8_t tmp = QF_subscrList_[e->sig].bits[0];
-            while (tmp != (uint8_t)0)
-            {
-                uint8_t p = Q_ROM_BYTE(QF_log2Lkup[tmp]);
-                tmp &= Q_ROM_BYTE(QF_invPwr2Lkup[p]);    /* clear subscriber bit */
-                Q_ASSERT(QF_active_[p] != (QActive *)0); /* must be registered */
-                /* internally asserts if the queue overflows */
-                QActive_postFIFO(QF_active_[p], e);
-            }
-        }
-    #else
+  ```c
+  // 给所有订阅者发行一个给定事件 e
+  void QF_publish(QEvent const *e)
+  {
+      QF_INT_LOCK_KEY_
+      /* make sure that the published signal is within the configured range */
+      Q_REQUIRE(e->sig < QF_maxSignal_);
+      // 读取加修改，典型的临界区
+      QF_INT_LOCK_();
+      if (e->dynamic_ != (uint8_t)0)
+      { /* is it a dynamic event? */
+        // e->dynamic_为0说明是高2位也是0，就是静态事件
+          /*lint -e1773 Attempt to cast away const */
+          // 增加一次引用计数器，防止刚发送给一个活动对象事件立刻被处理了的情况下，
+          // 引用计数器直接归0，事件被回收，无法给其他活动对象发事件
+          // QF_publish执行到最后给所有订阅的活动对象发完，应该要减1
+          ++((QEvent *)e)->dynamic_; /* increment reference counter, NOTE01 */
+      }
+      QF_INT_UNLOCK_();
+  #if (QF_MAX_ACTIVE <= 8)
+      { // 只有一个字节
+          // 赋给临时变量，后面能随便修改
+          uint8_t tmp = QF_subscrList_[e->sig].bits[0];
+          while (tmp != (uint8_t)0)
+          { // 不为0表示有订阅
+              // 找最高优先级的活动对象，也就是从高到低第一个为1的位，
+              // 以 2 为底的对数查找快捷的确定在bitmask的MSB位
+              uint8_t p = Q_ROM_BYTE(QF_log2Lkup[tmp]);
+              // 清掉该位
+              tmp &= Q_ROM_BYTE(QF_invPwr2Lkup[p]);    /* clear subscriber bit */
+              Q_ASSERT(QF_active_[p] != (QActive *)0); /* must be registered */
+              /* internally asserts if the queue overflows */
+              // 向对应活动对象发送
+              QActive_postFIFO(QF_active_[p], e);
+          }
+      }
+  #else
 
-        {
-            uint8_t i = Q_DIM(QF_subscrList_[0].bits);
-            do
-            { /* go through all bytes in the subscription list */
-                uint8_t tmp;
-                --i;
-                tmp = QF_subscrList_[e->sig].bits[i];
-                while (tmp != (uint8_t)0)
-                {
-                    uint8_t p = Q_ROM_BYTE(QF_log2Lkup[tmp]);
-                    tmp &= Q_ROM_BYTE(QF_invPwr2Lkup[p]);    /*clear subscriber bit */
-                    p = (uint8_t)(p + (i << 3));             /* adjust the priority */
-                    Q_ASSERT(QF_active_[p] != (QActive *)0); /*must be registered*/
-                    /* internally asserts if the queue overflows */
-                    QActive_postFIFO(QF_active_[p], e);
-                }
-            } while (i != (uint8_t)0);
-        }
-    #endif
+      {
+          // Q_DIM获取字节数sizeof(array_) / sizeof((array_)[0U]
+          uint8_t i = Q_DIM(QF_subscrList_[0].bits);
+          do
+          { /* go through all bytes in the subscription list */
+            // 遍历该事件信号对应的订阅清单里的所有字节
+              uint8_t tmp;
+              // 从高到低遍历
+              --i;
+              // 这里开始和上面单字节的一样了
+              tmp = QF_subscrList_[e->sig].bits[i];
+              while (tmp != (uint8_t)0)
+              {
+                  uint8_t p = Q_ROM_BYTE(QF_log2Lkup[tmp]);
+                  tmp &= Q_ROM_BYTE(QF_invPwr2Lkup[p]);    /*clear subscriber bit */
+                  // 这里和上面不一样，要移位一下
+                  p = (uint8_t)(p + (i << 3));             /* adjust the priority */
+                  Q_ASSERT(QF_active_[p] != (QActive *)0); /*must be registered*/
+                  /* internally asserts if the queue overflows */
+                  QActive_postFIFO(QF_active_[p], e);
+              }
+          } while (i != (uint8_t)0);
+      }
+  #endif
+      // 执行一次垃圾回收，将引用计数器减1，这里就是对应开头那里的增加1
+      QF_gc(e); /* run the garbage collector, see NOTE01 */
+  }
+  ```
 
-        QF_gc(e); /* run the garbage collector, see NOTE01 */
+  > 为什么加锁，见[比较并交换](/posts/operating-systems-22/#比较并交换)
+
+  二进制算法查找表 `QF_log2Lkup[]` 映射`字节值`到 MSB 的 bit`数字` (找一个字节里的`最高有效位`所在的位置1-8，可以通过表一一对应)：
+
+  ![log2Lkup](/assets/img/2022-07-27-quantum-platform-1/log2Lkup.jpg)
+
+  > 注意：横坐标有部分缩放，是不等距的
+  {: .prompt-warning }
+
+  如果不用这个表，`运行时`用$log_2(x)$算也可以，这会造成重复计算开销，嵌入式系统可以使用这种预配置的表，缺点是`占用空间`，比如这个表是 256 个单字节数组，占用 256 Bytes
+
+### 时间管理
+
+时间事件只能是`静态`的
+
+一个时间事件在实例化时（在`构造`函数里）必须被分配一个`信号`，这个信号在后面`不能被改变`。后一个约束防止了时间事件在还被某个事件队列持有时，被意外的改变。
+
+#### 时间事件结构和接口
+
+```c
+typedef struct QTimeEvtTag
+{
+    // 从QEvent派生
+    QEvent super;             /* derives from QEvent */
+    // 双向链表前后指针
+    struct QTimeEvtTag *prev; /* link to the previous time event in the list */
+    struct QTimeEvtTag *next; /* link to the next time event in the list */
+    // 存储了时间事件的接收者(其他类型的事件好像没有派生这个变量)
+    QActive *act;             /* the active object that receives the time event */
+    // 每个tick（调用QF_tick()）递减，直到0发送事件
+    QTimeEvtCtr ctr;          /* the internal down-counter of the time event */
+    // 周期性时间事件的间隔，单次为0
+    QTimeEvtCtr interval;     /* the interval for the periodic time event */
+} QTimeEvt;
+// 构造函数，里面会给事件一个信号，该事件可重用但不应修改它的信号
+// 因为改了以后会导致原来接收这个事件的活动对象无法使用该事件
+void QTimeEvt_ctor(QTimeEvt *me, QSignal sig);
+// 为什么用do{...}while (0)之前提到过了，为了在宏里安全包裹多步操作
+// 设置定时器，用于一次性时间事件
+#define QTimeEvt_postIn(me_, act_, nTicks_)      \
+    do                                           \
+    {                                            \
+        (me_)->interval = (QTimeEvtCtr)0;        \
+        QTimeEvt_arm_((me_), (act_), (nTicks_)); \
+    } while (0)
+// 设置定时器，周期性时间事件
+#define QTimeEvt_postEvery(me_, act_, nTicks_)   \
+    do                                           \
+    {                                            \
+        (me_)->interval = (nTicks_);             \
+        QTimeEvt_arm_((me_), (act_), (nTicks_)); \
+    } while (0)
+// 解除定时器
+uint8_t QTimeEvt_disarm(QTimeEvt *me);
+// 重设定时器
+uint8_t QTimeEvt_rearm(QTimeEvt *me, QTimeEvtCtr nTicks);
+/* private helper function */
+// 把时间事件插入已设定的定时器的链接表内
+void QTimeEvt_arm_(QTimeEvt *me, QActive *act, QTimeEvtCtr nTicks);
+```
+
+![timeevtlist](/assets/img/2022-07-27-quantum-platform-1/timeevtlist.jpg)
+
+已被设定的时间事件放于链表中，已解除的不在链表中
+
+#### 系统时钟节拍和 QF_tick() 函数
+
+QF 需要获取节拍管理时间事件，一般就是在 `ISR` 中调用自己的 `QF_tick()`
+
+```c
+void QF_tick(void)
+{ /* see NOTE01 */
+  QTimeEvt *t;
+  QF_INT_LOCK_KEY_
+  QF_INT_LOCK_();
+  // 从链表头开始
+  t = QF_timeEvtListHead_; /* start scanning the list from the head */
+  while (t != (QTimeEvt *)0)
+  {//t = t->next;遍历
+    // 每次调用减1
+    if (--t->ctr == (QTimeEvtCtr)0)
+    { /* is time evt about to expire? */
+      // 到达倒计时
+      // 判断是否是周期性事件
+      if (t->interval != (QTimeEvtCtr)0)
+      {                       /* is it periodic timeout? */
+        t->ctr = t->interval; /* rearm the time event */
+      }
+      else // 不是周期性事件
+      { /* one-shot timeout, disarm by removing it from the list */
+        if (t == QF_timeEvtListHead_)
+        {
+          // 当前指针是头指针时，头指针直接指向next，即使next是空也没关系
+          QF_timeEvtListHead_ = t->next;
+        }
+        else
+        {
+          // 把定时器对象节点从链表中删除
+          if (t->next != (QTimeEvt *)0)
+          { /* not the last event? */
+            t->next->prev = t->prev;
+          }
+          t->prev->next = t->next;
+        }
+        // 标记该节点为未使用状态
+        t->prev = (QTimeEvt *)0; /* mark the event disarmed */
+      }
+      QF_INT_UNLOCK_(); /* unlock interrupts before calling QF service */
+      /* postFIFO() asserts internally that the event was accepted */
+      // 发送事件
+      QActive_postFIFO(t->act, (QEvent *)t);
     }
-    ```
+    else
+    {
+      static uint8_t volatile dummy;
+      QF_INT_UNLOCK_();
+      // 在许多 CPU 里，中断解锁仅在下个机器指令后才生效,
+      // 对 dummy 变量的赋值需要几个机器指令，这是编译器没办法优化掉的。这确保中断被实际解锁
+      // 防止QF_INT_UNLOCK_和下一个QF_INT_LOCK_挨在一起，CPU要等一段时间才能重新上锁
+      dummy = (uint8_t)0; /* execute a few instructions, see NOTE02 */
+    }
+    // 为了下一次循环上锁
+    QF_INT_LOCK_(); /* lock interrupts again to advance the link */
+    t = t->next;
+  }
+  QF_INT_UNLOCK_();
+}
+```
 
-    > 为什么加锁，见[比较并交换](/posts/operating-systems-22/#比较并交换)
+#### arming 和 disarm 一个时间事件
+
+QTimeEvt*arm*()用于把`时间事件`插入已设定的定时器的`链接`表内
+
+```c
+void QTimeEvt_arm_(QTimeEvt *me, QActive *act, QTimeEvtCtr nTicks)
+{
+  QF_INT_LOCK_KEY_
+  Q_REQUIRE((nTicks > (QTimeEvtCtr)0)                       /* cannot arm a timer with 0 ticks */
+            && (((QEvent *)me)->sig >= (QSignal)Q_USER_SIG) /*valid signal */
+            && (me->prev == (QTimeEvt *)0)                  /* time evt must NOT be used */
+            && (act != (QActive *)0));                      /* active object must be provided */
+  me->ctr = nTicks;
+  // Q_REQUIRE判断了me->prev == (QTimeEvt *)0，表示该节点未使用，
+  // 所以这里赋值一下（不是0就行，这里指向了自己），表示该节点对应的计时器已启用
+  // 后面会利用这个值判断该节点是否
+  me->prev = me; /* mark the timer in use */
+  me->act = act;
+
+  // 对链表的操作要加锁
+  QF_INT_LOCK_();
+  // 放到链表头部
+  me->next = QF_timeEvtListHead_;
+  if (QF_timeEvtListHead_ != (QTimeEvt *)0)
+  {
+    QF_timeEvtListHead_->prev = me;
+  }
+  QF_timeEvtListHead_ = me;
+  QF_INT_UNLOCK_();
+}
+```
+
+QTimeEvt_disarm()用于`关闭`已经设定的`定时器`：
+
+```c
+uint8_t QTimeEvt_disarm(QTimeEvt *me)
+{
+  uint8_t wasArmed;
+  QF_INT_LOCK_KEY_
+  QF_INT_LOCK_();
+  if (me->prev != (QTimeEvt *)0)
+  { /* is the time event actually armed? */
+    // prev指针不为0表示已经被插入定时器链表了，但事件还没被发出去
+    // 返回1向调用者保证， 这个时间事件还没有被发送也不会被发送，仅对单次定时器有效，
+    // 因为多次的话即使事件发出去了，节点也还在链表内
+    wasArmed = (uint8_t)1;
+    // 从链表里删除
+    if (me == QF_timeEvtListHead_)
+    {
+      QF_timeEvtListHead_ = me->next;
+    }
+    else
+    {
+      if (me->next != (QTimeEvt *)0)
+      { /* not the last in the list? */
+        me->next->prev = me->prev;
+      }
+      me->prev->next = me->next;
+    }
+    // 设定为未使用
+    me->prev = (QTimeEvt *)0; /* mark the time event as disarmed */
+  }
+  else
+  { /* the time event was not armed */
+    // 定时器未启用，可能是从未启用，也有可能是事件已经发出去后被关闭了
+    wasArmed = (uint8_t)0;
+  }
+  QF_INT_UNLOCK_();
+  return wasArmed;
+}
+```
+
+![oneshottimeevent](/assets/img/2022-07-27-quantum-platform-1/oneshottimeevent.jpg)
+
+当状态机处于 A 状态时设置了一个定时事件，但在定时器生效前发生了状态切换到 B（图中触发的 BUTTON_PRESS 事件），此时 A 设定的定时事件还存在，QF 框架还会给当前状态机发事件，当 B 收到该事件后用`自己的处理方式`处理，就会有问题，因为这个是状态 A 设定的，B 没设定过，不同状态的对`同一信号`的处理是`不同`的。
+
+这时需要 A 在退出前`关闭定时器`（利用在 exit()中执行 QTimeEvt_disarm()），且用一个`全局变量`通知其他状态不要用已经在事件队列里的属于状态 A 的定时事件
+
+### 原生 QF 事件队列
+
+使用 QEQueue 数据结构管理，有两种类型：
+
+- 第一个变体是特别为活动对象设计和优化的事件队列
+
+  原生 QF 事件队列放弃的功能：
+
+  - 比如可变尺寸的消息（原生 QF 事件队列是固定`等长`的，仅存储指向事件的指针）
+  - 阻塞在一个满队列（原生 QF 事件队列在`插入`时不能被阻塞，即使队列已满，不能处理满的情况）
+  - 定时阻塞在空队列（原生 QF 事件队列永远阻塞在空队列，意味着该线程不会在超时后去做其他事情）
+
+- 另一个更简单的 QF 事件队列的变体，是一个通用的“原始的”`线程安全`的`不能阻塞`的队列
+
+#### QEQueue 结构
+
+![qequeuering](/assets/img/2022-07-27-quantum-platform-1/qequeuering.jpg)
+
+> 这个图片好像画错了
+
+QEQueue 环形队列里存放的是`事件指针`(QEvent\*)，在 32 位机里就是`等长`的 4 个字节，指向事件实例
+
+```c
+#ifndef QF_EQUEUE_CTR_SIZE
+    #define QF_EQUEUE_CTR_SIZE 1
+#endif
+#if (QF_EQUEUE_CTR_SIZE == 1)
+    typedef uint8_t QEQueueCtr;
+#elif (QF_EQUEUE_CTR_SIZE == 2)
+    typedef uint16_t QEQueueCtr;
+#elif (QF_EQUEUE_CTR_SIZE == 4)
+    typedef uint32_t QEQueueCtr;
+#else
+    #error "QF_EQUEUE_CTR_SIZE defined incorrectly, expected 1, 2, or 4"
+#endif
+typedef struct QEQueueTag
+{
+    // 该值和tail位置的值相同，指向下一个要被使用的事件，frontEvt为空表示队列为空队列
+    QEvent const *frontEvt; /* pointer to event at the front of the queue */
+    // 环形队列起始位置指针
+    QEvent const **ring;    /* pointer to the start of the ring buffer */
+    // 环形队列结束偏移
+    QEQueueCtr end;         /* offset of the end of the ring buffer from the start */
+    // 事件队列头(入队位置，FIFO)
+    QEQueueCtr head;        /* offset to where next event will be inserted */
+    // 事件队列尾(出队位置；入队位置，LIFO)
+    QEQueueCtr tail;        /* offset of where next event will be extracted */
+    // 环形队列空闲数量
+    QEQueueCtr nFree;       /* number of free events in the ring buffer */
+    // 最小空闲事件数，跟踪队列使用的最差情况，用于微调环形缓存的尺寸
+    QEQueueCtr nMin;        /* minimum number of free events ever in the buffer */
+} QEQueue;
+```
+
+#### QEQueue 的初始化
+
+```c
+// 参数qSto为预分配空间
+void QEQueue_init(QEQueue *me, QEvent const *qSto[], QEQueueCtr qLen)
+{
+  me->frontEvt = (QEvent *)0; /* no events in the queue */
+  me->ring = &qSto[0];
+  me->end = qLen;
+  me->head = (QEQueueCtr)0;
+  me->tail = (QEQueueCtr)0;
+  me->nFree = qLen; /* all events are free */
+  me->nMin = qLen;  /* the minimum so far */
+}
+```
+
+qSto==NULL 和 qLen=0 将队列设置为仅 1 个容量，因为 fromtEvt 也算一个
+
+#### 原生 QF 活动对象队列
+
+活动对象事件队列的接口包含 3 个函数： `QActive_postFIFO()`，`QActive_postLIFO()`和 `QActive_get_()`
+
+```c
+// 返回一个指向静态QEvent的指针
+QEvent const *QActive_get_(QActive *me)
+{
+  QEvent const *e;
+  QF_INT_LOCK_KEY_
+  QF_INT_LOCK_();
+  // 阻塞直到队列不为空
+  QACTIVE_EQUEUE_WAIT_(me); /* wait for event queue to get an event */
+  // 取frontEvt的值，而不是找ring内的tail
+  e = me->eQueue.frontEvt;
+  // end初始化赋值为qLen，可以表示ring总长，这里判断是否全空
+  if (me->eQueue.nFree != me->eQueue.end)
+  { /* any events in the buffer? */
+    /* remove event from the tail */
+    // 从tail取到frontEvt
+    me->eQueue.frontEvt = me->eQueue.ring[me->eQueue.tail];
+    // index为0表示绕尾
+    if (me->eQueue.tail == (QEQueueCtr)0)
+    {                                   /* need to wrap the tail? */
+      // 绕尾就要把值从0直接变成尾部的qLen，然后减1就是绕尾后的index
+      me->eQueue.tail = me->eQueue.end; /* wrap around */
+    }
+    // 从tail取出，tail递减
+    --me->eQueue.tail;
+    // 空闲数增加
+    ++me->eQueue.nFree; /* one more free event in the ring buffer */
+  }
+  else // 如果全空
+  {
+    me->eQueue.frontEvt = (QEvent *)0; /* queue becomes empty */
+    // 队列为空信号
+    QACTIVE_EQUEUE_ONEMPTY_(me);
+  }
+  QF_INT_UNLOCK_();
+  return e;
+}
+```
+
+```c
+void QActive_postFIFO(QActive *me, QEvent const *e)
+{
+  QF_INT_LOCK_KEY_
+  QF_INT_LOCK_();
+  if (e->dynamic_ != (uint8_t)0)
+  {                            /* is it a dynamic event? */
+    ++((QEvent *)e)->dynamic_; /* increment the reference counter */
+  }
+  if (me->eQueue.frontEvt == (QEvent *)0) // 为空
+  {                             /* empty queue? */
+    // 如果为空就直接赋值给frontEvt，不需要插入head再赋值给frontEvt
+    me->eQueue.frontEvt = e;    /* deliver event directly */
+    // 队列非空信号，给QActive_get_()的QACTIVE_EQUEUE_WAIT_()
+    QACTIVE_EQUEUE_SIGNAL_(me); /* signal the event queue */
+  }
+  else // 不为空
+  { /* queue is not empty, insert event into the ring-buffer */
+    /* the queue must be able to accept the event (cannot overflow) */
+    // 事件队列不能满，满的情况不能处理，用断言退出
+    Q_ASSERT(me->eQueue.nFree != (QEQueueCtr)0);
+    /* insert event into the ring buffer (FIFO) */
+    // head位置插入
+    me->eQueue.ring[me->eQueue.head] = e;
+    // 绕尾
+    if (me->eQueue.head == (QEQueueCtr)0)
+    {                                   /* need to wrap the head? */
+      // 绕尾就要把值从0直接变成尾部的qLen，然后减1就是绕尾后的index
+      me->eQueue.head = me->eQueue.end; /* wrap around */
+    }
+    // 递减head
+    --me->eQueue.head;
+    // 递减free
+    --me->eQueue.nFree; /* update number of free events */
+    if (me->eQueue.nMin > me->eQueue.nFree)
+    {
+      // nFree更小时，更新nMin
+      me->eQueue.nMin = me->eQueue.nFree; /* update min so far */
+    }
+  }
+  QF_INT_UNLOCK_();
+}
+```
+
+#### “ 原始的”线程安全的队列
+
+```c
+/* Application header file -----------------------------------------------*/
+#include “qequeue.h”
+extern QEQueue APP_isrQueue; /* global “raw” queue */
+typedef struct IsrEvtTag
+{ /* event with parameters to be passed to the ISR */
+  QEvent super;
+  ...
+} IsrEvt;
+/* ISR module ------------------------------------------------------------*/
+QEQueue APP_isrQueue; /* definition of the “raw” queue */
+// 自定义ISR中断处理程序
+void interrupt myISR()
+{
+  QEvent const *e;
+  // 取一个事件，这里的QEQueue_get()即使队列为空也不阻塞
+  ... e = QEQueue_get(&APP_isrQueue); /* get an event from the “raw” queue */
+  /* event available? */
+  if (e != (QEvent *)0)
+  {// 执行事件
+    Process the event e(could be dispatching to a state machine)
+    ... 
+    // 因为是ISR管理事件，不是QF框架，要记得回收空间
+    QF_gc(e); /* explicitly recycle the event */
+  }
+  ...
+}
+/* Active object module --------------------------------------------------*/
+QState MyAO_stateB(MyAO *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+    ... 
+    case SOMETHING_INTERESTING_SIG:
+    {
+      IsrEvt *pe = Q_NEW(IsrEvt, ISR_SIG);
+      pe->... = ... /* set the event attributes */
+      // 发送事件
+      QEQueue_postFIFO(&APP_isrQueue, (QEvent *)pe);
+      return (QSTATE)0;
+    }
+    ...
+  }
+  return (QState)&MyAO_stateA;
+}
+/* main module -----------------------------------------------------------*/
+static QEvent *l_isrQueueSto[10]; /* allocate a buffer for the “raw” queue */
+main()
+{
+  ...
+  /* initialize the “raw” queue */
+  // 初始化事件队列
+  QEQueue_init(&APP_isrQueue, l_isrQueueSto, Q_DIM(l_isrQueueSto));
+  ...
+}
+```
+
+QEQueue 函数 QEQueue_postFIFO() ， QEQueue_postLIFO() 和QEQueue_get()的实现是非常直接的，因为不需要平台相关的宏。所有这些函数都是`可重入`的(多线程安全)，因为它们使用`临界区`代码维护队列的完整性。
+
+### 原生 QF 内存池
+
+![qmpool](/assets/img/2022-07-27-quantum-platform-1/qmpool.jpg)
+
+图中`粗黑线`框起来的是一个块，`细黑线`分割了一个块，`左边`为下一空闲块`指针`。通过这种方法重用了`空闲块`的空间，不需要单独找地方存一张`空闲表`了
+
+```c
+typedef struct QMPoolTag
+{
+  // 空闲表表头，即首个空闲块的地址
+  void *free;           /* the head of the linked list of free blocks */
+  // 池开始块地址
+  void *start;          /* the start of the original pool buffer */
+  // 池结束块地址
+  void *end;            /* the last block in this pool */
+  // 块大小
+  QMPoolSize blockSize; /* maximum block size (in bytes) */
+  // 块数量
+  QMPoolCtr nTot;       /* total number of blocks */
+  // 空闲块数量
+  QMPoolCtr nFree;      /* number of free blocks remaining */
+  // 空闲块曾经出现过的最小数量，用于分析使用情况
+  QMPoolCtr nMin;       /* minimum number of free blocks ever in this pool */
+} QMPool
+```
+
+#### 原生 QF 内存池的初始化
+
+_QFreeBlock结构用于对不同架构CPU实现内存对齐_：
+
+```c
+// 空闲链表节点，里面就一个指针
+typedef struct QFreeBlockTag { 
+    struct QFreeBlockTag *next;
+} QFreeBlock;
+```
+
+```c
+void QMPool_init(QMPool *me, void *poolSto,
+                 uint32_t poolSize, QMPoolSize blockSize)
+{
+  // 空闲链表
+  QFreeBlock *fb;
+  uint32_t corr;
+  uint32_t nblocks;
+  /* The memory block must be valid
+   * and the poolSize must fit at least one free block
+   * and the blockSize must not be too close to the top of the dynamic range
+   */
+  Q_REQUIRE((poolSto != (void *)0) // 预分配空间不能为空
+            && (poolSize >= (uint32_t)sizeof(QFreeBlock)) // 池大小必须能够至少放入一个空闲块，后面有断言poolSize >= (uint32_t)blockSize，这里只是一种判断条件
+            && ((QMPoolSize)(blockSize + (QMPoolSize)sizeof(QFreeBlock))
+            > blockSize));  // blockSize值不应该接近QMPoolSize类型值上限，比如QMPoolSize是uint16，
+                            // blockSize不应该接近65535，如果blockSize为65532，
+                            // 这里加上QFreeBlock指针的4，就会溢出回绕，最终比blockSize小。
+  /*lint -e923 ignore MISRA Rule 45 in this expression */
+  // (uint32_t)sizeof(QFreeBlock) - (uint32_t)1得到非对齐mask，如4-1=3=0x0011，如果是对齐地址，&操作后应该为0(相当于除以4的余数)，非对齐则不为0
+  corr = ((uint32_t)poolSto & ((uint32_t)sizeof(QFreeBlock) - (uint32_t)1));
+  if (corr != (uint32_t)0) // 未对齐
+  {                                             /* alignment needed? */
+    // 算对齐误差
+    corr = (uint32_t)sizeof(QFreeBlock) - corr; /*amount to align poolSto*/
+    // poolSize相应缩小，放弃未对齐部分
+    poolSize -= corr;                           /* reduce the available pool size */
+  }
+  /*lint -e826 align the head of free list at the free block-size boundary*/
+  // 开始给QPool赋值，强制对齐下，会丢弃未对齐部分，从对齐地址开始使用
+  me->free = (void *)((uint8_t *)poolSto + corr);
+  /* round up the blockSize to fit an integer # free blocks, no division */
+  // me->blockSize通过运算变为blockSize
+  me->blockSize = (QMPoolSize)sizeof(QFreeBlock); /* start with just one */
+  // nblocks的计算避免用到除法，而是用while做加法计算
+  // nBlocks = (blockSize + sizeof(QFreeBlock) – 1)/sizeof(QFreeBlock + 1)
+  nblocks = (uint32_t)1;   /* # free blocks that fit in one memory block */
+  // 加法增加，也能保证me->blockSize是sizeof(QFreeBlock)的整数倍，保证了每个块的地址也是对齐的
+  while (me->blockSize < blockSize)
+  {
+    me->blockSize += (QMPoolSize)sizeof(QFreeBlock);
+    ++nblocks;
+  }
+  blockSize = me->blockSize; /* use the rounded-up value from now on */
+                             /* the pool buffer must fit at least one rounded-up block */
+  Q_ASSERT(poolSize >= (uint32_t)blockSize);
+  /* chain all blocks together in a free-list... */
+  // 第一个直接减掉，因为已经加进链表了，见下面的while循环
+  poolSize -= (uint32_t)blockSize; /*don’t link the last block to the next */
+  // 不是从0开始，因为第一个就是me->free，已经在了，见下面while循环
+  me->nTot = (QMPoolCtr)1;         /* the last block already in the pool */
+  // 空闲队列指针赋值
+  fb = (QFreeBlock *)me->free;     /*start at the head of the free list */
+  while (poolSize >= (uint32_t)blockSize)
+  {                                  /* can fit another block? */
+    // TODO:这里的nblocks应该是me->nTot吧
+    fb->next = &fb[nblocks];         /* point the next link to the next block */
+    // 链表生成
+    fb = fb->next;                   /* advance to the next block */
+    poolSize -= (uint32_t)blockSize; /* reduce the available pool size */
+    ++me->nTot;                      /* increment the number of blocks so far */
+  }
+  fb->next = (QFreeBlock *)0; /* the last link points to NULL */
+  me->nFree = me->nTot;       /* all blocks are free */
+  me->nMin = me->nTot;        /* the minimum number of free blocks */
+  me->start = poolSto;        /* the original start this pool buffer */
+  me->end = fb;               /* the last block in this pool */
+}
+```
+
+> 许多 CPU 架构对指针的正确`对齐`有特别的要求。例如， `ARM` 处理器需要一个指针被分配在一个可以`被 4 整除`的地址。其他的 CPU，比如 `Pentium` ，可以接受分配在`奇数地址`的指针，但是当指针在可被 4 整除的地址对齐时，`执行性能`会更加好。
+
+#### 从池里获得一个内存块
+
+使用 `QMPool_get()` 从内存池获取一个块，支持耗尽，耗尽返回 `NULL`。
+
+> 之前在[动态事件分配](#动态事件分配)中提到如果是内存池用于动态事件队列，由于QF不支持`满队列`（耗尽），所以用完`无法插入`队列时会直接断言`报错`。
+
+```c
+void *QMPool_get(QMPool *me)
+{
+  QFreeBlock *fb;
+  QF_INT_LOCK_KEY_
+  QF_INT_LOCK_();
+  fb = (QFreeBlock *)me->free; /* get a free block or NULL */
+  if (fb != (QFreeBlock *)0)
+  {                      /* free block available? */
+    me->free = fb->next; /* adjust list head to the next free block */
+    --me->nFree;         /* one less free block */
+    if (me->nMin > me->nFree)
+    {
+      me->nMin = me->nFree; /* remember the minimum so far */
+    }
+  }
+  QF_INT_UNLOCK_();
+  return fb; /* return the block or NULL pointer to the caller */
+}
+```
+
+#### 把一个内存块回收到池内
+
+`QMPool_put()` 用来把块回收到池内
+
+```c
+// b是要回收的块的地址
+void QMPool_put(QMPool *me, void *b)
+{
+  QF_INT_LOCK_KEY_
+  Q_REQUIRE((me->start <= b) && (b <= me->end) /* must be in range */
+  // TODO: 这里应该是小于不是小于等于，等于说明全空闲，就不能再释放了
+            && (me->nFree <= me->nTot));       /* # free blocks must be < total */
+  QF_INT_LOCK_();
+  ((QFreeBlock *)b)->next = (QFreeBlock *)me->free; /* link into free list */
+  me->free = b;   /* set as new head of the free list */
+  ++me->nFree;    /* one more free block in this pool */
+  QF_INT_UNLOCK_();
+}
+```
+
+### 原生 QF 优先级集合
+
+可以用来表示活动对象优先级，此时每一位对应一个活动对象
+
+```c
+typedef struct QPSet64Tag
+{
+  uint8_t bytes;   /* condensed representation of the priority set */
+  uint8_t bits[8]; /* bitmasks representing elements in the set */
+} QPSet64;
+```
+
+![qpset](/assets/img/2022-07-27-quantum-platform-1/qpset.jpg)
+
+`uint8_t bits[8]`一共是8个1字节共64位，对应图上的 8x8 矩阵(bitmask)，`bits[0]`表示第 1 行,`bits[7]`表示第 8 行
+
+`uint8_t bytes`用于加快 bitmask `查找`，用来指示对应行的位中是否有`至少一个 1`(字节值大于等于1)。如`bytes`的`第0位`指示`bits[0]`是否大于等于1，如大于等于1则为1。bytes为`0x10010001`表示`bytes[0]`、`bytes[4]`、`bytes[7]`大于等于1。
+
+_判断集合是否为空_:
+
+```c
+#define QPSet64_notEmpty(me_) ((me_)->bytes != (uint8_t)0)
+```
+
+_找出集合里最大的元素_:
+
+```c
+// 先找bytes最高位，在找最高位对应的bits的最高位，bytes移位算偏移后相加
+#define QPSet64_findMax(me_, n_)                                  \
+  do                                                              \
+  {                                                               \
+    (n_) = (uint8_t)(QF_log2Lkup[(me_)->bytes] - 1);              \
+    (n_) = (uint8_t)(((n_) << 3) + QF_log2Lkup[(me_)->bits[n_]]); \
+  } while (0)
+```
+
+> 二进制对数查找表 `QF_log2Lkup` 见[发行-订阅事件发送](#发行-订阅事件发送)的`订阅`一节
+
+_插入一个值_:
+
+```c
+#define QPSet64_insert(me_, n_)                       \
+  do                                                  \
+  {                                                   \
+    (me_)->bits[QF_div8Lkup[n_]] |= QF_pwr2Lkup[n_];  \
+    (me_)->bytes |= QF_pwr2Lkup[QF_div8Lkup[n_] + 1]; \
+  } while (0)
+```
+
+> 字节索引 `QF_div8Lkup[p] = (p – 1)/8`（把值转为bits的索引），找字节内偏移 `QF_pwr2Lkup[p] = 1 << ((p – 1) % 8)`（p-1是因为偏移和索引都是从0开始，参数p是从1开始）
+
+先给bits赋值，再给bytes赋值
+
+_移除一个值_:
+
+```c
+#define QPSet64_remove(me_, n_)                            \
+  do                                                       \
+  {                                                        \
+    (me_)->bits[QF_div8Lkup[n_]] &= QF_invPwr2Lkup[n_];    \
+    if ((me_)->bits[QF_div8Lkup[n_]] == (uint8_t)0)        \
+    {                                                      \
+      (me_)->bytes &= QF_invPwr2Lkup[QF_div8Lkup[n_] + 1]; \
+    }                                                      \
+} while(0)
+```
+
+> `QF_invPwr2Lkup[p]` 清除对应位
+
+### 原生合作式 vanilla 内核
+
+QF 包含了一个简单的合作式 `vanilla` 内核
+
+> 在计算机科学领域，`香草vanilla`是一个用于表示“一个事物没有经过自定义的改动而仍然保留着它们`默认`的形式”的术语。这个术语已经广为流传并成为事实标准。香草一词来自于传统冰淇淋的`标准口味`，香草味。根据Eric S. Raymond的《The New Hacker's Dictionary》一书记载，香草一词在感觉上比普通一词更能表达“`默认`”的含义。[维基百科:香草软件](https://zh.m.wikipedia.org/zh-hans/%E9%A6%99%E8%8D%89%E8%BD%AF%E4%BB%B6)
+
+vanilla 内核通过在一个`无限循环`内不断查询所有活动对象的事件队列来工作。内核总是挑选`最高优先级`的`预备运行`(非空事件队列)的`活动对象`
+
+![readyset](/assets/img/2022-07-27-quantum-platform-1/readyset.jpg)
+
+图中所示 QPSet64 类型的 QF_readySet_ 优先级集合用于表示系统内所有`非空事件队列`的“`预备集合`”，每一位对应一个活动对象。活动对象的事件队列为非空时对应位置 1 ，为空时置 0
+
+
 
 ## 移植和配置 QF
 
