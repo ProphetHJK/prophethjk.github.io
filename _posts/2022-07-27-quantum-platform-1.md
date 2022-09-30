@@ -100,10 +100,31 @@ tags: [quantum platform, QP状态机]
   - [原生合作式 vanilla 内核](#原生合作式-vanilla-内核)
     - [qvanilla.c 源文件](#qvanillac-源文件)
     - [qvanilla.h 头文件](#qvanillah-头文件)
+- [可抢占式“运行-到-完成”内核](#可抢占式运行-到-完成内核)
 - [移植和配置 QF](#移植和配置-qf)
   - [QP 平台抽象层](#qp-平台抽象层)
     - [生成 QP 应用程序](#生成-qp-应用程序)
     - [创建 QP 库](#创建-qp-库)
+- [开发 QP 应用程序](#开发-qp-应用程序)
+  - [开发 QP 应用程序的准则](#开发-qp-应用程序的准则)
+    - [准则](#准则)
+    - [启发式](#启发式)
+  - [哲学家就餐问题](#哲学家就餐问题)
+    - [第一步：需求](#第一步需求)
+    - [第二步：顺序图](#第二步顺序图)
+    - [第三步：信号，事件和活动对象](#第三步信号事件和活动对象)
+    - [第四步：状态机](#第四步状态机)
+    - [第五步：初始化并启动应用程序](#第五步初始化并启动应用程序)
+    - [第六步：优雅的结束应用程序](#第六步优雅的结束应用程序)
+  - [在不同的平台运行 DPP](#在不同的平台运行-dpp)
+    - [在 DOS 上的 Vanilla 内核](#在-dos-上的-vanilla-内核)
+    - [在 Cortex-M3 上的 Vanilla 内核](#在-cortex-m3-上的-vanilla-内核)
+    - [uC/OS-II](#ucos-ii)
+    - [Linux](#linux)
+  - [调整事件队列和事件池的大小](#调整事件队列和事件池的大小)
+    - [调整事件队列的大小](#调整事件队列的大小)
+    - [调整事件池的大小](#调整事件池的大小)
+    - [系统集成](#系统集成)
 - [事件驱动型系统的软件追踪](#事件驱动型系统的软件追踪)
   - [QS 目标系统驻留构件](#qs-目标系统驻留构件)
     - [QS 源代码的组织](#qs-源代码的组织)
@@ -1788,6 +1809,7 @@ void QF_poolInit(void *poolSto, uint32_t poolSize, QEventSize evtSize)
                 (QF_EPOOL_EVENT_SIZE_(QF_pool_[QF_maxPool_ - 1]) < evtSize));
     /* perfom the platform-dependent initialization of the pool */
     // 所有框架操作需要的内存由应用程序提供给框架。这里实际分配空间为poolSto指向的内存
+    // 这个宏默认提供QMPool_init（就是QF原生内存池）的分配功能
     QF_EPOOL_INIT_(QF_pool_[QF_maxPool_], poolSto, poolSize, evtSize);
     // 变量 QF_maxPool_ 被增加，表示多个池已被初始化
     ++QF_maxPool_; /* one more pool */
@@ -2791,7 +2813,7 @@ QF_onIdle()是否有参数取决于[QF 里的临界区](#qf-里的临界区)类�
 
 如图，如果进入 `Idle` 函数前`不关中断`，就会产生`竞争`，可能就有`新事件`插入了。然后 Idle 处理进入`低功耗模式`就不能`及时响应`这个事件了。
 
-解决办法就是进 Idle 前关中断，然后在进入低功耗模式的`同时`开中断，注意这个“同时”，需要实现`原子操作`，也就是 MCU 的支持。
+解决办法就是`进 Idle 前`关中断，然后在`进 Idle 后`且进入`低功耗模式`的`同时`开中断，注意这个“同时”，需要实现`原子操作`，也就是 MCU 的支持。
 
 #### qvanilla.h 头文件
 
@@ -2824,6 +2846,10 @@ extern QPSet64 volatile QF_readySet_; /** QF-ready set of active objects */
 #endif                                /* qvanilla_h */
 ```
 
+## 可抢占式“运行-到-完成”内核
+
+
+
 ## 移植和配置 QF
 
 QF 包含了一个被清楚定义的`平台抽象层 PAL`（ platform abstraction layer ），它封装了所有平台相关的代码，清晰把它和平台无关的代码区分开
@@ -2839,6 +2865,776 @@ QF 包含了一个被清楚定义的`平台抽象层 PAL`（ platform abstractio
 编译+链接，QP 库允许连接器在链接时消除任何没有被引用的 QP 代码
 
 #### 创建 QP 库
+
+## 开发 QP 应用程序
+
+### 开发 QP 应用程序的准则
+
+#### 准则
+
+- 活动对象应该仅通过某个`异步事件`交换来相互作用，不应该`共享内存`或其他资源。
+- 活动对象不应该`阻塞`或者在RTC处理的中间`忙等待`事件。
+
+#### 启发式
+
+- 事件驱动型编程，`非阻塞`，快速返回
+- 实现在活动对象之间的`松散耦合`，避免资源共享
+- 把较长的处理`分解`成较短的步骤
+- 画出`顺序图`
+
+### 哲学家就餐问题
+
+![philosopher](/assets/img/2022-07-27-quantum-platform-1/philosopher.jpg)
+
+#### 第一步：需求
+
+5个哲学家，5个餐叉，吃面需要2个餐叉，吃完会思考，核心是防止死锁和饿死。
+
+#### 第二步：顺序图
+
+![sequencediagram](/assets/img/2022-07-27-quantum-platform-1/sequencediagram.jpg)
+
+`Table` 对象管理餐叉，每个 `Philo` 对象管理一个哲学家
+
+触发 QF 定时事件`Philo[m]`终止思考，开始饥饿，向Table发送事件(HUNGRY(m))请求就餐许可(有足够的叉子)。Table 将就餐许可事件(EAT(m))发送给对应对象。`Philo[m]`进入就餐状态直到下一个定时事件，发送完成事件(DONE(m))归还叉子。
+
+#### 第三步：信号，事件和活动对象
+
+```c
+#ifndef dpp_h
+#define dpp_h
+// 对哲学家就餐问题自定义的事件信号
+enum DPPSignals
+{
+  EAT_SIG = Q_USER_SIG, /* published by Table to let a philosopher eat */
+  DONE_SIG,             /* published by Philosopher when done eating */
+  TERMINATE_SIG,        /* published by BSP to terminate the application */
+  MAX_PUB_SIG,          /* the last published signal */
+  // 这个信号是直接发送的
+  HUNGRY_SIG,           /* posted directly from hungry Philosopher to Table */
+  MAX_SIG               /* the last signal */
+};
+// 派生自QEvent的事件，增加了一个philoNum变量
+typedef struct TableEvtTag
+{
+  QEvent super;     /* derives from QEvent */
+  uint8_t philoNum; /* Philosopher number */
+} TableEvt;
+enum
+{
+  N_PHILO = 5
+};                     /* number of Philosophers */
+// 构造函数，再main开始时调用
+void Philo_ctor(void); /* ctor that instantiates all Philosophers */
+void Table_ctor(void);
+extern QActive *const AO_Philo[N_PHILO]; /* "opaque" pointers to Philo AOs */
+extern QActive *const AO_Table;          /* "opaque" pointer to Table AO */
+#endif                                   /* dpp_h */
+```
+
+#### 第四步：状态机
+
+![ddpstatemachines](/assets/img/2022-07-27-quantum-platform-1/ddpstatemachines.jpg)
+
+这里产生`HUNGRY`事件和`DONE`事件不是由`定时`事件触发而是`进入退出`动作时触发，更`精确`的反应了语义，提高后续的`可维护性`
+
+准则：偏向使用`进入`动作和`退出`动作，而不是`转换`动作。
+
+_哲学家和餐叉编号_：
+
+![philoforknum](/assets/img/2022-07-27-quantum-platform-1/philoforknum.jpg)
+
+```c
+#include "qp_port.h"
+#include "dpp.h"
+#include "bsp.h"
+Q_DEFINE_THIS_FILE
+/* Active object class -----------------------------------------------------*/
+// 活动对象Table从QActive派生，增加了两个变量，管理叉子和饥饿度
+typedef struct TableTag
+{
+  QActive super;             /* derives from QActive */
+  uint8_t fork[N_PHILO];     /* states of the forks */
+  uint8_t isHungry[N_PHILO]; /* remembers hungry philosophers */
+} Table;
+static QState Table_initial(Table *me, QEvent const *e); /* pseudostate */
+static QState Table_serving(Table *me, QEvent const *e); /* state handler */
+// 如上图，n顺时针递增，人和右叉为一组，标记为n，计算左边或右边组的序号
+#define RIGHT(n_) ((uint8_t)(((n_) + (N_PHILO - 1)) % N_PHILO))
+#define LEFT(n_) ((uint8_t)(((n_) + 1) % N_PHILO))
+enum ForkState
+{
+  FREE,
+  USED
+};
+/* Local objects ----------------------------------------------------------*/
+// static让其他文件无法访问
+static Table l_table; /* the single instance of the Table active object */
+/* Global-scope objects ---------------------------------------------------*/
+// 指针设为const不能更改，可以让编译器把该指针分配在ROM里
+QActive *const AO_Table = (QActive *)&l_table; /* "opaque" AO pointer */
+/*........................................................................*/
+// 构造函数，C需要手动调用，C++会自动调用
+void Table_ctor(void)
+{
+  uint8_t n;
+  Table *me = &l_table;
+  // 实例化超类，为super部分初始化
+  QActive_ctor(&me->super, (QStateHandler)&Table_initial);
+  for (n = 0; n < N_PHILO; ++n)
+  {
+    me->fork[n] = FREE;
+    me->isHungry[n] = 0;
+  }
+}
+/*.......................................................................*/
+// 最顶初始转换
+QState Table_initial(Table *me, QEvent const *e)
+{
+  (void)e; /* avoid the compiler warning about unused parameter */
+  // 订阅信号
+  QActive_subscribe((QActive *)me, DONE_SIG);
+  QActive_subscribe((QActive *)me, TERMINATE_SIG);
+  /* signal HUNGRY_SIG is posted directly */
+  return Q_TRAN(&Table_serving);
+}
+/*.......................................................................*/
+QState Table_serving(Table *me, QEvent const *e)
+{
+  uint8_t n, m;
+  // Table相关事件，定义见上一节
+  TableEvt *pe;
+  switch (e->sig)
+  {
+  case HUNGRY_SIG:
+  {
+    // 人工延长单RTC处理的时间，方便进行压力测试
+    BSP_busyDelay();
+    // 提取事件参数
+    n = ((TableEvt const *)e)->philoNum;
+    /* phil ID must be in range and he must be not hungry */
+    Q_ASSERT((n < N_PHILO) && (!me->isHungry[n]));
+    // 屏幕打印
+    BSP_displyPhilStat(n, "hungry ");
+    m = LEFT(n);
+    if ((me->fork[m] == FREE) && (me->fork[n] == FREE))
+    {// 左右叉都空闲的情况
+      me->fork[m] = me->fork[n] = USED;
+      // 生成eat事件
+      pe = Q_NEW(TableEvt, EAT_SIG);
+      pe->philoNum = n;
+      QF_publish((QEvent *)pe);
+      BSP_displyPhilStat(n, "eating ");
+    }
+    else
+    {
+      me->isHungry[n] = 1;
+    }
+    return Q_HANDLED();
+  }
+  case DONE_SIG:
+  {
+    BSP_busyDelay();
+    n = ((TableEvt const *)e)->philoNum;
+    /* phil ID must be in range and he must be not hungry */
+    Q_ASSERT((n < N_PHILO) && (!me->isHungry[n]));
+    // 吃完开始思考
+    BSP_displyPhilStat(n, "thinking");
+    m = LEFT(n);
+    /* both forks of Phil [n] must be used */
+    Q_ASSERT((me->fork[n] == USED) && (me->fork[m] == USED));
+    // 归还叉子
+    me->fork[m] = me->fork[n] = FREE;
+    // 右边的人是否饥饿
+    m = RIGHT(n); /* check the right neighbor */
+    if (me->isHungry[m] && (me->fork[m] == FREE))
+    {
+      me->fork[n] = me->fork[m] = USED;
+      me->isHungry[m] = 0;
+      pe = Q_NEW(TableEvt, EAT_SIG);
+      pe->philoNum = m;
+      QF_publish((QEvent *)pe);
+      BSP_displyPhilStat(m, "eating ");
+    }
+    // 左边的左边的人是否饥饿
+    m = LEFT(n); /* check the left neighbor */
+    n = LEFT(m); /* left fork of the left neighbor */
+    if (me->isHungry[m] && (me->fork[n] == FREE))
+    {
+      me->fork[m] = me->fork[n] = USED;
+      me->isHungry[m] = 0;
+      pe = Q_NEW(TableEvt, EAT_SIG);
+      pe->philoNum = m;
+      QF_publish((QEvent *)pe);
+      BSP_displyPhilStat(m, "eating ");
+    }
+    return Q_HANDLED();
+  }
+  // 终止
+  case TERMINATE_SIG:
+  {
+    QF_stop();
+    return Q_HANDLED();
+  }
+  }
+  return Q_SUPER(&QHsm_top);
+}
+```
+
+#### 第五步：初始化并启动应用程序
+
+注意点：
+
+- 活动对象的相对优先级
+- 预先分配的事件队列的尺寸
+- 活动对象启动顺序
+
+```c
+#include "qp_port.h"
+#include "dpp.h"
+#include "bsp.h"
+/* Local-scope objects ---------------------------------------------------*/
+// 所有事件队列的内存缓存被静态分配
+static QEvent const *l_tableQueueSto[N_PHILO];
+static QEvent const *l_philoQueueSto[N_PHILO][N_PHILO];
+// 用于订阅者列表的内存空间也被静态分配，这是个bitmap，之前提到过
+static QSubscrList l_subscrSto[MAX_PUB_SIG];
+// 使用"小尺寸"事件池
+static union SmallEvent
+{
+  void *min_size;// min_size无意义，这句是为了让SmallEvent至少比一个指针占用空间大
+  TableEvt te;
+  // 可以添加其他自定义事件
+  /* other event types to go into this pool */
+} l_smlPoolSto[2 * N_PHILO]; /* storage for the small event pool */
+/*.......................................................................*/
+int main(int argc, char *argv[])
+{
+  uint8_t n;
+  Philo_ctor();                               /* instantiate all Philosopher active objects */
+  Table_ctor();                               /* instantiate the Table active object */
+  BSP_init(argc, argv);                       /* initialize the Board Support Package */
+  QF_init();                                  /* initialize the framework and the underlying RT kernel */
+  // 订阅功能初始化
+  QF_psInit(l_subscrSto, Q_DIM(l_subscrSto)); /* init publish-subscribe */
+  // 用于动态事件的池，默认使用QF原生内存池管理，
+  // 这里用了BSS段空间(static变量)作为原始空间（有些嵌入式没有堆空间，这是标准做法）
+  QF_poolInit(l_smlPoolSto, sizeof(l_smlPoolSto), sizeof(l_smlPoolSto[0]));/* initialize event pools... */
+  // 先初始化哲学家对象,
+  for (n = 0; n < N_PHILO; ++n)
+  { /* start the active objects... */
+    QActive_start(AO_Philo[n], (uint8_t)(n + 1),
+                  l_philoQueueSto[n], Q_DIM(l_philoQueueSto[n]),
+                  (void *)0, 0, /* no private stack */
+                  (QEvent *)0);
+  }
+  // 后初始化table管理对象
+  QActive_start(AO_Table, (uint8_t)(N_PHILO + 1),
+                l_tableQueueSto, Q_DIM(l_tableQueueSto),
+                (void *)0, 0, /* no private stack */
+                (QEvent *)0);
+  QF_run(); /* run the QF application */
+  return 0;
+}
+```
+
+#### 第六步：优雅的结束应用程序
+
+在嵌入式系统中不需要考虑，一般就是无限运行直到复位。
+
+### 在不同的平台运行 DPP
+
+#### 在 DOS 上的 Vanilla 内核
+
+```c
+#include "qp_port.h"
+#include "dpp.h"
+#include "bsp.h"
+...
+
+/* Local-scope objects---------------------------------------------------*/
+static void interrupt (*l_dosTmrISR)();
+static void interrupt (*l_dosKbdISR)();
+static uint32_t l_delay = 0UL; /* limit for the loop counter in busyDelay() */
+#define TMR_VECTOR 0x08
+#define KBD_VECTOR 0x09
+/*......................................................................*/
+// Turbo C++ 1.01编译器提供了一个扩展关健词 interrupt ，它允许你使用 C/C++ 编写ISR
+void interrupt ISR_tmr(void)
+{
+  // 80x86处理器在进ISR时自动关中断，不过可以在ISR内手动开中断
+  // 由8259A可编程中断控制器管理中断优先级
+  QF_INT_UNLOCK(dummy); /* unlock interrupts */
+  // QF_tick()内部会关中断，且使用了“无条件中断上锁和解锁”策略，
+  // 不支持中断嵌套，为了防止死锁，需要提前开中断，在临界区外调用QF_tick()
+  QF_tick();            /* call QF_tick() outside of critical section */
+  QF_INT_LOCK(dummy);   /* lock interrupts again */
+  // 中断结束 end-of-interrupt(EOI)指令被发往主 8259A ，因此它结束这个中断级别的优先级。
+  outportb(0x20, 0x20); /* write EOI to the master 8259A PIC */
+}
+/*......................................................................*/
+// 按键中断
+void interrupt ISR_kbd(void)
+{
+  uint8_t key;
+  uint8_t kcr;
+  QF_INT_UNLOCK(dummy);                  /* unlock interrupts */
+  key = inport(0x60);                    /*key scan code from the 8042 kbd controller */
+  kcr = inport(0x61);                    /* get keyboard control register */
+  outportb(0x61, (uint8_t)(kcr | 0x80)); /* toggle acknowledge bit high */
+  outportb(0x61, kcr);                   /* toggle acknowledge bit low */
+  if (key == (uint8_t)129)
+  {                                          /* ESC key pressed? */
+    static QEvent term = {TERMINATE_SIG, 0}; /* static event */
+    QF_publish(&term);                       /* publish to all interested AOs */
+  }
+  QF_INT_LOCK(dummy);   /* lock interrupts again */
+  outportb(0x20, 0x20); /* write EOI to the master 8259A PIC */
+}
+/*.......................................................................*/
+void QF_onStartup(void)
+{
+  /* save the origingal DOS vectors ... */
+  // 保存原始中断向量，在最后清理时恢复
+  l_dosTmrISR = getvect(TMR_VECTOR);
+  l_dosKbdISR = getvect(KBD_VECTOR);
+  QF_INT_LOCK(dummy);
+  // 配置自定义的中断向量
+  setvect(TMR_VECTOR, &ISR_tmr);
+  setvect(KBD_VECTOR, &ISR_kbd);
+  QF_INT_UNLOCK(dummy);
+}
+/*.......................................................................*/
+void QF_onCleanup(void)
+{ /* restore the original DOS vectors ... */
+  QF_INT_LOCK(dummy);
+  // 恢复中断向量
+  setvect(TMR_VECTOR, l_dosTmrISR);
+  setvect(KBD_VECTOR, l_dosKbdISR);
+  QF_INT_UNLOCK(dummy);
+  _exit(0); /* exit to DOS */
+}
+/*.......................................................................*/
+// 见[qvanilla.c 源文件](#qvanillac-源文件)
+void QF_onIdle(void)
+{                       /* called with interrupts LOCKED */
+  QF_INT_UNLOCK(dummy); /* always unlock interrutps */
+}
+/*.......................................................................*/
+void BSP_init(int argc, char *argv[])
+{
+  // 读取参数
+  if (argc > 1)
+  {
+    // 忙等待时长
+    l_delay = atol(argv[1]); /* set the delay counter for busy delay */
+  }
+  printf("Dining Philosopher Problem example"
+         "\nQEP %s\nQF %s\n"
+         "Press ESC to quit...\n",
+         QEP_getVersion(),
+         QF_getVersion());
+}
+/*......................................................................*/
+// 用于手动调用延长RTC执行时间，方便调试
+void BSP_busyDelay(void)
+{
+  uint32_t volatile i = l_delay;
+  // 忙等待
+  while (i-- > 0UL)
+  { /* busy-wait loop */
+  }
+}
+/*......................................................................*/
+// 打印执行信息，仅被活动对象 Table 调用
+void BSP_displyPhilStat(uint8_t n, char const *stat)
+{
+  printf("Philosopher %2d is %s\n", (int)n, stat);
+}
+/*......................................................................*/
+void Q_onAssert(char const Q_ROM *const Q_ROM_VAR file, int line)
+{ // 断言失败时终止
+  QF_INT_LOCK(dummy); /* cut-off all interrupts */
+  fprintf(stderr, "Assertion failed in %s, line %d", file, line);
+  QF_stop();
+}
+```
+
+#### 在 Cortex-M3 上的 Vanilla 内核
+
+![vanillacortexm3](/assets/img/2022-07-27-quantum-platform-1/vanillacortexm3.jpg)
+
+t（思考）， e（就餐）和 h（饥饿）
+
+```c
+#include "qp_port.h"
+#include "dpp.h"
+#include "bsp.h"
+// 驱动库
+#include "hw_ints.h"
+.../* other Luminary Micro driver library include files */
+
+/* Local-scope objects ---------------------------------------------------*/
+static uint32_t l_delay = 0UL; /* limit for the loop counter in busyDelay() */
+
+/*......................................................................*/
+void ISR_SysTick(void)
+{
+  // Cortex-M3 进入 ISR 时，中断是解锁的，这就有别于80x86
+  QF_tick(); /* process all armed time events */
+  /* add any application-specific clock-tick processing, as needed */
+}
+...
+
+/*......................................................................*/
+// 板的初始化
+void
+BSP_init(int argc, char *argv[])
+{
+  (void)argc; /* unused: avoid the complier warning */
+  (void)argv; /* unused: avoid the compiler warning */
+              /* Set the clocking to run at 20MHz from the PLL. */
+  SysCtlClockSet(SYSCTL_SYSDIV_10 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_6MHZ);
+  /* Enable the peripherals used by the application. */
+  SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+  SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOC);
+  /* Configure the LED, push button, and UART GPIOs as required. */
+  GPIODirModeSet(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1,
+                 GPIO_DIR_MODE_HW);
+  GPIODirModeSet(GPIO_PORTC_BASE, PUSH_BUTTON, GPIO_DIR_MODE_IN);
+  GPIODirModeSet(GPIO_PORTC_BASE, USER_LED, GPIO_DIR_MODE_OUT);
+  GPIOPinWrite(GPIO_PORTC_BASE, USER_LED, 0);
+  /* Initialize the OSRAM OLED display. */
+  // 初始化显示驱动
+  OSRAMInit(1);
+  OSRAMStringDraw("Dining Philos", 0, 0);
+  OSRAMStringDraw("0 ,1 ,2 ,3 ,4", 0, 1);
+}
+/*......................................................................*/
+void BSP_displyPhilStat(uint8_t n, char const *stat)
+{
+  char str[2];
+  str[0] = stat[0];
+  str[1] = '\0';
+  OSRAMStringDraw(str, (3 * 6 * n + 6), 1);
+}
+/*......................................................................*/
+void BSP_busyDelay(void)
+{
+  uint32_t volatile i = l_delay;
+  while (i-- > 0UL)
+  { /* busy-wait loop */
+  }
+}
+/*......................................................................*/
+void QF_onStartup(void)
+{
+  /* Set up and enable the SysTick timer. It will be used as a reference
+   * for delay loops in the interrupt handlers. The SysTick timer period
+   * will be set up for BSP_TICKS_PER_SEC.
+   */
+  // 设置节拍速率
+  SysTickPeriodSet(SysCtlClockGet() / BSP_TICKS_PER_SEC);
+  SysTickEnable();
+  // 配置节拍中断优先级，0xC0为倒数第二低的优先级
+  IntPrioritySet(FAULT_SYSTICK, 0xC0); /* set the priority of SysTick */
+  SysTickIntEnable();                  /* Enable the SysTick interrupts */
+  QF_INT_UNLOCK(dummy);                /* set the interrupt flag in PRIMASK */
+}
+/*......................................................................*/
+// 没有操作系统，不需要清理，退出直接复位
+void QF_onCleanup(void)
+{
+}
+/*......................................................................*/
+void QF_onIdle(void)
+{ /* entered with interrupts LOCKED, see NOTE01 */
+  /* toggle the User LED on and then off, see NOTE02 */
+  GPIOPinWrite(GPIO_PORTC_BASE, USER_LED, USER_LED); /* User LED on */
+  GPIOPinWrite(GPIO_PORTC_BASE, USER_LED, 0);        /* User LED off */
+#ifdef NDEBUG
+  /* Put the CPU and peripherals to the low-power mode.
+   * you might need to customize the clock management for your application,
+   * see the datasheet for your particular Cortex-M3 MCU.
+   */
+  // 低功耗模式
+  __asm("WFI"); /* Wait-For-Interrupt */
+#endif
+  QF_INT_UNLOCK(dummy); /* always unlock the interrupts */
+}
+/*......................................................................*/
+void Q_onAssert(char const Q_ROM *const Q_ROM_VAR file, int line)
+{
+  (void)file;         /* avoid compiler warning */
+  (void)line;         /* avoid compiler warning */
+  QF_INT_LOCK(dummy); /* make sure that all interrupts are disabled */
+  // 实际使用要去掉这个循环
+  for (;;)
+  { /* NOTE: replace the loop with reset for the final version */
+  }
+}
+/* error routine that is called if the Luminary library encounters an error */
+void __error__(char *pcFilename, unsigned long ulLine)
+{
+  Q_onAssert(pcFilename, ulLine);
+}
+```
+
+#### uC/OS-II
+
+![ucos2dpp](/assets/img/2022-07-27-quantum-platform-1/ucos2dpp.jpg)
+
+_main.c_：
+
+```c
+#include "qp_port.h"
+#include "dpp.h"
+#include "bsp.h"
+/* Local-scope objects ---------------------------------------------------*/
+... 
+static OS_STK l_philoStk[N_PHILO][256]; /* stacks for the Philosophers */
+static OS_STK l_tableStk[256];              /* stack for the Table */
+static OS_STK l_ucosTaskStk[256];           /* stack for the ucosTask */
+/*........................................................................*/
+int main(int argc, char *argv[])
+{
+  ... 
+  for (n = 0; n < N_PHILO; ++n)
+  {
+    // 需要为每个活动对象分配私有堆栈
+    QActive_start(AO_Philo[n], (uint8_t)(n + 1),
+                  l_philoQueueSto[n], Q_DIM(l_philoQueueSto[n]),
+                  l_philoStk[n], sizeof(l_philoStk[n]), (QEvent *)0);
+  }
+  QActive_start(AO_Table, (uint8_t)(N_PHILO + 1),
+                l_tableQueueSto, Q_DIM(l_tableQueueSto),
+                l_tableStk, sizeof(l_tableStk), (QEvent *)0);
+  /* create a uC/OS-II task to start interrupts and poll the keyboard */
+  // 比其他系统多加了个任务，见下面的bsp.c
+  OSTaskCreate(&ucosTask,
+               (void *)0, /* pdata */
+               &l_ucosTaskStk[Q_DIM(l_ucosTaskStk) - 1],
+               0); /* the highest uC/OS-II priority */
+  QF_run();        /* run the QF application */
+  return 0;
+}
+```
+
+_bsp.c_:
+
+```c
+#include "qp_port.h"
+#include "dpp.h"
+#include "bsp.h"
+#include "video.h"
+/*.......................................................................*/
+void ucosTask(void *pdata)
+{
+  (void)pdata;    /* avoid the compiler warning about unused parameter */
+  QF_onStartup(); /* start interrupts including the clock tick, NOTE01 */
+  for (;;)
+  {
+    // for循环里要加阻塞转让控制权
+    OSTimeDly(OS_TICKS_PER_SEC / 10); /* sleep for 1/10 s */
+    if (kbhit())
+    { /* poll for a new keypress */
+      uint8_t key = (uint8_t)getch();
+      // 检测是否按了 ESC 键
+      if (key == 0x1B)
+      { /* is this the ESC key? */
+        // 发布静态的 TERMINATE 事件
+        QF_publish(Q_NEW(QEvent, TERMINATE_SIG));
+      }
+      else
+      { /* other key pressed */
+        Video_printNumAt(30, 13 + N_PHILO, VIDEO_FGND_YELLOW, key);
+      }
+    }
+  }
+}
+/*.......................................................................*/
+// 节拍中断，因为使用“保存和恢复中断状态”策略支持中断嵌套，进入ISR后不需要开中断
+void OSTimeTickHook(void)
+{
+  QF_tick();
+  /* add any application-specific clock-tick processing, as needed */
+}
+/*.......................................................................*/
+// Idle进入低功耗模式
+void OSTaskIdleHook(void){
+    /* put the MCU to sleep, if desired */
+}
+...
+```
+
+#### Linux
+
+![linuxddp](/assets/img/2022-07-27-quantum-platform-1/linuxddp.jpg)
+
+_bsp.c_:
+
+```c
+#include "qp_port.h"
+#include "dpp.h"
+#include "bsp.h"
+#include <sys/select.h>
+... 
+Q_DEFINE_THIS_FILE
+/* Local objects ---------------------------------------------------------*/
+// Linux控制台默认配置不允许异步接收用户按键，需要修改控制台配置，这个变量备份了修改前的配置
+static struct termios l_tsav; /* structure with saved terminal attributes */
+static uint32_t l_delay;      /* limit for the loop counter in busyDelay() */
+/*.......................................................................*/
+// 异步监控控制台输入的线程，按下ESC终止应用
+static void *idleThread(void *me)
+{ /* the expected P-Thread signature */
+  for (;;)
+  {
+    struct timeval timeout = {0}; /* timeout for select() */
+    fd_set con;                   /* FD set representing the console */
+    FD_ZERO(&con);
+    FD_SET(0, &con);
+    timeout.tv_usec = 8000;
+    /* sleep for the full tick or until a console input arrives */
+    // 使用select()作为阻塞机制
+    if (0 != select(1, &con, 0, 0, &timeout))
+    { /* any descriptor set? */
+      char ch;
+      read(0, &ch, 1);
+      if (ch == '\33')
+      { /* ESC pressed? */
+        // 按ESC发布退出事件
+        QF_publish(Q_NEW(QEvent, TERMINATE_SIG));
+      }
+    }
+  }
+  return (void *)0; /* return success */
+}
+/*.......................................................................*/
+void BSP_init(int argc, char *argv[])
+{
+  printf("Dining Philosopher Problem example"
+         "\nQEP %s\nQF %s\n"
+         "Press ESC to quit...\n",
+         QEP_getVersion(),
+         QF_getVersion());
+  if (argc > 1)
+  {
+    l_delay = atol(argv[1]); /* set the delay from the argument */
+  }
+}
+/*.......................................................................*/
+void QF_onStartup(void)
+{                     /* startup callback */
+  struct termios tio; /* modified terminal attributes */
+  pthread_attr_t attr;
+  struct sched_param param;
+  pthread_t idle;
+  // 修改前保存终端属性
+  tcgetattr(0, &l_tsav);           /* save the current terminal attributes */
+  tcgetattr(0, &tio);              /* obtain the current terminal attributes */
+  tio.c_lflag &= ~(ICANON | ECHO); /* disable the canonical mode & echo */
+  // 关闭终端属性中的不允许异步输入模式
+  tcsetattr(0, TCSANOW, &tio);     /* set the new attributes */
+  /* SCHED_FIFO corresponds to real-time preemptive priority-based scheduler
+   * NOTE: This scheduling policy requires the superuser priviledges
+   */
+  pthread_attr_init(&attr);
+  // 将idle线程配置为SCHED_FIFO调度策略
+  pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+  // 将idle线程优先级配置为最低
+  param.sched_priority = sched_get_priority_min(SCHED_FIFO);
+  pthread_attr_setschedparam(&attr, &param);
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+  // 创建idle线程
+  if (pthread_create(&idle, &attr, &idleThread, 0) != 0)
+  {
+    /* Creating the p-thread with the SCHED_FIFO policy failed.
+     * Most probably this application has no superuser privileges,
+     * so we just fall back to the default SCHED_OTHER policy
+     * and priority 0.
+     */
+    // 如果创建失败就尝试另外的配置重新创建
+    pthread_attr_setschedpolicy(&attr, SCHED_OTHER);
+    param.sched_priority = 0;
+    pthread_attr_setschedparam(&attr, &param);
+    Q_ALLEGE(pthread_create(&idle, &attr, &idleThread, 0) == 0);
+  }
+  pthread_attr_destroy(&attr);
+}
+/*.......................................................................*/
+void QF_onCleanup(void)
+{ /* cleanup callback */
+  printf("\nBye! Bye!\n");
+  tcsetattr(0, TCSANOW, &l_tsav); /* restore the saved terminal attributes */
+  QS_EXIT();                      /* perform the QS cleanup */
+}
+/*.......................................................................*/
+void BSP_displyPhilStat(uint8_t n, char const *stat)
+{
+  printf("Philosopher %2d is %s\n", (int)n, stat);
+}
+/*.......................................................................*/
+void BSP_busyDelay(void)
+{
+  uint32_t volatile i = l_delay;
+  while (i-- > 0UL)
+  {
+  }
+}
+/*.......................................................................*/
+void Q_onAssert(char const Q_ROM *const Q_ROM_VAR file, int line)
+{
+  fprintf(stderr, "Assertion failed in %s, line %d", file, line);
+  QF_stop();
+}
+```
+
+> 相关文章：[select()用法](/posts/operating-systems-27/#重要-apiselect或-poll)
+
+### 调整事件队列和事件池的大小
+
+`开发阶段`使用`超大`的队列、池和堆栈，仅在产品开发的`末期`才开始`缩小`它们。
+
+#### 调整事件队列的大小
+
+事件队列的要求：
+
+```plaintext
+平均事件产生速率 <P(t)> 不高于平均事件消耗速率 <C(t)>
+```
+  
+一旦 `P(t)` 过大导致事件队列`满`，QP 会视其为`异常`，而不是`阻塞`生产者或`丢弃`事件
+
+**解决方法**：
+
+- 运行时评估：
+
+  - 运行程序一段时间并检查 `nMin` 的值，评估事件队列大小是否合理
+
+- 静态分析
+
+  - 事件队列的大小取决于活动对象的`优先级`
+
+    一般的，`优先级`越高，必需的事件队列越短。因为一旦事件队列被填充，内核会`尽快`调度该活动对象线程运行处理事件
+
+  - 队列大小取决于最长的 `RTC` 步骤持续的`时间`
+
+    处理越快，必需的事件队列越短。理想情况是，某个给定活动对象的所有 RTC 步骤都只需要相同的 CPU 周期来完成。
+
+  - 任何相关的事件生产都能增加队列的大小
+
+    有时候 ISR 或活动对象在一个 RTC 步骤内生产多个事件实例。应该避免短时间内产生较多事件
+
+#### 调整事件池的大小
+
+取决于事件种类，和活动对象数量，事件实例的可重用性，事件池尺寸种类
+
+#### 系统集成
+
+QF 允许你在软件的`任何地方`发送或发行事件，而不限于仅从活动对象。比如可以在设备`驱动程序`中发布事件。
+
+设备应该被视为一个`共享`的资源，对它的存取`限制`到仅一个活动对象内，避免共享资源竞争导致的各种问题。可以用一个活动对象封装多个设备。
 
 ## 事件驱动型系统的软件追踪
 
