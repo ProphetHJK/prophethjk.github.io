@@ -20,7 +20,7 @@ tags: [quantum platform, QP状态机]
     - [状态机分类](#状态机分类)
     - [行为继承 (Behavioral Inheritance)](#行为继承-behavioral-inheritance)
     - [状态的 LISKOV 替换原则 (LSP)](#状态的-liskov-替换原则-lsp)
-  - [正交区域](#正交区域)
+    - [正交区域](#正交区域)
     - [进入和退出动作 (Entry and Exit Actions)](#进入和退出动作-entry-and-exit-actions)
     - [内部转换 (Internal Transistions)](#内部转换-internal-transistions)
     - [转换的执行次序](#转换的执行次序)
@@ -54,10 +54,9 @@ tags: [quantum platform, QP状态机]
   - [使用 QEP 实现 HSM 步骤的概要](#使用-qep-实现-hsm-步骤的概要)
   - [常见问题](#常见问题)
 - [状态模式](#状态模式)
+  - [终极钩子](#终极钩子)
+  - [提示器](#提示器)
   - [延迟的事件](#延迟的事件)
-    - [目的](#目的)
-    - [问题](#问题)
-    - [解决](#解决)
 - [实时框架的概念](#实时框架的概念)
   - [CPU 管理](#cpu-管理)
   - [活动对象计算模式](#活动对象计算模式)
@@ -173,7 +172,7 @@ tags: [quantum platform, QP状态机]
     - [使用回调函数 QS_onGetTime() 产生 QS 时间戳](#使用回调函数-qs_ongettime-产生-qs-时间戳)
     - [从主动对象产生 QS 字典](#从主动对象产生-qs-字典)
     - [添加应用程序相关的追踪记录](#添加应用程序相关的追踪记录)
-- [问题](#问题-1)
+- [问题](#问题)
 - [参考](#参考)
 
 ## 架构
@@ -254,7 +253,7 @@ UML图中事件表示`事件类型`而不是实例，实际程序中判断的是
 
 如果在状态 heating 意味着`开启加热器`，没有一个子状态（在不从状态 heating 转换出去的情况下）将会`关闭加热器`。关闭加热器并停留在 toasting 或 baking 状态就和在 heating 状态`不一致`，这说明它是一个（违反了 LSP ）的不良设计。
 
-### 正交区域
+#### 正交区域
 
 计算机键盘的两个正交区域（主键区和数字键区）。
 
@@ -330,9 +329,9 @@ UML 的状态图里的每个状态机都可以有`可选`的`进入动作`，它
 
 UML 规范定义了四种事件，通过具体的符号区分它们：
 
-- `signalEvent` 代表一个特定的（异步）信号。它的格式是：*`信号名 ’(’ 逗号分开的变量表 ’)’`* 。
+- `signalEvent` 代表一个特定的（异步）信号。它的格式是：_`信号名 ’(’ 逗号分开的变量表 ’)’`_ 。
 - `TimeEvnt` 对一个特定的最后期限建模。它用关键词 `after` 标识，后面是一个具体指明时间量的表达式。时间从进入到以 TimeEvnt为一个触发的状态开始计时。
-- `callEvent` 代表了同步地调用一个特定操作的请求。它的格式是：*`操作名 ’(’ 逗号分开的变量表 ’)’`* 。
+- `callEvent` 代表了同步地调用一个特定操作的请求。它的格式是：_`操作名 ’(’ 逗号分开的变量表 ’)’`_ 。
 - `changeEvent` 对一个明确的布尔表达式为真时出现的一个事件建模。它用关键词 `when` 标识，后面是一个布尔表达式。
 
 > 本书描叙的 HSM 实现（见第四章）仅支持 `SignalEvent` 类型。第 2 部分描叙的实时框架增加了对 TimeEvent 类型的支持，但是 QF 里的 TimeEvent 需要明确的启动和解除，这和 UML 的 after 符号不兼容。因为 SignalEvent `多态性事件`触发的固有的复杂性和非常高的`性能开销`，它也不被支持。
@@ -1376,21 +1375,342 @@ while (QEP_TRIG_(t, Q_INIT_SIG) == Q_RET_TRAN)
 
 状态机面向对象的设计模式，设计模式就是用于解决实际问题的最佳实践
 
+### 终极钩子
+
+- 目的
+
+提供共同的设施和方式来处理事件但是让客户`重载` (override)并`定制`系统行为的每一个方面。
+
+- 问题
+
+许多事件驱动型系统需要一致性方式来处理事件。在一个 GUI 设计里，`一致性`是用户接口的典型性观感的一部分。挑战是在系统层软件要提供这样一种共同的观感，客户程序可以容易的默认方式使用它们。 同时，客户必须能够容易的`重载`默认行为的每一个方面，如果他们想这么做的话
+
+- 解决方案
+
+使用一个子状态，能够继承父状态的默认方法（忽略事件并让父状态处理），也能重载产生自定义的方法（编写事件的处理方法）
+
+![ultimatehook](/assets/img/2022-07-27-quantum-platform-1/ultimatehook.jpg)
+
+specific 重载了 `A 事件`和`进入退出动作`的处理，B、C、D 则继承父状态的处理
+
+其中 C 事件表示复位，D 事件表示终止
+
+- 代码样本
+
+![hookoutput](/assets/img/2022-07-27-quantum-platform-1/hookoutput.jpg)
+
+```c
+// QEP应用需要qep_port.h
+#include "qep_port.h"
+typedef struct UltimateHookTag
+{             /* UltimateHook state machine */
+  QHsm super; /* derive from QHsm */
+} UltimateHook;
+void UltimateHook_ctor(UltimateHook *me); /* ctor */
+QState UltimateHook_initial(UltimateHook *me, QEvent const *e);
+QState UltimateHook_generic(UltimateHook *me, QEvent const *e);
+QState UltimateHook_specific(UltimateHook *me, QEvent const *e);
+QState UltimateHook_final(UltimateHook *me, QEvent const *e);
+enum UltimateHookSignals
+{ /* enumeration of signals */
+  A_SIG = Q_USER_SIG,
+  B_SIG,
+  C_SIG,
+  D_SIG
+};
+/*.............................................................*/
+void UltimateHook_ctor(UltimateHook *me)
+{
+  QHsm_ctor(&me->super, (QStateHandler)&UltimateHook_initial);
+}
+/*.............................................................*/
+QState UltimateHook_initial(UltimateHook *me, QEvent const *e)
+{
+  printf("top-INIT;");
+  return Q_TRAN(&UltimateHook_generic);
+}
+/*.............................................................*/
+QState UltimateHook_final(UltimateHook *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+    case Q_ENTRY_SIG:
+    {
+      printf("final-ENTRY(terminate);\nBye!Bye!\n");
+      exit(0);
+      return Q_HANDLED();
+    }
+  }
+  return Q_SUPER(&QHsm_top);
+}
+/*............................................................*/
+QState UltimateHook_generic(UltimateHook *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+    ...
+    case Q_INIT_SIG:
+    {
+      printf("generic-INIT;");
+      return Q_TRAN(&UltimateHook_specific);
+    }
+    case A_SIG:
+    {
+      printf("generic-A;");
+      return Q_HANDLED();
+    }
+    case B_SIG:
+    {
+      printf("generic-B;");
+      return Q_HANDLED();
+    }
+    case C_SIG:
+    {
+      printf("generic-C(reset);");
+      return Q_TRAN(&UltimateHook_generic);
+    }
+    case D_SIG:
+    {
+      return Q_TRAN(&UltimateHook_final);
+    }
+  }
+  return Q_SUPER(&QHsm_top);
+}
+/*............................................................*/
+QState UltimateHook_specific(UltimateHook *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+    case Q_ENTRY_SIG:
+    {
+      printf("specific-ENTRY;");
+      return Q_HANDLED();
+    }
+    case Q_EXIT_SIG:
+    {
+      printf("specific-EXIT;");
+      return Q_HANDLED();
+    }
+    case A_SIG:
+    {
+      printf("specific-A;");
+      return Q_HANDLED();
+    }
+  }
+  // 默认使用超状态处理，类似于继承
+  return Q_SUPER(&UltimateHook_generic); /* the superstate */
+}
+```
+
+- 结论
+
+  - specific 子状态只需要知道它将重载的事件。
+  - 可以容易的加入新事件到高层 generic 超状态而不会影响 specific 子状态。
+  - 难以去掉或者改变客户已经在使用的事件的语义。（见设计模式中的[开闭原则](/posts/design-patterns-principles/#开闭原则)，对扩展开放，对修改关闭，本来就应该这么做，其实这个不算问题）
+  - 在许多嵌套层次间（如果 specific 子状态有`嵌套`的子状态）传递每一个事件的`成本`很高。
+
+### 提示器
+
+- 目的
+
+通过创造并`发送给本身`一个事件而使状态图拓扑更加灵活。
+
+- 问题
+
+在状态建模时，一个`公共事件`常常把系统的一些松散的功能很强的`耦合`起来。考虑这个例子，在`周期性数据采集`时需要在一个预定的速率查询一个传感器产生的数据。假设一个`周期性 TIMEOUT 事件`以一个需要的速率被派发给系统用来提供查询传感器的触发。因为系统`仅有一个`外部事件 (TIMEOUT 事件) ， 看来好像这个事件需要`同时`触发`查询`传感器功能和`处理`数据功能。一个直接的但是不够优化的解决方法是把状态机组织成 2 个不同的`正交区域`（用来查询和处理）。然而，正交区域增加了派发事件的成本（参考“`正交组件`”模式）并且需要在区域间复杂的同步，因为查询和处理并不是完全独立的。
+
+- 解决方法
+
+![reminderstate](/assets/img/2022-07-27-quantum-platform-1/reminderstate.jpg)
+
+使用一个 `DATA_READY` 事件用于传给自己，表示数据就绪。
+
+将“`处理`数据功能”（`processing`）作为“`查询`传感器功能”（`polling`）的子状态，继承 `TIMEOUT 事件`的处理方法 pollSensor()，`busy`作为 polling 子状态可以`重载` TIMEOUT，以便实现自定义功能。例如，为了提供性能， `polling` 状态可以`缓存`原始传感器数据并仅在缓存区填满后在生成 `DATA_READY` 事件，图中展示了使用 `if(…)` 条件的这个选项，它在 polling 状态的 postFIFO(me, DATA_REDY) 的前面。
+
+本例有个特征，就是`周期性查询`和`周期性处理`虽然都需要共用定时事件，但实时性不同，`周期性查询`比较频繁需要实时，`周期性处理`甚至不需要实时处理，所以可以仅让`周期性查询`处理定时事件，使用另一个 `DATA_READY` 事件让`周期性查询`通知`周期性处理`何时能进行处理
+
+也就是仅让 polling 处理 TIMEOUT 事件，因为 processing 状态不需要频繁处理数据，可以在 idle 状态等待，直到 DATA_READY 事件发生变为 busy 开始处理数据
+
+- 代码样本
+
+![reminderstate](/assets/img/2022-07-27-quantum-platform-1/reminderstate.jpg)
+
+原生 QEP 事件处理器并不支持事件排队，这里用到了 QP 实时框架 QF，还利用了 QF 的定时组件
+
+```c
+#include "qp_port.h" /* QP interface */
+#include "bsp.h"     /* board support package */
+enum SensorSignals
+{
+  TIMEOUT_SIG = Q_USER_SIG, /* the periodic timeout signal */
+  DATA_READY_SIG,           /* the invented reminder signal */
+  TERMINATE_SIG             /* terminate the application */
+};
+/*............................................................*/
+// 使用了QF中的QActive活动对象和QTimeEvt定时组件
+typedef struct SensorTag
+{                   /* the Sensor active object */
+  QActive super;    /* derive from QActive */
+  QTimeEvt timeEvt; /* private time event generator */
+  uint16_t pollCtr;
+  uint16_t procCtr;
+} Sensor;
+void Sensor_ctor(Sensor *me);
+/* hierarchical state machine ... */
+QState Sensor_initial(Sensor *me, QEvent const *e);
+QState Sensor_polling(Sensor *me, QEvent const *e);
+QState Sensor_processing(Sensor *me, QEvent const *e);
+QState Sensor_idle(Sensor *me, QEvent const *e);
+QState Sensor_busy(Sensor *me, QEvent const *e);
+QState Sensor_final(Sensor *me, QEvent const *e);
+/*............................................................*/
+void Sensor_ctor(Sensor *me)
+{
+  QActive_ctor_(&me->super, (QStateHandler)&Sensor_initial);
+  QTimeEvt_ctor(&me->timeEvt, TIMEOUT_SIG); /* time event ctor */
+}
+/* HSM definition----------------------------------------------*/
+QState Sensor_initial(Sensor *me, QEvent const *e)
+{
+  me->pollCtr = 0;
+  me->procCtr = 0;
+  return Q_TRAN(&Sensor_polling);
+}
+/*............................................................*/
+QState Sensor_final(Sensor *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+    case Q_ENTRY_SIG:
+    {
+      printf("final-ENTRY;\nBye!Bye!\n");
+      BSP_exit(); /* terminate the application */
+      return Q_HANDLED();
+    }
+  }
+  return Q_SUPER(&QHsm_top);
+}
+/*............................................................*/
+QState Sensor_polling(Sensor *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+    case Q_ENTRY_SIG:
+    {
+      // 注册定时事件，每半秒一次
+      /* periodic timeout every 1/2 second */
+      QTimeEvt_postEvery(&me->timeEvt, (QActive *)me,
+                        BSP_TICKS_PER_SEC / 2);
+      return Q_HANDLED();
+    }
+    case Q_EXIT_SIG:
+    {
+      QTimeEvt_disarm(&me->timeEvt);
+      return Q_HANDLED();
+    }
+    case Q_INIT_SIG:
+    {
+      // 初始进入processing状态
+      return Q_TRAN(&Sensor_processing);
+    }
+    // processing和idle都交给本状态处理，busy重载了这个处理
+    case TIMEOUT_SIG:
+    {
+      static const QEvent reminderEvt = {DATA_READY_SIG, 0};
+      ++me->pollCtr;
+      printf("polling %3d\n", me->pollCtr);
+      // 每4次发送一个DATA_READY事件
+      if ((me->pollCtr & 0x3) == 0)
+      { /* modulo 4 */
+        QActive_postFIFO((QActive *)me, &reminderEvt);
+      }
+      return Q_HANDLED();
+    }
+    case TERMINATE_SIG:
+    {
+      return Q_TRAN(&Sensor_final);
+    }
+  }
+  return Q_SUPER(&QHsm_top);
+}
+/*............................................................*/
+QState Sensor_processing(Sensor *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+    case Q_INIT_SIG:
+    {
+      // 初始进入idle状态
+      return Q_TRAN(&Sensor_idle);
+    }
+  }
+  return Q_SUPER(&Sensor_polling);
+}
+/*..............................................................*/
+QState Sensor_idle(Sensor *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+    case Q_ENTRY_SIG:
+    {
+      printf("idle-ENTRY;\n");
+      return Q_HANDLED();
+    }
+    case DATA_READY_SIG:
+    {
+      return Q_TRAN(&Sensor_busy);
+    }
+  }
+  return Q_SUPER(&Sensor_processing);
+}
+/*..............................................................*/
+QState Sensor_busy(Sensor *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+    case Q_ENTRY_SIG:
+    {
+      printf("busy-ENTRY;\n");
+      return Q_HANDLED();
+    }
+    // busy重载了定时处理
+    case TIMEOUT_SIG:
+    {
+      ++me->procCtr;
+      printf("processing %3d\n", me->procCtr);
+      // 处理完返回idle,TODO：这里不处理采集的话不就丢了一次采集吗
+      if ((me->procCtr & 0x1) == 0)
+      { /* modulo 2 */
+        return Q_TRAN(&Sensor_idle);
+      }
+      return Q_HANDLED();
+    }
+  }
+  return Q_SUPER(&Sensor_processing);
+}
+```
+
+- 结论
+
+很像[监护条件](#状态机分类)，但是监护条件是`明确`的，对应的事件就是用于转换状态的，但这里转换状态是`隐含`的，称为`补充性转换`。通过创造一个自定义的内部事件，在满足某种条件并产生隐式转换时发送该事件给自己，即可实现明确的转换。
+
+提醒器模式的另一个重要的应用是把较长的 RTC 步骤分解为较短的几个步骤。通过在内部事件中`携带上下文`可以让下一个短步骤获取上个短步骤留下的上下文，从而让这些短步骤能衔接起来，看上去像是一个连续执行的长步骤。通过分解和 FIFO 事件排队，能让其他任务也能及时运行而不受长步骤影响。
+
 ### 延迟的事件
 
-#### 目的
+- 目的
 
 通过改变事件的顺序来简化状态机。
 
-#### 问题
+- 问题
 
 有时候一个事件在某个`不方便`的时刻到达，这时刻系统正在某个`复杂的事件队列`的中间。
 
 > `复杂的事件队列`指一系列不应该被打断的事件，如发送请求、等待收到回复事件后处理回复，两个事件不是同时发生，但中间也不希望被插入新事件打断
 
-实例：服务器程序处理业务（如从 ATM 终端）的案例。一旦业务开始了，它典型地要走完一个处理序列，从一个远距离终端接受数据开始，然后是业务的授权。这几个事件被视为`连续事件`，虽然事件产生有一定时间间隔，但希望它们能连续执行而不应该被新到达的业务打断。（可以理解为中断，中断的话需要保存上下文，退出中断后恢复，同理状态机处理“中断”也要保存当前状态和上下文，等新事件处理完恢复，太麻烦了）
+实例：服务器程序处理业务（如从 ATM 终端）的案例。一旦业务开始了，它典型地要走完一个`处理序列`，从一个远距离终端接受数据开始，然后是业务的授权。这几个事件被视为`连续事件`，虽然事件产生有一定时间间隔，但希望它们能`连续执行`而不应该被新到达的业务`打断`。（可以理解为中断，中断的话需要保存上下文，退出中断后恢复，同理状态机处理“中断”也要保存当前状态和上下文，等新事件处理完恢复，太麻烦了。这个正好和上面一节的拆分长步骤的例子`相反`，一个是希望拆分长步骤为短步骤，让其他任务也能及时运行，这里是希望各个短步骤看上去像长步骤一样中间`不要被打断`。）
 
-#### 解决
+- 解决
 
 添加一个`等待队列`，当新业务事件到达时加入这个队列而不是事件队列，在 idle 时再去读取等待队列，把等待队列里的事件加入事件队列
 
@@ -1398,7 +1718,194 @@ while (QEP_TRIG_(t, Q_INIT_SIG) == Q_RET_TRAN)
 
 ![deferevent2](/assets/img/2022-07-27-quantum-platform-1/deferevent2.jpg)
 
-处于 busy 状态的子状态(receiving 和 authorizing)时，收到新的请求事件，处理方法为不执行并加入等待队列，然后该事件会被移除出事件队列，原业务得以继续正常执行。
+处于 busy 状态的子状态(receiving 和 authorizing)时，收到新的请求事件，处理方法为不执行并加入等待队列，然后该事件会被移除出事件队列，原业务得以继续正常执行。idle 状态通过进入动作执行 recall() 从等待队列召回被等待的第一个事件，并发送给自己。
+
+- 实例代码
+
+![defer](/assets/img/2022-07-27-quantum-platform-1/defer.jpg)
+
+延迟事件状态模式严重依赖事件队列，所以用了QF框架
+
+```c
+#include "qp_port.h"
+#include "bsp.h"
+/*.......................................................................*/
+enum TServerSignals
+{
+  NEW_REQUEST_SIG = Q_USER_SIG, /* the new request signal */
+  RECEIVED_SIG,                 /* the request has been received */
+  AUTHORIZED_SIG,               /* the request has been authorized */
+  TERMINATE_SIG                 /* terminate the application */
+};
+/*......................................................................*/
+typedef struct RequestEvtTag
+{
+  QEvent super;    /* derive from QEvent */
+  uint8_t ref_num; /* reference number of the request */
+} RequestEvt;
+/*......................................................................*/
+typedef struct TServerTag
+{                               /* Transaction Server active object */
+  QActive super;                /* derive from QActive */
+  QEQueue requestQueue;         /* native QF queue for deferred request events */
+  // 指针数组，存放了3个指针，TODO:这里是不是忘记分配空间了，这些指针应该都还是NULL
+  QEvent const *requestQSto[3]; /* storage for the deferred queue buffer */
+  QTimeEvt receivedEvt;         /* private time event generator */
+  QTimeEvt authorizedEvt;       /* private time event generator */
+} TServer;
+void TServer_ctor(TServer *me); /* the default ctor */
+/* hierarchical state machine ... */
+QState TServer_initial(TServer *me, QEvent const *e);
+QState TServer_idle(TServer *me, QEvent const *e);
+QState TServer_busy(TServer *me, QEvent const *e);
+QState TServer_receiving(TServer *me, QEvent const *e);
+QState TServer_authorizing(TServer *me, QEvent const *e);
+QState TServer_final(TServer *me, QEvent const *e);
+/*......................................................................*/
+void TServer_ctor(TServer *me)
+{ /* the default ctor */
+  QActive_ctor(&me->super, (QStateHandler)&TServer_initial);
+  QEQueue_init(&me->requestQueue,
+               me->requestQSto, Q_DIM(me->requestQSto));
+  QTimeEvt_ctor(&me->receivedEvt, RECEIVED_SIG);
+  QTimeEvt_ctor(&me->authorizedEvt, AUTHORIZED_SIG);
+}
+/* HSM definition -------------------------------------------------------*/
+QState TServer_initial(TServer *me, QEvent const *e)
+{
+  (void)e; /* avoid the compiler warning about unused parameter */
+  return Q_TRAN(&TServer_idle);
+}
+/*......................................................................*/
+QState TServer_final(TServer *me, QEvent const *e)
+{
+  (void)me; /* avoid the compiler warning about unused parameter */
+  switch (e->sig)
+  {
+    case Q_ENTRY_SIG:
+    {
+      printf("final-ENTRY;\nBye!Bye!\n");
+      BSP_exit(); /* terminate the application */
+      return Q_HANDLED();
+    }
+  }
+  return Q_SUPER(&QHsm_top);
+}
+/*............................................................................*/
+QState TServer_idle(TServer *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+    case Q_ENTRY_SIG:
+    {
+      RequestEvt const *rq;
+      printf("idle-ENTRY;\n");
+      /* recall the request from the private requestQueue */
+      rq = (RequestEvt const *)QActive_recall((QActive *)me,
+                                              &me->requestQueue);
+      if (rq != (RequestEvt *)0)
+      { /* recall posted an event? */
+        printf("Request #%d recalled\n", (int)rq->refNum);
+      }
+      else
+      {
+        printf("No deferred requests\n");
+      }
+      return Q_HANDLED();
+    }
+    case NEW_REQUEST_SIG:
+    {
+      printf("Processing request #%d\n",
+            (int)((RequestEvt const *)e)->refNum);
+      return Q_TRAN(&TServer_receiving);
+    }
+    case TERMINATE_SIG:
+    {
+      return Q_TRAN(&TServer_final);
+    }
+  }
+  return Q_SUPER(&QHsm_top);
+}
+/*......................................................................*/
+QState TServer_busy(TServer *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+    case NEW_REQUEST_SIG:
+    {
+      if (QEQueue_getNFree(&me->requestQueue) > 0)
+      { /* can defer? */
+        /* defer the request */
+        QActive_defer((QActive *)me, &me->requestQueue, e);
+        printf("Request #%d deferred;\n",
+              (int)((RequestEvt const *)e)->ref_num);
+      }
+      else
+      {
+        /* notify the request sender that the request was ignored.. */
+        printf("Request #%d IGNORED;\n",
+              (int)((RequestEvt const *)e)->ref_num);
+      }
+      return Q_HANDLED();
+    }
+    case TERMINATE_SIG:
+    {
+      return Q_TRAN(&TServer_final);
+    }
+  }
+  return Q_SUPER(&QHsm_top);
+}
+/*.....................................................................*/
+QState TServer_receiving(TServer *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+    case Q_ENTRY_SIG:
+    {
+      printf("receiving-ENTRY;\n");
+      /* one-shot timeout in 1 second */
+      QTimeEvt_fireIn(&me->receivedEvt, (QActive *)me,
+                      BSP_TICKS_PER_SEC);
+      return Q_HANDLED();
+    }
+    case Q_EXIT_SIG:
+    {
+      QTimeEvt_disarm(&me->receivedEvt);
+      return Q_HANDLED();
+    }
+    case RECEIVED_SIG:
+    {
+      return Q_TRAN(&TServer_authorizing);
+    }
+  }
+  return Q_SUPER(&TServer_busy);
+}
+/*.....................................................................*/
+QState TServer_authorizing(TServer *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+    case Q_ENTRY_SIG:
+    {
+      printf("authorizing-ENTRY;\n");
+      /* one-shot timeout in 2 seconds */
+      QTimeEvt_fireIn(&me->authorizedEvt, (QActive *)me,
+                      2 * BSP_TICKS_PER_SEC);
+      return Q_HANDLED();
+    }
+    case Q_EXIT_SIG:
+    {
+      QTimeEvt_disarm(&me->authorizedEvt);
+      return Q_HANDLED();
+    }
+    case AUTHORIZED_SIG:
+    {
+      return Q_TRAN(&TServer_idle);
+    }
+  }
+  return Q_SUPER(&TServer_busy);
+}
+```
 
 ## 实时框架的概念
 
@@ -2323,7 +2830,7 @@ void QF_tick(void)
 
 #### arming 和 disarm 一个时间事件
 
-QTimeEvt*arm*()用于把`时间事件`插入已设定的定时器的`链接`表内
+`QTimeEvt_arm_()`用于把`时间事件`插入已设定的定时器的`链接`表内
 
 ```c
 void QTimeEvt_arm_(QTimeEvt *me, QActive *act, QTimeEvtCtr nTicks)
@@ -2460,6 +2967,7 @@ typedef struct QEQueueTag
 void QEQueue_init(QEQueue *me, QEvent const *qSto[], QEQueueCtr qLen)
 {
   me->frontEvt = (QEvent *)0; /* no events in the queue */
+  // 取指针数组的地址
   me->ring = &qSto[0];
   me->end = qLen;
   me->head = (QEQueueCtr)0;
@@ -2854,7 +3362,7 @@ vanilla 内核通过在一个`无限循环`内不断查询所有活动对象的�
 
 ![readyset](/assets/img/2022-07-27-quantum-platform-1/readyset.jpg)
 
-图中所示 QPSet64 类型的 QF*readySet* 优先级集合用于表示系统内所有`非空事件队列`的“`预备集合`”，每一位对应一个活动对象。活动对象的事件队列为非空时对应位置 1 ，为空时置 0
+图中所示 QPSet64 类型的 `QF_readySet_` 优先级集合用于表示系统内所有`非空事件队列`的“`预备集合`”，每一位对应一个活动对象。活动对象的事件队列为非空时对应位置 1 ，为空时置 0
 
 #### qvanilla.c 源文件
 
@@ -4102,7 +4610,7 @@ QS 目标构件必须保护`追踪缓存`的内部完整性，它在并发运行
 
 > QS_BEGIN 和 QS_END()就是利用的`qs_port.h`里定义的锁宏
 
-自定义的锁*qs_port.h*:
+自定义的锁_qs_port.h_:
 
 ```c
 #define QS_INT_KEY_TYPE . . .
@@ -4143,9 +4651,9 @@ QS_END_xxx() /* trace record end */
 
 `rec_`表示记录类型枚举 id，从 0 到 255，右移三位表示整除 8，因为最后三位被右移掉了，相当于把余数抹除了。这样`QS_glbFilter_[]`就能定位到该 id 对应的字节,如 255 对应第 32 个字节，46 对应第 5 个字节。然后再以上一步余数（和 7 进行与操作）为`mask`找到对应的位，代码中就是将 1 左移余数值生成一个字节 8 位里的某个 mask。如 46 余数是 6，1 左移 6 位，mask 就是 0x40，找到第 5 个字节中的 0x40 mask 对应的位
 
-> 上述表达式中需要重复计算的部分可以作为编译时常数值。 如(QS*glbFilter*[5] & 0x40) != 0)
+> 上述表达式中需要重复计算的部分可以作为编译时常数值。 如`(QS_glbFilter_[5] & 0x40) != 0)`
 
-> 这里将 QS*glbFilter*定义为单字节数组而不是多字节数组是为了兼容性。
+> 这里将 `QS_glbFilter_`定义为单字节数组而不是多字节数组是为了兼容性。
 
 - 宏`QS_FILTER_ON(rec_)`: 打开和记录 rec\_ 对应的位
 - 宏`QS_FILTER_OFF(rec_)`: 关闭和记录 rec\_ 相对应的位
