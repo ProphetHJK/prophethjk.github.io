@@ -57,6 +57,8 @@ tags: [quantum platform, QP状态机]
   - [终极钩子](#终极钩子)
   - [提示器](#提示器)
   - [延迟的事件](#延迟的事件)
+  - [正交构件](#正交构件)
+  - [转换到历史状态](#转换到历史状态)
 - [实时框架的概念](#实时框架的概念)
   - [CPU 管理](#cpu-管理)
   - [活动对象计算模式](#活动对象计算模式)
@@ -279,7 +281,7 @@ UML 的状态图里的每个状态机都可以有`可选`的`进入动作`，它
 
 #### 内部转换 (Internal Transistions)
 
-一个`事件`造成一些内部动作被执行但是又`不导致`一个`状态的改变`（状态转换）
+一个`事件`造成一些内部动作被执行但是又`不导致`一个`状态的改变`（状态转换），也不执行任何进入退出动作
 
 ![internaltrans](/assets/img/2022-07-27-quantum-platform-1/internaltrans.jpg)
 
@@ -1747,9 +1749,11 @@ typedef struct RequestEvtTag
 typedef struct TServerTag
 {                               /* Transaction Server active object */
   QActive super;                /* derive from QActive */
+  // 私用事件队列，用于等待队列
   QEQueue requestQueue;         /* native QF queue for deferred request events */
-  // 指针数组，存放了3个指针，TODO:这里是不是忘记分配空间了，这些指针应该都还是NULL
+  // 指针数组，存放了3个指针，用于QEQueue事件队列，只要指针就行，指针指向的空间由QF管理是运行时绑定的
   QEvent const *requestQSto[3]; /* storage for the deferred queue buffer */
+  // 使用定时任务模拟延迟
   QTimeEvt receivedEvt;         /* private time event generator */
   QTimeEvt authorizedEvt;       /* private time event generator */
 } TServer;
@@ -1765,6 +1769,7 @@ QState TServer_final(TServer *me, QEvent const *e);
 void TServer_ctor(TServer *me)
 { /* the default ctor */
   QActive_ctor(&me->super, (QStateHandler)&TServer_initial);
+  // 私有等待队列初始化
   QEQueue_init(&me->requestQueue,
                me->requestQSto, Q_DIM(me->requestQSto));
   QTimeEvt_ctor(&me->receivedEvt, RECEIVED_SIG);
@@ -1798,9 +1803,12 @@ QState TServer_idle(TServer *me, QEvent const *e)
   {
     case Q_ENTRY_SIG:
     {
+      // 在idle的进入动作中尝试召回事件
       RequestEvt const *rq;
       printf("idle-ENTRY;\n");
       /* recall the request from the private requestQueue */
+      // 使用QF框架提供的recall()功能召回，recall()内部通过LIFO将等待队列里的事件发给
+      // 自己的事件队列，用LIFO是为了保证优先处理
       rq = (RequestEvt const *)QActive_recall((QActive *)me,
                                               &me->requestQueue);
       if (rq != (RequestEvt *)0)
@@ -1833,9 +1841,11 @@ QState TServer_busy(TServer *me, QEvent const *e)
   {
     case NEW_REQUEST_SIG:
     {
+      // busy状态下收到新的REQUEST事件，先检查等待队列是否空闲，
       if (QEQueue_getNFree(&me->requestQueue) > 0)
       { /* can defer? */
         /* defer the request */
+        // 为空就加入等待队列，用QF框架自带的QActive_defer
         QActive_defer((QActive *)me, &me->requestQueue, e);
         printf("Request #%d deferred;\n",
               (int)((RequestEvt const *)e)->ref_num);
@@ -1843,6 +1853,8 @@ QState TServer_busy(TServer *me, QEvent const *e)
       else
       {
         /* notify the request sender that the request was ignored.. */
+        // 满了就提醒用户，对QF框架来说等待队列和事件队列都是不允许满了丢弃的，会断言退出
+        // 这里修改了QF框架，允许满了后丢弃
         printf("Request #%d IGNORED;\n",
               (int)((RequestEvt const *)e)->ref_num);
       }
@@ -1906,6 +1918,634 @@ QState TServer_authorizing(TServer *me, QEvent const *e)
   return Q_SUPER(&TServer_busy);
 }
 ```
+
+等待队列和事件队列的管理都由 QF 实现，使用了“零复制”方式。
+
+> 一种变体：
+>
+> ![defer2](/assets/img/2022-07-27-quantum-platform-1/defer2.jpg)
+>
+> busy 状态变成了其他状态包括 idle 的超状态。 idle 子状态重载了 NEW_REQUEST 事件。 其他全部 busy 的子状态依赖在 busy 超状态的默认事件处理方法，这个方法会延迟 NEW_REQUEST 事件。相当于就是把 idle 放进了 busy，其他都一样，TODO:这样有什么好处，busy 和 idle 从意义上讲应该是互斥的，这样做是否违反了逻辑
+
+按键触发新事件的代码：
+
+```c
+void BSP_onConsoleInput(uint8_t key)
+{
+  switch (key)
+  {
+    case 'n':
+    {                            /* new request */
+      static uint8_t reqCtr = 0; /* count the requests */
+      RequestEvt *e = Q_NEW(RequestEvt, NEW_REQUEST_SIG);
+      e->ref_num = (++reqCtr); /* set the reference number */
+                              /* post directly to TServer active object */
+      QActive_postFIFO((QActive *)&l_tserver, (QEvent *)e);
+      break;
+    }
+    case 0x1B:
+    { /* ESC key */
+      static QEvent const terminateEvt = {TERMINATE_SIG, 0};
+      QActive_postFIFO((QActive *)&l_tserver, &terminateEvt);
+      break;
+    }
+  }
+}
+```
+
+- 结论
+
+  事件延迟是个`简化`状态模型的有价值的技术。你不用建立一个过份复杂的状态机去处理在任何时候的每个事件，而是可以延迟一个在不合适或者棘手的时刻到达的事件。当状态机可以处理它时这个事件被`召回`。
+
+  - 它需要`明确`的延迟和召回被延迟的事件。
+  - `QF` 实时框架提供了类属 `defer()` 和 `recall()` 操作。
+  - 如果一个状态机延迟了一个以上的事件，它可以使用同样的事件队列 (QEQueue) 或为不同的事件使用不同的事件队列。类属 QF 操作 defer() 和 recall() 支持这 2 个选项。
+  - 如果事件在一个高层状态被延迟，这通常发生在这个状态的某个[内部转换](#内部转换-internal-transistions)中。
+  - 在这个状态的`进入动作`是这个事件被召回，可以方便的处理这个被延迟事件类型。
+  - 事件不应该在它被明确的召回时处理（要先加入事件队列，QF 会处理）。因为， recall() 操作使用 LIFO 策略发送这个事件， 这样状态机在处理这事件前不能够改变状态。
+  - 召回一个事件牵涉到把它发送给自己，然而，和提醒器模式不一样，延迟的事件是外部的而不是被创造出来的。
+
+### 正交构件
+
+- 目的
+
+作为组件使用状态机。
+
+- 问题
+
+许多对象包含`相对独立`的具有状态行为的部分。例如，考虑一个简单的数字闹钟。这个设备执行 2 个大的`独立`的功能：`基本的计时功能`和`闹钟功能`。每个功能都有自己的操作模式。例如，计时可以使用 2 个模式： 12小时制或 24小时制。类似的，闹钟功能也可以启动或停止。
+
+在 UML 状态图里建模这样行为的标准方法是吧每个这种松散关联的功能放到一个独立的`正交区域`。相当于两个线程，重用少，资源消耗大，且 QEP 不支持
+
+![alarmclock](/assets/img/2022-07-27-quantum-platform-1/alarmclock.jpg)
+
+- 解决方法
+
+并发性实际上总是在`聚合`对象的内部出现，也就是说，组件的多个状态对这个合成对象的单一状态有贡献
+
+![alarmclock2](/assets/img/2022-07-27-quantum-platform-1/alarmclock2.jpg)
+
+> 图中菱形加箭头就是 UML 中的聚合的表示
+
+将两个功能拆成`两个状态机`，通过聚合方式进行关联，将闹钟功能状态机（`组件`）放在计时功能状态机（`容器`）内作为组件
+
+- 代码样本
+
+![alarmclock3](/assets/img/2022-07-27-quantum-platform-1/alarmclock3.jpg)
+
+_共有信号和事件 clock.h:_
+
+```c
+#ifndef clock_h
+#define clock_h
+enum AlarmClockSignals
+{
+  TICK_SIG = Q_USER_SIG, /* time tick event */
+  ALARM_SET_SIG,         /* set the alarm */
+  ALARM_ON_SIG,          /* turn the alarm on */
+  ALARM_OFF_SIG,         /* turn the alarm off */
+  ALARM_SIG,             /* alarm event from Alarm component to AlarmClock container */
+  CLOCK_12H_SIG,         /* set the clock in 12H mode */
+  CLOCK_24H_SIG,         /* set the clock in 24H mode */
+  TERMINATE_SIG          /* terminate the application */
+};
+/*.................................................................*/
+typedef struct SetEvtTag
+{
+  QEvent super; /* derive from QEvent */
+  uint8_t digit;
+} SetEvt;
+// 用于通知当前时间的事件
+typedef struct TimeEvtTag
+{
+  QEvent super; /* derive from QEvent */
+  uint32_t current_time;
+} TimeEvt;
+// 只使用基类QActive指针，组件类不需要知道容器类的具体结构，该技术叫不透明指针(opaque pointer)
+extern QActive *APP_alarmClock; /* AlarmClock container active object */
+#endif /* clock_h */
+```
+
+_Alarm 组件(闹钟功能)声明 alarm.h:_
+
+```c
+#ifndef alarm_h
+#define alarm_h
+typedef struct AlarmTag
+{             /* the HSM version of the Alarm component */
+  // 闹钟功能比较简单，只要ON和OFF两种状态，不需要层次式状态机
+  // 用FSM有限状态机就行了
+  QFsm super; /* derive from QFsm */
+  uint32_t alarm_time;
+} Alarm;
+void Alarm_ctor(Alarm *me);
+#define Alarm_init(me_) QFsm_init((QFsm *)(me_), (QEvent *)0)
+#define Alarm_dispatch(me_, e_) QFsm_dispatch((QFsm *)(me_), e_)
+#endif /* alarm_h */
+```
+
+_Alarm 组件(闹钟功能)的定义 alarm.c:_
+
+```c
+#include "alarm.h"
+#include "clock.h"
+/* FSM state-handler functions */
+QState Alarm_initial(Alarm *me, QEvent const *e);
+QState Alarm_off(Alarm *me, QEvent const *e);
+QState Alarm_on(Alarm *me, QEvent const *e);
+/*......................................................................*/
+void Alarm_ctor(Alarm *me)
+{
+  // 调用基类构造函数
+  QFsm_ctor(&me->super, (QStateHandler)&Alarm_initial);
+}
+/* HSM definition -------------------------------------------------------*/
+QState Alarm_initial(Alarm *me, QEvent const *e)
+{
+  (void)e; /* avoid compiler warning about unused parameter */
+  me->alarm_time = 12 * 60;
+  return Q_TRAN(&Alarm_off);
+}
+/*......................................................................*/
+// 闹钟关状态
+QState Alarm_off(Alarm *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+  case Q_ENTRY_SIG:
+  {
+    /* while in the off state, the alarm is kept in decimal format */
+    // 将时间内部二进制表示形式转为人类可读小时和分钟分离的十进制格式，如725转为1205，表示12:05
+    // 用于设置时间时为人类用户提供方便
+    me->alarm_time = (me->alarm_time / 60) * 100 + me->alarm_time % 60;
+    printf("*** Alarm OFF %02ld:%02ld\n",
+           me->alarm_time / 100, me->alarm_time % 100);
+    return Q_HANDLED();
+  }
+  case Q_EXIT_SIG:
+  {
+    /* upon exit, the alarm is converted to binary format */
+    // 退出前转换回去
+    me->alarm_time = (me->alarm_time / 100) * 60 + me->alarm_time % 100;
+    return Q_HANDLED();
+  }
+  case ALARM_ON_SIG:
+  {
+    return Q_TRAN(&Alarm_on);
+  }
+  // OFF状态允许设置闹钟
+  case ALARM_SET_SIG:
+  {
+    /* while setting, the alarm is kept in decimal format */
+    // 设置的的闹钟是人类可读的十进制格式
+    uint32_t alarm = (10 * me->alarm_time + ((SetEvt const *)e)->digit) % 10000;
+    // 合法性判断
+    if ((alarm / 100 < 24) && (alarm % 100 < 60))
+    { /*alarm in range?*/
+      me->alarm_time = alarm;
+    }
+    else
+    { /* alarm out of range -- start over */
+      me->alarm_time = 0;
+    }
+    printf("*** Alarm SET %02ld:%02ld\n",
+           me->alarm_time / 100, me->alarm_time % 100);
+    return Q_HANDLED();
+  }
+  }
+  return Q_IGNORED();
+}
+/*......................................................................*/
+QState Alarm_on(Alarm *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+  case Q_ENTRY_SIG:
+  {
+    printf("*** Alarm ON %02ld:%02ld\n",
+           me->alarm_time / 60, me->alarm_time % 60);
+    return Q_HANDLED();
+  }
+  // ON状态禁止设置闹钟
+  case ALARM_SET_SIG:
+  {
+    printf("*** Cannot set Alarm when it is ON\n");
+    return Q_HANDLED();
+  }
+  case ALARM_OFF_SIG:
+  {
+    return Q_TRAN(&Alarm_off);
+  }
+  // ON状态下处理由 AlarmClock 容器发送的TIME事件，获取当前时间进行比较
+  case TIME_SIG:
+  {
+    if (((TimeEvt *)e)->current_time == me->alarm_time)
+    {
+      printf("ALARM!!!\n");
+      /* asynchronously post the event to the container AO */
+      // 时间到达时发送事件给容器
+      QActive_postFIFO(APP_alarmClock, Q_NEW(QEvent, ALARM_SIG));
+    }
+    return Q_HANDLED();
+  }
+  }
+  return Q_IGNORED();
+}
+```
+
+_AlarmClock 容器（计时功能）定义 clock.c:_
+
+```c
+#include "qp_port.h"
+#include "bsp.h"
+#include "alarm.h"
+#include "clock.h"
+/*.....................................................................*/
+typedef struct AlarmClockTag
+{                        /* the AlarmClock active object */
+  QActive super;         /* derive from QActive */
+  // 当前时间
+  uint32_t current_time; /* the current time in seconds */
+  // 定时事件
+  QTimeEvt timeEvt;      /* time event generator (generates time ticks) */
+  // 包含了Alarm组件（闹钟功能）
+  Alarm alarm;           /* Alarm orthogonal component */
+} AlarmClock;
+void AlarmClock_ctor(AlarmClock *me); /* default ctor */
+/* hierarchical state machine ... */
+QState AlarmClock_initial(AlarmClock *me, QEvent const *e);
+QState AlarmClock_timekeeping(AlarmClock *me, QEvent const *e);
+QState AlarmClock_mode12hr(AlarmClock *me, QEvent const *e);
+QState AlarmClock_mode24hr(AlarmClock *me, QEvent const *e);
+QState AlarmClock_final(AlarmClock *me, QEvent const *e);
+/*.....................................................................*/
+void AlarmClock_ctor(AlarmClock *me)
+{ /* default ctor */
+  QActive_ctor(&me->super, (QStateHandler)&AlarmClock_initial);
+  Alarm_ctor(&me->alarm);                /* orthogonal component ctor */
+  QTimeEvt_ctor(&me->timeEvt, TICK_SIG); /* private time event ctor */
+}
+/* HSM definition -------------------------------------------------------*/
+QState AlarmClock_initial(AlarmClock *me, QEvent const *e)
+{
+  (void)e; /* avoid compiler warning about unused parameter */
+  me->current_time = 0;
+  Alarm_init(&me->alarm); /* the initial transition in the component */
+  return Q_TRAN(&AlarmClock_timekeeping);
+}
+/*.....................................................................*/
+QState AlarmClock_final(AlarmClock *me, QEvent const *e)
+{
+  (void)me; /* avoid the compiler warning about unused parameter */
+  switch (e->sig)
+  {
+  case Q_ENTRY_SIG:
+  {
+    printf("-> final\nBye!Bye!\n");
+    BSP_exit(); /* terminate the application */
+    return Q_HANDLED();
+  }
+  }
+  return Q_SUPER(&QHsm_top);
+}
+/*.....................................................................*/
+QState AlarmClock_timekeeping(AlarmClock *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+  case Q_ENTRY_SIG:
+  {
+    /* periodic timeout every second */
+    QTimeEvt_fireEvery(&me->timeEvt,
+                       (QActive *)me, BSP_TICKS_PER_SEC);
+    return Q_HANDLED();
+  }
+  case Q_EXIT_SIG:
+  {
+    QTimeEvt_disarm(&me->timeEvt);
+    return Q_HANDLED();
+  }
+  case Q_INIT_SIG:
+  {
+    return Q_TRAN(&AlarmClock_mode24hr);
+  }
+  case CLOCK_12H_SIG:
+  {
+    return Q_TRAN(&AlarmClock_mode12hr);
+  }
+  case CLOCK_24H_SIG:
+  {
+    return Q_TRAN(&AlarmClock_mode24hr);
+  }
+  case ALARM_SIG:
+  {
+    printf("Wake up!!!\n");
+    return Q_HANDLED();
+  }
+  case ALARM_SET_SIG:
+  case ALARM_ON_SIG:
+  case ALARM_OFF_SIG:
+  {
+    /* synchronously dispatch to the orthogonal component */
+    // 对于和组件相关的事件，通过组件提供的dispatch()函数转发给它
+    Alarm_dispatch(&me->alarm, e);
+    return Q_HANDLED();
+  }
+  case TERMINATE_SIG:
+  {
+    return Q_TRAN(&AlarmClock_final);
+  }
+  }
+  return Q_SUPER(&QHsm_top);
+}
+/*.....................................................................*/
+QState AlarmClock_mode24hr(AlarmClock *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+  case Q_ENTRY_SIG:
+  {
+    printf("*** 24-hour mode\n");
+    return Q_HANDLED();
+  }
+  case TICK_SIG:
+  {
+    TimeEvt pe; /* temporary synchronous event for the component */
+    if (++me->current_time == 24 * 60)
+    { /* roll over in 24-hr mode? */
+      me->current_time = 0;
+    }
+    printf("%02ld:%02ld\n",
+           me->current_time / 60, me->current_time % 60);
+    ((QEvent *)&pe)->sig = TICK_SIG;
+    pe.current_time = me->current_time;
+    /* synchronously dispatch to the orthogonal component */
+    // 每个tick都发送当前时间给组件
+    Alarm_dispatch(&me->alarm, (QEvent *)&pe);
+    return Q_HANDLED();
+  }
+  }
+  return Q_SUPER(&AlarmClock_timekeeping);
+}
+/*.....................................................................*/
+QState AlarmClock_mode12hr(AlarmClock *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+  case Q_ENTRY_SIG:
+  {
+    printf("*** 12-hour mode\n");
+    return Q_HANDLED();
+  }
+  case TICK_SIG:
+  {
+    TimeEvt pe; /* temporary synchronous event for the component */
+    uint32_t h; /* temporary variable to hold hour */
+    if (++me->current_time == 12 * 60)
+    { /* roll over in 12-hr mode? */
+      me->current_time = 0;
+    }
+    h = me->current_time / 60;
+    printf("%02ld:%02ld %s\n", (h % 12) ? (h % 12) : 12,
+           me->current_time % 60, (h / 12) ? "PM" : "AM");
+    ((QEvent *)&pe)->sig = TICK_SIG;
+    pe.current_time = me->current_time;
+    /* synchronously dispatch to the orthogonal component */
+    Alarm_dispatch(&me->alarm, (QEvent *)&pe);
+    return Q_HANDLED();
+  }
+  }
+  return Q_SUPER(&AlarmClock_timekeeping);
+}
+```
+
+- 结论
+
+  - 它把行为的独立部分分区为不同的`状态机对象`。这个分割比正交区域更深入，因为对象同时有明确的`行为`和明确的`数据`。
+  - 进行分区引进了`容器-组件`（也叫父-子，或主-仆）关系。容器实现主要的功能并把其他 （次要的）`特征`授权给组件。容器和组件都是`状态机`。
+  - `组件`常在不同的容器或相同的容器内被`重用`（容器可以实例化某个给定类型组件的多个组件）。
+  - 容器同组件`共享`它的执行`线程`。
+  - 容器通过直接`派送事件`给组件来进行通讯。组件通过发送事件给容器来通知它，而不是通过直接地事件派送方法。
+  - 组件使用`提醒器模式`去通知容器（例如，通知事件特别为`内部`而不是外部通讯被创造出来）。如果有某个给定类型的多个组件，这个通知事件必须确定`起源`的组件（组件把它的 ID 号作为通知事件的一个参数传递）。
+  - 容器和组件可以`共享数据`。典型的，数据是容器（允许不同容器的多个实例）的一个数据成员。 典型的，容器担保对它所选择的组件是友元关系。
+  - 容器完全对它的组件`负责`。特别的，它必须明确的触发在全部组件的`初始转换`。同时明确的`派发事件`给组件。如果容器“忘记”在它的某些状态派发事件给某些组件，就会产生错误。
+  - 容器可以`动态`的开始和停止组件（例如，在容器状态机的的某些特定状态）。
+  - 状态机的结合并没有局限于只有一层。组件可以有状态机子组件，也就是说，组件可以是较低层子组件的容器。这样一种组件的`递归`结构可以到达任意深的层次。
+
+### 转换到历史状态
+
+- 目的
+
+从某个组合状态转换出来，但是记住最近的活动子状态，这样在后面你可以返回这个子状态。
+
+- 问题
+
+如让烤面包炉的门在工作中被打开后，再次关闭，能够恢复开门前的执行的动作。
+
+UML 状态图使用 2 类`历史伪状态`处理这种情况：浅历史和深历史
+
+- 解决方法
+
+它把 doorClosed 状态最近的活动`叶子状态`存储在一个专用的数据成员 `doorClosed_history` 里。doorOpen 状态的转换到`历史`（带
+圆圈的 H* ）时使用这个属性作为这个转换的目标。
+
+![historystate](/assets/img/2022-07-27-quantum-platform-1/historystate.jpg)
+
+- 实例代码
+
+![historystate2](/assets/img/2022-07-27-quantum-platform-1/historystate2.jpg)
+
+```c
+#include "qep_port.h"
+/*.....................................................................*/
+enum ToasterOvenSignals
+{
+  OPEN_SIG = Q_USER_SIG,
+  CLOSE_SIG,
+  TOAST_SIG,
+  BAKE_SIG,
+  OFF_SIG,
+  TERMINATE_SIG /* terminate the application */
+};
+/*.....................................................................*/
+typedef struct ToasterOvenTag
+{
+  QHsm super;                       /* derive from QHsm */
+  // 继承自QHsm，扩展了用于存放历史状态的doorClosed_history
+  QStateHandler doorClosed_history; /* history of the doorClosed state */
+} ToasterOven;
+void ToasterOven_ctor(ToasterOven *me); /* default ctor */
+QState ToasterOven_initial(ToasterOven *me, QEvent const *e);
+QState ToasterOven_doorOpen(ToasterOven *me, QEvent const *e);
+QState ToasterOven_off(ToasterOven *me, QEvent const *e);
+QState ToasterOven_heating(ToasterOven *me, QEvent const *e);
+QState ToasterOven_toasting(ToasterOven *me, QEvent const *e);
+QState ToasterOven_baking(ToasterOven *me, QEvent const *e);
+QState ToasterOven_doorClosed(ToasterOven *me, QEvent const *e);
+QState ToasterOven_final(ToasterOven *me, QEvent const *e);
+/*.....................................................................*/
+void ToasterOven_ctor(ToasterOven *me)
+{ /* default ctor */
+  QHsm_ctor(&me->super, (QStateHandler)&ToasterOven_initial);
+}
+/* HSM definitio -------------------------------------------------------*/
+QState ToasterOven_initial(ToasterOven *me, QEvent const *e)
+{
+  (void)e; /* avoid compiler warning about unused parameter */
+  me->doorClosed_history = (QStateHandler)&ToasterOven_off;
+  return Q_TRAN(&ToasterOven_doorClosed);
+}
+/*.....................................................................*/
+QState ToasterOven_final(ToasterOven *me, QEvent const *e)
+{
+  (void)me; /* avoid compiler warning about unused parameter */
+  switch (e->sig)
+  {
+  case Q_ENTRY_SIG:
+  {
+    printf("-> final\nBye!Bye!\n");
+    _exit(0);
+    return Q_HANDLED();
+  }
+  }
+  return Q_SUPER(&QHsm_top);
+}
+/*.....................................................................*/
+QState ToasterOven_doorClosed(ToasterOven *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+  case Q_ENTRY_SIG:
+  {
+    printf("door-Closed;");
+    return Q_HANDLED();
+  }
+  case Q_INIT_SIG:
+  {
+    return Q_TRAN(&ToasterOven_off);
+  }
+  case OPEN_SIG:
+  {
+    return Q_TRAN(&ToasterOven_doorOpen);
+  }
+  case TOAST_SIG:
+  {
+    return Q_TRAN(&ToasterOven_toasting);
+  }
+  case BAKE_SIG:
+  {
+    return Q_TRAN(&ToasterOven_baking);
+  }
+  case OFF_SIG:
+  {
+    return Q_TRAN(&ToasterOven_off);
+  }
+  case TERMINATE_SIG:
+  {
+    return Q_TRAN(&ToasterOven_final);
+  }
+  }
+  return Q_SUPER(&QHsm_top);
+}
+/*.....................................................................*/
+QState ToasterOven_off(ToasterOven *me, QEvent const *e)
+{
+  (void)me; /* avoid compiler warning about unused parameter */
+  switch (e->sig)
+  {
+  case Q_ENTRY_SIG:
+  {
+    printf("toaster-Off;");
+    // 所有叶状态进入时都要更新一次doorClosed_history
+    me->doorClosed_history = (QStateHandler)&ToasterOven_off;
+    return Q_HANDLED();
+  }
+  }
+  return Q_SUPER(&ToasterOven_doorClosed);
+}
+/*.....................................................................*/
+QState ToasterOven_heating(ToasterOven *me, QEvent const *e)
+{
+  (void)me; /* avoid compiler warning about unused parameter */
+  switch (e->sig)
+  {
+  case Q_ENTRY_SIG:
+  {
+    printf("heater-On;");
+    return Q_HANDLED();
+  }
+  case Q_EXIT_SIG:
+  {
+    printf("heater-Off;");
+    return Q_HANDLED();
+  }
+  }
+  return Q_SUPER(&ToasterOven_doorClosed);
+}
+/*.....................................................................*/
+QState ToasterOven_toasting(ToasterOven *me, QEvent const *e)
+{
+  (void)me; /* avoid compiler warning about unused parameter */
+  switch (e->sig)
+  {
+  case Q_ENTRY_SIG:
+  {
+    printf("toasting;");
+    // 所有叶状态进入时都要更新一次doorClosed_history
+    me->doorClosed_history = (QStateHandler)&ToasterOven_toasting;
+    return Q_HANDLED();
+  }
+  }
+  return Q_SUPER(&ToasterOven_heating);
+}
+/*.....................................................................*/
+QState ToasterOven_baking(ToasterOven *me, QEvent const *e)
+{
+  (void)me; /* avoid compiler warning about unused parameter */
+  switch (e->sig)
+  {
+  case Q_ENTRY_SIG:
+  {
+    printf("baking;");
+    // 所有叶状态进入时都要更新一次doorClosed_history
+    me->doorClosed_history = (QStateHandler)&ToasterOven_baking;
+    return Q_HANDLED();
+  }
+  }
+  return Q_SUPER(&ToasterOven_heating);
+}
+/*.......................................................................*/
+QState ToasterOven_doorOpen(ToasterOven *me, QEvent const *e)
+{
+  switch (e->sig)
+  {
+  case Q_ENTRY_SIG:
+  {
+    printf("door-Open,lamp-On;");
+    return Q_HANDLED();
+  }
+  case Q_EXIT_SIG:
+  {
+    printf("lamp-Off;");
+    return Q_HANDLED();
+  }
+  case CLOSE_SIG:
+  {
+    // 恢复历史状态
+    return Q_TRAN(me->doorClosed_history); /* transition to HISTORY */
+  }
+  }
+  return Q_SUPER(&QHsm_top);
+}
+```
+
+- 结论
+
+- 需要一个用于`存储历史状态`的变量，这个变量是个指针，指向了状态处理函数
+- 转换到历史伪状态（深历史和浅历史）使用标准的 `Q_TRAN()` 宏编码，这里目标被特定为历史变量。
+- 为了实现[`深历史伪状态`](#伪状态-pseudostates)，需要在相应组合状态的每个叶子状态的`进入动作`上明确的设置历史变量。
+- 为了实现`浅历史伪状态`，需要在每一个从所需层次的`退出动作`上明确的设置历史变量。例如，图5.12中的 doorClosed 浅历史需要在从 toasting 的退出动作把 doorClosed_history 设置为 &ToasterOven_toasting，在从 baking 的退出动作把它设置为 &ToasterOven_baking ，以及 doorClosed 全部`直接子状态`。
+- 你可以通过`复位`相应的`历史变量`明确的`清理`任何组合状态的`历史`。
 
 ## 实时框架的概念
 
