@@ -78,6 +78,7 @@ tags: [quantum platform, QP状态机]
     - [时间管理](#时间管理)
     - [系统时钟节拍](#系统时钟节拍)
   - [错误和例外的处理](#错误和例外的处理)
+    - [C 和 C++ 里可定制的断言](#c-和-c-里可定制的断言)
   - [基于框架的软件追踪](#基于框架的软件追踪)
 - [实时框架的实现](#实时框架的实现)
   - [QF 实时框架的关键特征](#qf-实时框架的关键特征)
@@ -128,6 +129,23 @@ tags: [quantum platform, QP状态机]
   - [QP 平台抽象层](#qp-平台抽象层)
     - [生成 QP 应用程序](#生成-qp-应用程序)
     - [创建 QP 库](#创建-qp-库)
+    - [目录和文件](#目录和文件)
+    - [头文件 qep_port.h](#头文件-qep_porth)
+    - [头文件 qf_port.h](#头文件-qf_porth)
+    - [源代码 qf_port.c](#源代码-qf_portc)
+    - [和平台相关的 QF 回调函数](#和平台相关的-qf-回调函数)
+    - [系统时钟节拍（调用 QF_tick() ）](#系统时钟节拍调用-qf_tick-)
+    - [创建 QF 库](#创建-qf-库)
+  - [移植合作式 Vanilla 内核](#移植合作式-vanilla-内核)
+    - [头文件 qep_port.h](#头文件-qep_porth-1)
+    - [头文件 qf_port.h](#头文件-qf_porth-1)
+    - [系统时钟节拍（QF_tick()）](#系统时钟节拍qf_tick)
+    - [空闲处理（QF_onIdel()）](#空闲处理qf_onidel)
+  - [QF 移植到 uc/os-II (常规 RTOS)](#qf-移植到-ucos-ii-常规-rtos)
+  - [QF 移植到 Linux （常规 POSIX 兼容的操作系统）](#qf-移植到-linux-常规-posix-兼容的操作系统)
+    - [头文件 qep_port.h](#头文件-qep_porth-2)
+    - [头文件 qf_port.h](#头文件-qf_porth-2)
+    - [qf_port.c 源代码](#qf_portc-源代码)
 - [开发 QP 应用程序](#开发-qp-应用程序)
   - [开发 QP 应用程序的准则](#开发-qp-应用程序的准则)
     - [准则](#准则)
@@ -460,6 +478,8 @@ operator   ::= '+' | '-' | '*' | '/'
 ![calculater5](/assets/img/2022-07-27-quantum-platform-1/calculater5.jpg)
 
 ## 标准状态机的实现方法
+
+定时炸弹有一个带有LCD的控制面板显示当前的超时值，还有三个按钮： UP ，DOWN 和 ARM 。用户开始时要设定时炸弹，使用 UP 和 DOWN 按钮以一秒的步长调节超时值。一旦所需要的超时值被选中，用户能通过按 ARM 按钮来启动这个炸弹。当启动后，炸弹开始每秒递减这个超时值， 并在超时值到达零时爆炸。附加的安全特征是通过输入一个密码来拆除一个已启动的定时炸弹雷管的选项。拆雷管的密码是 UP 和 DOWN 按钮的某个组合，并以 ARM 按钮被按下结束。当然，拆雷管的密码必须在炸弹超时前被正确的输入。
 
 定时炸弹状态机的 UML 状态图:
 
@@ -1993,7 +2013,7 @@ void BSP_onConsoleInput(uint8_t key)
 
 ![alarmclock3](/assets/img/2022-07-27-quantum-platform-1/alarmclock3.jpg)
 
-_共有信号和事件 clock.h:_
+*共有信号和事件 clock.h:*
 
 ```c
 #ifndef clock_h
@@ -2026,7 +2046,7 @@ extern QActive *APP_alarmClock; /* AlarmClock container active object */
 #endif /* clock_h */
 ```
 
-_Alarm 组件(闹钟功能)声明 alarm.h:_
+*Alarm 组件(闹钟功能)声明 alarm.h:*
 
 ```c
 #ifndef alarm_h
@@ -2044,7 +2064,7 @@ void Alarm_ctor(Alarm *me);
 #endif /* alarm_h */
 ```
 
-_Alarm 组件(闹钟功能)的定义 alarm.c:_
+*Alarm 组件(闹钟功能)的定义 alarm.c:*
 
 ```c
 #include "alarm.h"
@@ -2153,7 +2173,7 @@ QState Alarm_on(Alarm *me, QEvent const *e)
 }
 ```
 
-_AlarmClock 容器（计时功能）定义 clock.c:_
+*AlarmClock 容器（计时功能）定义 clock.c:*
 
 ```c
 #include "qp_port.h"
@@ -2692,6 +2712,59 @@ QState ToasterOven_doorOpen(ToasterOven *me, QEvent const *e)
 
 QF 框架规定了一些`断言宏`来处理错误
 
+#### C 和 C++ 里可定制的断言
+
+```c
+#ifdef Q_NASSERT /* Q_NASSERT defined–assertion checking disabled */
+// 如果Q_NASSERT被定义，取消所有的断言，宏全定义成空语句
+#define Q_DEFINE_THIS_FILE
+#define Q_DEFINE_THIS_MODULE(name_)
+#define Q_ASSERT(test_) ((void)0)
+#define Q_ALLEGE(test_) ((void)(test_))
+#define Q_ERROR() ((void)0)
+#else /* Q_NASSERT not defined–assertion checking enabled */
+/* callback invoked in case the condition passed to assertion fails */
+#ifdef __cplusplus
+extern "C"
+#endif
+// 断言失败时Q_onAssert被调用，一般就是关中断做些保存然后复位
+void Q_onAssert(char const Q_ROM *const Q_ROM_VAR file, int line);
+// 本文件的文件名，别的文件include这个头文件后，会变成那个文件的名字，作为日志打印时的标识符
+// 这里使用了static变量l_this_file作为宏定义而不是__FILE__，防止每次使用Q_DEFINE_THIS_FILE宏时__FILE__被多次复制
+#define Q_DEFINE_THIS_FILE \
+  static char const Q_ROM Q_ROM_VAR l_this_file[] = __FILE__;
+// Q_DEFINE_THIS_FILE替代品,需要自定义
+#define Q_DEFINE_THIS_MODULE(name_) \
+  static char const Q_ROM Q_ROM_VAR l_this_file[] = #name_;
+/* general purpose assertion */
+// 避免悬吊if(dangling-if)，详见上文
+// test是一个条件，为true或是false
+#define Q_ASSERT(test_) \
+  if (test_)            \
+  {                     \
+  }                     \
+  else                  \
+    (Q_onAssert(l_this_file, __LINE__))
+/* general purpose assertion that ALWAYS evaluates the test_ argument */
+#define Q_ALLEGE(test_) Q_ASSERT(test_)
+/* Assertion that always fails */
+#define Q_ERROR() \
+  (Q_onAssert(l_this_file, __LINE__))
+#endif /* Q_NASSERT */
+/* assertion that checks for a precondition */
+#define Q_REQUIRE(test_) Q_ASSERT(test_)
+/* assertion that checks for a postcondition */
+#define Q_ENSURE(test_) Q_ASSERT(test_)
+/* assertion that checks for an invariant */
+#define Q_INVARIANT(test_) Q_ASSERT(test_)
+/* compile-time assertion */
+// 用于编译时的测试，利用C语言特性数组维数不能为0，如果test_为0，编译就会失败
+// Q_ASSERT用于运行时测试断言，Q_ASSERT_COMPILE用于编译时测试断言，各有各的用途。比如运行时动态变化的变量要用Q_ASSERT，对于编译时确定的固定的量要用Q_ASSERT_COMPILE
+#define Q_ASSERT_COMPILE(test_) \
+  extern char Q_assert_compile[(test_)]
+#endif /* qassert_h */
+```
+
 ### 基于框架的软件追踪
 
 简单的讲，软件追踪类似于在代码里安排一些 printf()语句，它被称为`检测代码`，记录并分析以后从目标系统取回来的所感兴趣的分立事件。当然，一个好的软件追踪检测设备可以做到比简单的 printf()更少的侵入并更有效。
@@ -2828,7 +2901,7 @@ QF 平台抽象层包含 了 2 个宏 QF_INT_LOCK()和 QF_INT_UNLOCK() ，分别
 #define QF_INT_UNLOCK(key_) set_int_status(key_)
 ```
 
-> QF_INT_LOCK()宏的 do {…} while (0) 循环是语法正确的用来`组合指令`的`标准做法`。你确信这个宏可以被安全的用于 `if-else` 语句（在宏后加分号），而不会造成[“悬吊 if”（ dangling-if ）](https://en.wikipedia.org/wiki/Dangling_else)问题。
+> QF_INT_LOCK()宏的 do {…} while (0) 循环是语法正确的用来`组合指令`的`标准做法`。这个宏可以被安全的用于 `if-else` 语句（在宏后加分号），而不会造成[“悬吊 if”（ dangling-if ）](https://en.wikipedia.org/wiki/Dangling_else)问题。
 {: .prompt-tip }
 
 “保存和恢复中断状态”政策的主要优点是可以`嵌套临界区`的能力。当 QF 函数从一个已经建立的临界段比如 ISR 里调用时，且`部分处理器`在进入 ISR 后自动关中断(进临界区)，需要在 ISR 内部先解锁中断才能使用 QF 函数(详见下节例子)，如果做不到就需要使用上述的办法`嵌套临界区`。
@@ -2843,7 +2916,7 @@ QF 平台抽象层包含 了 2 个宏 QF_INT_LOCK()和 QF_INT_UNLOCK() ，分别
 #define QF_INT_UNLOCK(key_) int_unlock()
 ```
 
-“无条件上锁和解锁”策略是简单和快捷的，但是`不允许`临界区的`嵌套`，理由见上节
+“无条件上锁和解锁”策略是简单和快捷的，但是`不允许`临界区的`嵌套`且需要`基于优先级`的中断控制器，理由见上节
 
 使用一个`基于优先级`的中断控制器时一个 ISR 的常规结构：
 
@@ -2857,8 +2930,8 @@ void interrupt ISR(void) { /* entered with interrupts locked in hardware */
     // 如果中断源是电平触发的，你需要明确的清除它，以便触发下一次该中断。
     // 因为这里同优先级的中断也被关闭了，本来就不能触发，所以之后清除也没关系
     Clear the interrupt source, if level triggered
-    // 如果之前被关中断了就执行开中断，使能中断控制器，这样高优先级的中断可以执行，
-    // 更低或相同优先级的中断依旧不能执行。此时临界区结束
+    // 如果之前被关中断了就执行开中断，使能中断控制器，由于基于优先级的中断控制器存在，
+    // 这样高优先级的中断可以执行，更低或相同优先级的中断依旧不能执行。此时ISR内临界区结束
     QF_INT_UNLOCK(dummy); /* unlock the interrupts at the processor level */
     // 主 ISR 代码在临界区外执行，因此 QF 可以被安全的调用而不需嵌套临界区。
     Handle the interrupt, use QF calls, e.g., QF_tick(), Q_NEW or QF_publish()
@@ -2870,7 +2943,7 @@ void interrupt ISR(void) { /* entered with interrupts locked in hardware */
 }
 ```
 
-> `基于优先级`的中断控制器`记忆`当前所服务的中断的优先级，并仅允许比当前优先级高的中断抢占这个 ISR 。`较低`的或`相同`优先级的中断在中断控制器层次被`锁住`，`即使`这些中断在处理器层次`被解锁`。中断优先排序发生在中断控制器硬件层，直到中断控制器接受到中断结束 EOI 指令为止。
+> `基于优先级`的中断控制器`记忆`当前所服务的中断的优先级，并仅允许比当前优先级高的中断抢占这个 ISR 。`较低`的或`相同`优先级的中断在中断控制器层次被`锁住`，`即使`这些中断在处理器层次`被解锁`。中断优先排序发生在中断控制器硬件层，直到中断控制器接受到中断结束 EOI 指令为止。所以说这个“无条件上锁和解锁中断”策略需要`基于优先级`的`中断控制器`的支持，这样即使在ISR内部开中断，也不会导致低优先级中断插进来影响ISR主体的执行
 
 > TODO: 开中断是为了什么？是不是为了防止执行主 ISR 代码(QF 函数)的过程太长导致临界区时间太长。还是为了主 ISR 代码执行时需要用到某些中断
 >
@@ -3028,7 +3101,7 @@ void QActive_start(QActive *me,
     me->prio = prio;         /* set the QF priority */
     // 注册到QF
     QF_add(me);              /* make QF aware of this active object */
-    // 执行在活动对象里的状态机的最顶初始转换,需要配合ie提供的信息
+    // 执行在活动对象里的状态机的最顶初始转换,参数 ie是一个指针，指向在活动对象状态机里用于最顶初始转换的初始事件。
     QF_ACTIVE_INIT_(me, ie); /* execute the initial transition */
     // 初始化事件队列
     Initialize the event queue object 'me->eQueue' using qSto and qLen
@@ -4229,6 +4302,8 @@ QF 包含了一个被清楚定义的`平台抽象层 PAL`（ platform abstractio
 
 ### QP 平台抽象层
 
+QP 事件驱动式平台的所有软件构件，比如 `QEP` 事件处理器和 `QF` 实时框架，包含了一个`平台抽象层 PAL`。这个 PAL 是一个 indirection 层，它隐藏了 QP 运行时硬件和软件环境的差异，因此 QP 源代码不需要被修改从而在一个不同的环境运行。相反，修改 QP 的所有必需的改变被限制在 PAL 内。
+
 #### 生成 QP 应用程序
 
 你在使用的 QP 移植由 `qf_port.h` 头文件和 `QF 库文件`所在的目录分支决定。
@@ -4238,6 +4313,715 @@ QF 包含了一个被清楚定义的`平台抽象层 PAL`（ platform abstractio
 编译+链接，QP 库允许连接器在链接时消除任何没有被引用的 QP 代码
 
 #### 创建 QP 库
+
+QF 示例（QEP 或 QK 可以参考这个）：
+
+![qplibbuild](/assets/img/2022-07-27-quantum-platform-1/qplibbuild.jpg)
+
+平台相关的 port 代码和平台无关的代码链接在一个 qf.lib 库中
+
+#### 目录和文件
+
+PAL 使用一个一致的`目录结构`，允许你很容易的找到 QP 向某个给定 `CPU`，`操作系统`和`编译器`的移植。
+
+``` plaintext
+qpc\ - QP/C root directory (qpcpp\ for QP/C++),根目录可移动和改名，内部用的都是相对路径
+|
++-ports\ - Platform-specific QP ports
+| +-80x86\ - Ports to the 80x86 processor，CPU架构作为第一层，如80x86、ARM，在嵌入式领域，CPU架构比操作系统更重要
+| | +-dos\ - Ports to DOS with the "vanilla" cooperative kernel，操作系统放在第二层
+| | | +-tcpp101\ - Ports with the Turbo C++ 1.01 compiler，编译器在第三层，Turbo C+ +1.01、GCC等
+| | | | +-l\ - Ports using the Large memory model，编译器可以为不同的 CPU模式生成代码。例如在 DOS下用于 80x86 的某个编译器，可以生成 small， compact ，large或huge内存模型。
+| | | | | +-dbg\ - Debug build，QP 库文件可以使用不同的编译开关和优化选项来编译，存放开启调试编译选项的二进制文件
+| | | | | | +-qf.lib - QF library，不同平台库文件命名规则也不同，Linux为libqf.a
+| | | | | | +-qep.lib - QEP library
+| | | | | +-rel\ - Release build,使用发行编译选项的二进制文件
+| | | | | +-spy\ - Spy build (with software instrumentation)，带qs追踪的二进制文件
+| | | | | +-make.bat - batch script for building the QP libraries，makefile文件
+| | | | | +-qep_port.h - QEP platform-dependent include file
+| | | | | +-qf_port.h - QFplatform-dependent include file，平台相关头文件
+| | | | | +-qs_port.h - QSplatform-dependent include file
+| | | | | +-qp_port.h - QPplatform-dependent include file
+| | |
+| | +-qk\ - Ports to the QK preemptive kernel
+| | | +-. . .
+| | |
+| | +-ucos2\ - Ports to the mC/OS-II RTOS
+| | | +-tcpp101\ - Ports with the Turbo C++ 1.01 compiler
+| | | | +-l\ - Ports using the Large memory model
+| | | | | +-ucos2.86\ - mC/OS-II v2.86 object code and header files
+| | | | | +-src\ - Port-specific source files
+| | | | | | +-qf_port.c - QF port to mC/OS-II source file
+| | | | | +-. . .
+| | |
+| | +-linux\ - Ports to the Linux operating system (POSIX)
+| | +-gnu\ - Ports with the GNU compiler
+| | | | +-src\ - Port-specific source files
+| | | | | +-qf_port.c - QF port to Linux source file
+| | +-. . .
+| |
+| +-cortex-m3\ - Ports to the Cortex-M3 processor，传统ARM和m3架构差别较大，独立设置
+| | +-vanilla\ - Ports to the "vanilla" cooperative kernel
+| | | +-iar\ - Ports with the IAR compiler
+| | | | +-dbg\ - Debug build
+| | | | +-rel\ - Release build
+| | | | +-spy\ - Spy build (with software instrumentation)
+| | | | +-make.bat - batch script for building QP libraries
+| | | | +-qep_port.h - QEP platform-dependent include file
+| | | | +-qf_port.h - QF platform-dependent include file
+| | | | +-qs_port.h - QS platform-dependent include file
+| | | | +-qp_port.h - QP platform-dependent include file
+| | |...
+| | +-qk\ - Ports to the QK preemptive kernel
+| | +-iar\ - Ports with the IAR compiler
+| +-. . . - Ports to other CPUs
+|
++-examples\ - Platform-specific QP examples
+| +-80x86\ - Examples for the 80x86 processor
+| | +-dos\ - Examples for DOS with the "vanilla" cooperative kernel
+| | +-tcpp101\ - Examples with the Turbo C++ 1.01 compiler
+| | +-l\ - Examples using the Large memory model
+| | +-dpp\ - DPP example，哲学家就餐问题，单独目录
+| | | +-dbg\ - Debug build
+| | | | +-dpp.exe - Debug executable
+| | | +-rel\ - Release build
+| | | | +-dpp.exe - Release executable
+| | | +-spy\ - Spy build (with software instrumentation)
+| | | | +-dpp.exe - Spy executable
+| | | +-DPP-DBG.PRJ - Turbo C++ project to build the Debug version
+| | +-game\ - "Fly ’n’ Shoot" game example
+| | +-. . .
+| +-cortex-m3\ - Examples for the Cortex-M3 processor
+| | +-vanilla\ - Examples for the "vanilla" cooperative kernel
+| | | +-iar\ - Examples with the IAR compiler
+| | +-dpp\ - DPP example
+| | +-game\ - "Fly ’n’ Shoot" game example
+| | +-. . . - Other examples
+| +-. . . - Examples for other CPUs
+|
++-include\ - Platform independent QP header files，平台无关头文件
+| +-qep.h - QEP platform-independent interface
+| +-qf.h - QF platform-independent interface
+| +-qk.h - QK platform-independent interface
+| +-qs.h - QS platform-independent interface
+| +-. . . - Other platform-independent QP header files
+|
++-qep\ - QEP event processor，每个 QP 构件的平台独立的源代码在独立的目录里。
+| +-source\ - QEP platform-independent source code (*.C files)
+| | +-. . .
++-qf\ - QF real-time framework
+| +-source\ - QF platform-independent source code (*.C files)
+| | +-. . .
++-qk\ - QK preemptive kernel
+| +-source\ - QK platform-independent source code (*.C files)
+| | +-. . .
++-qs\ - QS software tracing
+| +-source\ - QS platform-independent source code (*.C files)
+| | +-. . .
+```
+
+#### 头文件 qep_port.h
+
+TODO:Q_ROM 和哈佛架构相关，需要了解下
+
+```c
+#ifndef qep_port_h
+#define qep_port_h
+/* special keyword used for ROM objects */
+#define Q_ROM ????
+/* specific pointer variant for accessing const objects in ROM */
+#define Q_ROM_VAR ????
+/* platform-specific access to constant data bytes in ROM */
+#define Q_ROM_BYTE(rom_var_) ????
+/* size of the QSignal data type */
+#define Q_SIGNAL_SIZE ?
+/* exact-width integer types */ 
+// 使用编译器提供的标准stdint.h头文件或自定义编写来定义QP需要的扩展类型
+#include <stdint.h>              /* WG14/N843 C99 Standard, Section 7.18.1.1 */
+typedef signed char int8_t;      /* signed 8-bit integer */
+typedef signed short int16_t;    /* signed 16-bit integer */
+typedef signed long int32_t;     /* signed 32-bit integer */
+typedef unsigned char uint8_t;   /* unsigned 8-bit integer */
+typedef unsigned short uint16_t; /* unsigned 16-bit integer */
+typedef unsigned long uint32_t;  /* unsigned 32-bit integer */
+#include "qep.h"                 /* QEP platform-independent public interface */
+#endif                           /* qep_port_h */
+```
+
+#### 头文件 qf_port.h
+
+头文件 qf_port.h 包含了 PAL宏的定义， typedef，包含文件，和用于移植和配置 QF 实时框架的常数。 这是目前为止在整个 QP PAL 里最复杂和重要的文件。
+
+```c
+#ifndef qf_port_h
+#define qf_port_h
+/* Types of platform-specific QActive data members *************************/
+// 可以使用RTOS/OS提供的消息队列，也可以用QF自带的原生队列用于事件队列
+#define QF_EQUEUE_TYPE ????
+// 使用QF原生队列时必需，QF_OS_OBJECT_TYPE 数据成员包含一个操作系统相关的原语，在队列为空时有效的阻塞原生 QF 事件队列。
+#define QF_OS_OBJECT_TYPE ????
+// 包含和活动对象联合的线程处理
+#define QF_THREAD_TYPE ????
+/* Base class for derivation of QActive ***********************************/
+// 下面的宏用于自定义QActive的基类（默认时QHsm），一般不使用，命名结尾有下划线'_'作为标志
+#define QF_ACTIVE_SUPER_ ????
+#define QF_ACTIVE_CTOR_(me_, initial_) ????
+#define QF_ACTIVE_INIT_(me_, e_) ????
+#define QF_ACTIVE_DISPATCH_(me_, e_) ????
+#define QF_ACTIVE_STATE_ ????
+/* The maximum number of active objects in the application ******************/
+// 活动对象最大数量，不超过63，8或更小时性能更高
+#define QF_MAX_ACTIVE ????
+/* Various object sizes within the QF framework ***************************/
+// 都有默认值，空间大小和计数器大小
+#define QF_EVENT_SIZ_SIZE 2
+#define QF_EQUEUE_CTR_SIZE 1
+// 内存池块大小，每块2字节
+#define QF_MPOOL_SIZ_SIZE 2
+// 内存池计数器大小，为2表示最大表示0xFFFF个块
+#define QF_MPOOL_CTR_SIZE 2
+#define QF_TIMEEVT_CTR_SIZE 2
+/* QF critical section mechanism *****************************************/
+// 临界区
+// “保存和恢复中断状态”的策略和“无条件上锁和解锁中断”策略标志
+#define QF_INT_KEY_TYPE ????
+#define QF_INT_LOCK(key_) ????
+#define QF_INT_UNLOCK(key_) ????
+/* Include files used by this QF port *************************************/
+// 内核头文件
+#include <????.h>     /* underlying OS/RTOS/Kernel interface */
+#include "qep_port.h" /* QEP port */
+#include "qequeue.h"  /* native QF event-queue */
+#include "qmpool.h"   /* native QF memory-pool */
+#include "qvanilla.h" /* native QF "vanilla" kernel */
+#include "qf.h"       /* platform-independent QF interface */
+/**********************************************************************
+ * Interface used only inside QF, but not in applications
+ */
+/* Active object event queue operations ***********************************/
+// 仅用于QF和使用原生事件队列时的宏，名字结尾有下划线，避免用于用户应用。
+// 信号量耗尽阻塞
+#define QACTIVE_EQUEUE_WAIT_(me_) ????
+// 信号量补充解除阻塞
+#define QACTIVE_EQUEUE_SIGNAL_(me_) ????
+// 通知事件队列为空，比如vanilla需要在队列为空时将活动对象移出预备执行队列
+#define QACTIVE_EQUEUE_ONEMPTY_(me_) ????
+/* QF event pool operations **********************************************/
+// 事件池
+#define QF_EPOOL_TYPE_ ????
+#define QF_EPOOL_INIT_(p_, poolSto_, poolSize_, evtSize_) ????
+#define QF_EPOOL_EVENT_SIZE_(p_) ????
+#define QF_EPOOL_GET_(p_, e_) ????
+#define QF_EPOOL_PUT_(p_, e_) ????
+/* Global objects required by the QF port ***********************************/
+extern ???? ;
+...
+#endif /* qf_port_h */
+```
+
+#### 源代码 qf_port.c
+
+qf_port.c 源文件定义了 QF 移植和平台相关的代码。不是所有 QF 移植都需要这个文件。
+
+```c
+// 这个 qf_pkg.h 头文件包括 qf_port.h ，但是它还定义了一些内部宏和仅在 QF 构件内部共享的对象。
+#include "qf_pkg.h"
+// qf_port.h 源文件使用 QP 断言
+#include "qassert.h"
+// 见上面[C 和 C++ 里可定制的断言]，用于指定模块名，用于日志打印时显示的名称
+Q_DEFINE_THIS_MODULE(qf_port)
+/* Global objects -------------------------------------------------------*/
+...
+/* Local objects---------------------------------------------------------*/
+...
+/*.....................................................................*/
+char const Q_ROM *Q_ROM_VAR
+QF_getPortVersion(void)
+{
+  static const char Q_ROM Q_ROM_VAR version[] = "4.0.00";
+  return version;
+}
+/*.....................................................................*/
+void QF_init(void)
+{
+  ...
+}
+/*.....................................................................*/
+// 系统将控制权交给QF框架
+void QF_run(void)
+{
+  ...
+}
+/*.....................................................................*/
+void QF_stop(void)
+{
+  ...
+}
+/*.....................................................................*/
+void QActive_start(QActive *me,
+                   uint8_t prio,                        /* the unique priority */
+                   QEvent const *qSto[], uint32_t qLen, /* event queue */
+                   void *stkSto, uint32_t stkSize,      /* per-task stack */
+                   QEvent const *ie)                    /* the initialization event */
+{
+  // 配置优先级
+  me->prio = prio;         /* set the QF priority */
+  // 注册到QF
+  QF_add_(me);             /* make QF aware of this active object */
+  // 触发最顶初始转换（相当于初始化）
+  QF_ACTIVE_INIT_(me, ie); /* execute the initial transition */
+  /* Initialize the event queue object ’me->eQueue’ using qSto and qLen */
+  // 初始化事件队列
+  /* Create and start the thread ’me->thread’ of the underlying RTOS */
+  // 启动线程
+}
+/*.....................................................................*/
+void QActive_stop(QActive *me)
+{
+  /* Cleanup me->eQueue or me->osObject */
+  // 执行清理工作，是否非栈中的内存
+}
+/*......................................................................*/
+/* You need to define QActive_postFIFO(), QActive_postLIFO(), and
+ * QActive_get_() only if your QF port uses the queue facility from
+ * the underlying OS/RTOS.
+ */
+// 只有用了底层OS提供的队列工具时，才需要重写这三个函数，如果用的QF自带的事件队列则不需要
+void QActive_postFIFO(QActive *me, QEvent const *e)
+{
+  QF_INT_LOCK_KEY_
+  QF_INT_LOCK_();
+  if (e->dynamic_ != (uint8_t)0)
+  {                            /* is it a dynamic event? */
+    ++((QEvent *)e)->dynamic_; /* increment the reference counter */
+  }
+  QF_INT_UNLOCK_();
+  /* Post event pointer ’e’ to the message queue of the RTOS ’me->eQueue’
+   * using the FIFO policy without blocking. Also assert that the queue
+   * accepted the event pointer.
+   */
+}
+/*......................................................................*/
+void QActive_postLIFO(QActive *me, QEvent const *e)
+{
+  QF_INT_LOCK_KEY_
+  QF_INT_LOCK_();
+  if (e->dynamic_ != (uint8_t)0)
+  {                            /* is it a dynamic event? */
+    ++((QEvent *)e)->dynamic_; /* increment the reference counter */
+  }
+  QF_INT_UNLOCK_();
+  /* Post event pointer ’e’ to the message queue of the RTOS ’me->eQueue’
+   * using the LIFO policy without blocking. Also assert that the queue
+   * accepted the event pointer.
+   */
+}
+/*......................................................................*/
+QEvent const *QActive_get_(QActive *me)
+{
+  /* Get the next event from the active object queue ’me->eQueue’.
+   * Block indefinitely as long as the queue is empty. Assert no errors
+   * in the queue operation. Return the event pointer to the caller.
+   */
+}
+```
+
+#### 和平台相关的 QF 回调函数
+
+下面这几个函数是属于应用程序而不是QF框架的(意思就是就算这几个函数不定义，QF也能正常运行，不是必需的)。它们不在QF_port.c中定义，在 `QP 应用开发`中有说明
+
+```c
+void QF_onStartup(void)
+```
+
+在 QF 取得应用程序的控制之前这个回调函数被调用。 QF_onStartup()回调函数的主要意图是`初始化并启动中断`(TICK时钟中断)
+
+```c
+void QF_onCleanup(void)
+```
+
+在 QF `返回`底层操作系统或 RTOS 前，调用 QF_onCleanup(void)。
+
+```c
+void QF_onIdle(void) 或 void QF_onIdle(QF_INT_KEY_TYPE lockKey)
+```
+
+内建在 QF 里的合作式 vanilla 内核调用 QF_onIdle() 。这个回调函数的声明取决于在 QF 移植里采用的`中断上锁策略`。
+
+```c
+void Q_onAssert(char const Q_ROM * const Q_ROM_VAR file, int line)
+```
+
+`断言失败`时的处理
+
+#### 系统时钟节拍（调用 QF_tick() ）
+
+需要定时调用 QF_tick() 来让 QF 正常工作。一般是在系统节拍 ISR 中调用。如果是 Linux 这种不允许修改 ISR 的，就要开个节拍器线程再加上睡眠和定时唤醒来模拟。
+
+#### 创建 QF 库
+
+不是所有 QF 源文件都要包含。
+
+`qa_fifo.c`,`qa_lifo.c`,`qa_get_.c`，如果自己定义了QActive_postFIFO()，QActive_postLIFO()，和 QActive_get_()可以不包含，也就是仅在使用 QF 原生的队列时才包含
+
+`qvanilla.c`，仅当你使用vanilla合作式内核时才需包含这个文件。
+
+### 移植合作式 Vanilla 内核
+
+把 vanilla 内核本身移植到目标 CPU 和编译器上
+
+#### 头文件 qep_port.h
+
+展示了用于 80x86/DOS/Turbo C++ 1.01/Large内存模型的 qep_port.h头文件
+
+*用于 `80x86/DOS/Turbo C++ 1.01/Large `内存模型的 qep_port.h 头文件:*
+
+```c
+#ifndef qep_port_h
+#define qep_port_h
+/* Exact-width integer types for DOS/Turbo C++ 1.01/Large memory model */
+// 因为Turbo C++不是标准编译器，所以不带stdint.h，要自己指定扩展类型
+typedef signed char int8_t;
+typedef signed int int16_t;
+typedef signed long int32_t;
+typedef unsigned char uint8_t;
+typedef unsigned int uint16_t;
+typedef unsigned long uint32_t;
+#include "qep.h" /* QEP platform-independent public interface */
+#endif           /* qep_port_h */
+```
+
+*用于 `Cortex-M3/IAR` 的 qep_port.h头文件:*
+
+```c
+#ifndef qep_port_h
+#define qep_port_h
+// IAR是标准的编译器，所以携带stdint.h
+#include <stdint.h> /* C99-standard exact-width integer types */
+#include "qep.h"    /* QEP platform-independent public interface */
+#endif              /* qep_port_h */
+```
+
+#### 头文件 qf_port.h
+
+最重要的移植决定是选择上锁和解锁中断的策略。见[保存和恢复中断状态](#保存和恢复中断状态)
+
+通常，你的第一安全选择应该是更先进的`保存和恢复中断状态`策略。然而，如果你发现在 ISR 内解锁中断是安全的，因为你的目标处理器可以在硬件对`中断优先级排序`，你可以使用简单和快捷的`无条件中断解锁`策略
+
+*用于 80x86/DOS/Turbo C++ 1.01/Large 内存模型的 qf_port.h 头文件：*
+
+```c
+#ifndef qf_port_h
+#define qf_port_h
+/* DOS critical section entry/exit */
+/* QF_INT_KEY_TYPE not defined: "unconditional interrupt unlocking" policy */
+// 80x86/DOS/Turbo C++ 1.01/Large内存模型内有基于优先级的中断控制器8259A，所以用无条件中断解锁策略
+#define QF_INT_LOCK(dummy) disable()
+#define QF_INT_UNLOCK(dummy) enable()
+#include <dos.h>      /* DOS API, including disable()/enable() prototypes */
+#undef outportb       /*don’t use the macro because it has a bug in Turbo C++ 1.01*/
+#include "qep_port.h" /* QEP port */
+#include "qvanilla.h" /* The "Vanilla" cooperative kernel */
+#include "qf.h"       /* QF platform-independent public interface */
+#endif                /* qf_port_h */
+```
+
+*Cortex-M3/IAR的 qf_port.h 头文件:*
+
+```c
+#ifndef qf_port_h
+#define qf_port_h
+/* QF critical section entry/exit */
+/* QF_INT_KEY_TYPE not defined: "unconditional interrupt unlocking" policy */
+// Cortex-M3 有一个标准的嵌套向量中断控制器 NVIC, 所以用无条件中断解锁策略
+#define QF_INT_LOCK(dummy) __disable_interrupt()
+#define QF_INT_UNLOCK(dummy) __enable_interrupt()
+#include <intrinsics.h> /* IAR intrinsic functions */
+#include "qep_port.h"   /* QEP port */
+#include "qvanilla.h"   /* The "Vanilla" cooperative kernel */
+#include "qf.h"         /* QF platform-independent public interface */
+#endif                  /* qf_port_h */
+```
+
+#### 系统时钟节拍（QF_tick()）
+
+DOS的系统时钟节拍 ISR ，它由连接到 IRQ0 的 `8253/8254` 时间计数器芯片的`通道 0` 触发
+
+*80x86/DOS/Turbo C++ 1.01/Large 内存模式下的系统时钟节拍 ISR:*
+
+```c
+void interrupt ISR_tmr0(void)
+{                       /* entered with interrupts LOCKED */
+  QF_INT_UNLOCK(dummy); /* unlock interrupts */
+  // 执行QF框架内的tick处理函数
+  QF_tick();
+  /* do some application-specific work ... */
+  QF_INT_LOCK(dummy);   /* lock interrupts again */
+  outportb(0x20, 0x20); /* write EOI to the master 8259A PIC */
+}
+```
+
+用于 Cortex-M3 的系统时钟节拍 ISR ，它由特别为这个目的而设计的，被称为 `SysTick` 的周期性定时器触发。进 ISR 是中断是解锁的，无需手动解锁。NVIC 中断控制器自动完成发送 EOI，不需要手动发送 EOI 指令
+
+*Cortex-M3/IAR的 SysTick ISR:*
+
+```c
+void ISR_SysTick(void)
+{ /* entered with interrupts UNLOCKED */
+  QF_tick();
+  /* do some application-specific work ... */
+}
+```
+
+#### 空闲处理（QF_onIdel()）
+
+只要 vanilla 内核探测到系统里所有活动对象时间队列为空，它就调用 `QF_onIdle()` 回调函数。
+
+一般用于开启低功耗模式
+
+80x86 没有低功耗模式，所以只解锁中断
+
+*用于 80x86/DOS 的 QF_onIdle() 回调函数:*
+
+```c
+void QF_onIdle(void)
+{                       /* entered with interrupts LOCKED */
+  QF_INT_UNLOCK(dummy); /* always unlock interrupts */
+  /* do some more application-specific work ... */
+}
+```
+
+*用于 Cortex-M3/IAR 的 QF_onIdle() 回调函数:*
+
+```c
+void QF_onIdle(void)
+{ /* entered with interrupts LOCKED */
+#ifdef NDEBUG
+  /* Put the CPU and peripherals to the low-power mode.
+   * NOTE: You might need to customize the clock management for your
+   * application, by gating the clock to the selected peripherals.
+   * See the datasheet for your particular Cortex-M3 MCU.
+   */
+  // 用 WFI 指令暂停 CPU（低功耗模式），需要通过中断唤醒
+  __asm("WFI"); /* Wait-For-Interrupt */
+#endif
+  // 必须通过中断唤醒，所以这里一定要开中断
+  QF_INT_UNLOCK(dummy); /* always unlock interrupts */
+  /* optionally do some application-specific work ... */
+}
+```
+
+### QF 移植到 uc/os-II (常规 RTOS)
+
+TODO:uc/os-II不太了解，以后用到再说
+
+### QF 移植到 Linux （常规 POSIX 兼容的操作系统）
+
+大型操作系统和RTOS/裸机的区别是不允许关开中断，只能使用系统提供的 API（POSIX API、Win32 API）做有限的操作
+
+#### 头文件 qep_port.h
+
+```c
+#ifndef qep_port_h
+#define qep_port_h
+/* 2-byte (64K) signal space */
+// 增加信号数量，64K个
+#define Q_SIGNAL_SIZE 2
+#include <stdint.h> /* C99-standard exact-width integers */
+#include "qep.h"    /* QEP platform-independent public interface */
+#endif              /* qep_port_h */
+```
+
+#### 头文件 qf_port.h
+
+```c
+#ifndef qf_port_h
+#define qf_port_h
+/* Linux event queue and thread types */
+// 使用QF原生QEQueue作为事件队列
+#define QF_EQUEUE_TYPE QEQueue
+// 使用POSIX中的条件变量作为事件队列为空时的阻塞标志
+#define QF_OS_OBJECT_TYPE pthread_cond_t
+// 每个活动对象一个线程
+#define QF_THREAD_TYPE pthread_t
+/* The maximum number of active objects in the application */
+// 最大活动对象(线程)数
+#define QF_MAX_ACTIVE 63
+/* various QF object sizes configuration for this port */
+// Linux一般需要32位的CPU，所以块大小和数量都定义成4字节
+#define QF_EVENT_SIZ_SIZE 4
+#define QF_EQUEUE_CTR_SIZE 4
+#define QF_MPOOL_SIZ_SIZE 4
+#define QF_MPOOL_CTR_SIZE 4
+#define QF_TIMEEVT_CTR_SIZE 4
+/* QF critical section entry/exit for Linux, see NOTE01 */
+/* QF_INT_KEY_TYPE not defined, "unconditional interrupt locking" policy */
+// 不定义QF_INT_KEY_TYPE，“无条件中断上锁和解锁”策略
+// 使用pthread_mutex_lock创建临界区
+#define QF_INT_LOCK(dummy) pthread_mutex_lock(&QF_pThreadMutex_)
+#define QF_INT_UNLOCK(dummy) pthread_mutex_unlock(&QF_pThreadMutex_)
+#include <pthread.h>  /* POSIX-thread API */
+#include "qep_port.h" /* QEP port */
+#include "qequeue.h"  /* Linux needs event-queue */
+#include "qmpool.h"   /* Linux needs memory-pool */
+#include "qf.h"       /* QF platform-independent public interface */
+/************************************************************************
+ * interface used only inside QF, but not in applications
+ */
+/* OS-object implementation for Linux */
+// 利用条件变量实现的阻塞和运行信号，总是用while包裹pthread_cond_wait，见另一篇文章
+#define QACTIVE_EQUEUE_WAIT_(me_)               \
+  while ((me_)->eQueue.frontEvt == (QEvent *)0) \
+  pthread_cond_wait(&(me_)->osObject, &QF_pThreadMutex_)
+#define QACTIVE_EQUEUE_SIGNAL_(me_) \
+  pthread_cond_signal(&(me_)->osObject)
+#define QACTIVE_EQUEUE_ONEMPTY_(me_) ((void)0)
+/* native QF event pool operations */
+#define QF_EPOOL_TYPE_ QMPool
+#define QF_EPOOL_INIT_(p_, poolSto_, poolSize_, evtSize_) \
+  QMPool_init(&(p_), poolSto_, poolSize_, evtSize_)
+#define QF_EPOOL_EVENT_SIZE_(p_) ((p_).blockSize)
+#define QF_EPOOL_GET_(p_, e_) ((e_) = (QEvent *)QMPool_get(&(p_)))
+#define QF_EPOOL_PUT_(p_, e_) (QMPool_put(&(p_), e_))
+// 定义信号量
+extern pthread_mutex_t QF_pThreadMutex_; /* mutex for QF critical section */
+```
+
+> 条件变量的定义见[条件变量](/posts/operating-systems-24/)
+
+#### qf_port.c 源代码
+
+qf_port.c 源文件提供了在 QF 和 POSIX API 之间的“胶合代码”
+
+```c
+#include "qf_pkg.h"
+#include "qassert.h"
+#include <sys/mman.h>   /* for mlockall() */
+#include <sys/select.h> /* for select() */
+Q_DEFINE_THIS_MODULE(qf_port)
+/* Global objects ------------------------------------------------------*/
+// 全局互斥体
+pthread_mutex_t QF_pThreadMutex_ = PTHREAD_MUTEX_INITIALIZER;
+/* Local objects -------------------------------------------------------*/
+static uint8_t l_running;
+/*.....................................................................*/
+void QF_init(void)
+{
+  // 页上锁，防止交换到硬盘，桌面Linux不支持
+  /* lock memory so we’re never swapped out to disk */
+  /*mlockall(MCL_CURRENT | MCL_FUTURE); uncomment when supported */
+}
+/*.....................................................................*/
+void QF_run(void)
+{
+  struct sched_param sparam;
+  struct timeval timeout = {0}; /* timeout for select() */
+  // 应用程序初始化回调函数
+  QF_onStartup();               /* invoke startup callback */
+  /* try to maximize the priority of the ticker thread, see NOTE01 */
+  // 将当前线程设置成 SCHED_FIFO 调度策略和在这个策略里的最高优先级，需要root权限
+  // 高优先级是为了实时性，因为这个线程包含了tick处理操作
+  sparam.sched_priority = sched_get_priority_max(SCHED_FIFO);
+  if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &sparam) == 0)
+  {
+    /* success, this application has sufficient privileges */
+  }
+  else
+  {
+    /* setting priority failed, probably due to insufficient privieges */
+  }
+  l_running = (uint8_t)1;
+  while (l_running)
+  {
+    // 在run线程里定期调用tick处理，而不是在tick ISR中，因为在Linux里没有权限访问中断
+    QF_tick(); /* process the time tick */
+    // select会修改timeout的值，需要每次重新赋值变量
+    timeout.tv_usec = 8000;
+    // 向上取整至一个tick，如果tick是10ms,这里的8ms会自动变10ms
+    // select使用空的I/O作为参数表示总是休眠（因为空的I/O不会触发唤醒信号），直到timeout到达
+    select(0, 0, 0, 0, &timeout); /* sleep for the full tick, NOTE05 */
+  }
+  // 应用程序清理回调函数
+  QF_onCleanup(); /* invoke cleanup callback */
+  pthread_mutex_destroy(&QF_pThreadMutex_);
+}
+/*......................................................................*/
+void QF_stop(void)
+{
+  // 可以在QF_run的循环过程中停止
+  l_running = (uint8_t)0; /* stop the loop in QF_run() */
+}
+/*......................................................................*/
+// 线程函数，参数是活动对象
+static void *thread_routine(void *arg)
+{                                         /* the expected POSIX signature */
+  ((QActive *)arg)->running = (uint8_t)1; /* allow the thread loop to run */
+  while (((QActive *)arg)->running)
+  {                                                   /* QActive_stop() stopps the loop */
+    // 活动对象三个步骤，等待事件、执行事件处理、清理
+    QEvent const *e = QActive_get_((QActive *)arg);   /*wait for the event */
+    QF_ACTIVE_DISPATCH_(&((QActive *)arg)->super, e); /* dispatch to SM */
+    QF_gc(e);                                         /* check if the event is garbage, and collect it if so */
+  }
+  // 线程退出前从QF框架中取消注册该活动对象
+  QF_remove_((QActive *)arg); /* remove this object from any subscriptions */
+  return (void *)0;           /* return success */
+}
+/*.....................................................................*/
+void QActive_start(QActive *me, uint8_t prio,
+                   QEvent const *qSto[], uint32_t qLen,
+                   void *stkSto, uint32_t stkSize,
+                   QEvent const *ie)
+{
+  pthread_attr_t attr;
+  struct sched_param param;
+  // 在Linux中，活动对象线程的堆栈由系统分配（pthread_create()函数），无需外部提供
+  Q_REQUIRE(stkSto == (void *)0); /* p-threads allocate stack internally */
+  // 原生QF队列
+  QEQueue_init(&me->eQueue, qSto, (QEQueueCtr)qLen);
+  // 条件变量初始化,事件队列控制信号
+  pthread_cond_init(&me->osObject, 0);
+  // 设置优先级
+  me->prio = prio;
+  // 注册至QF
+  QF_add_(me);                     /* make QF aware of this active object */
+  // 初始化活动对象的状态机（就是状态机里的最顶初始转换），参数 ie 是一个指针，指向在活动对象状态机里用于最顶初始转换的初始事件。
+  QF_ACTIVE_INIT_(&me->super, ie); /* execute the initial transition */
+  /* SCHED_FIFO corresponds to real-time preemptive priority-based scheduler
+  * NOTE: This scheduling policy requires the superuser privileges
+  */
+  pthread_attr_init(&attr);
+  // 配置线程调度策略，需要root权限
+  pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+  /* see NOTE04 */
+  // 配置线程优先级，把系统中最大的n个优先级给这n个活动对象
+  param.sched_priority = prio + (sched_get_priority_max(SCHED_FIFO) - QF_MAX_ACTIVE - 3);
+  pthread_attr_setschedparam(&attr, &param);
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+  // 开始创建线程
+  if (pthread_create(&me->thread, &attr, &thread_routine, me) != 0)
+  {
+    /* Creating the p-thread with the SCHED_FIFO policy failed.
+     * Most probably this application has no superuser privileges,
+     * so we just fall back to the default SCHED_OTHER policy
+     * and priority 0.
+     */
+    // 如果权限不够，失败了，就要修改参数
+    pthread_attr_setschedpolicy(&attr, SCHED_OTHER);
+    param.sched_priority = 0;
+    pthread_attr_setschedparam(&attr, &param);
+    Q_ALLEGE(pthread_create(&me->thread, &attr, &thread_routine, me) == 0);
+  }
+  pthread_attr_destroy(&attr);
+}
+/*......................................................................*/
+void QActive_stop(QActive *me)
+{
+  // 用于中途停止活动对象
+  me->running = (uint8_t)0;            /* stop the event loop in QActive_run() */
+  pthread_cond_destroy(&me->osObject); /* cleanup the condition variable */
+}
+```
 
 ## 开发 QP 应用程序
 
