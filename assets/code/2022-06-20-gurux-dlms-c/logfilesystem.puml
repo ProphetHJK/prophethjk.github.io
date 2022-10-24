@@ -1,0 +1,43 @@
+@startuml 定时执行线程
+
+
+start
+:日志开始标记写入;
+:日志主体构造;
+:计算CRC;
+:日志主体+CRC写入，日志结束标记位置写全1;
+:执行日志主体操作;
+:日志结束标记(非全1)写入;
+stop
+
+start
+:读取日志;
+if (开始标记正常？) then (true)
+    if (结束标记正常？) then (true)
+    else (false)
+        :计算日志主体CRC;
+        if (CRC匹配？) then (true)
+            switch (重放模式)
+            case (数据更新)
+            :重放写入操作;
+            case (数据恢复)
+                if (数据损坏？) then (true)
+                    :从备份恢复数据;
+                else (false)
+                endif
+            endswitch
+        else (false)
+        endif
+    endif
+else (false)
+endif
+
+
+
+
+:清除日志或写入日志结束标记;
+stop
+
+
+
+@enduml

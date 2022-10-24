@@ -1,0 +1,233 @@
+@startuml OBIS分类
+allowmixing
+object root{
+    A* leaf = {a1,a2}
+}
+
+folder A{
+object a1{
+    value = 0
+    B* leaf = {b1}
+}
+
+object a2{
+    value = 1
+    B* leaf = {}
+}
+}
+
+root --> a1
+root --> a2
+
+folder B{
+object b1{
+    value = 1
+    C* leaf = {c1,c2}
+}
+}
+
+a1 --> b1
+
+folder C{
+object c1{
+    value = 20
+    D* leaf = {d1,d2}
+}
+
+object c2{
+    value = 16
+    D* leaf = {d3,d4,d5}
+}
+}
+
+b1 --> c1
+b1 --> c2
+
+note left of C
+    当A为0,也就是为抽象类时，
+    C用于区分不同的较为独立的功能模块，
+    如PRIME、PLC
+end note
+
+folder D{
+object d3{
+    value = 0
+    class_id = 7
+    E* leaf = {e1,e5}
+}
+object d4{
+    value = 1
+    class_id = 8
+    E* leaf = {e2}
+}
+object d5{
+    value = 2
+    class_id = 9 or COSEM_Class*
+    E* leaf = {e3}
+}
+}
+
+note left of D
+    当A为0,也就是为抽象类时，
+    D用于进一步细分本功能模块的具体参数
+
+    一般不同的D对应的类也不同
+    如某个参数是Data类型，另一个是Register类型
+    TODO:好像有特例是
+end note
+
+c2 --> d3
+c2 --> d4
+c2 --> d5
+
+folder E{
+object e1{
+    value = 0
+    ext_class_id = 1
+    F* leaf = {f1}
+}
+object e2{
+    value = 1
+    ext_class_id = 1
+    F* leaf = {f2}
+}
+object e5{
+    value = 2
+    ext_class_id = 2
+    F* leaf = {f3}
+}
+}
+
+note left of E
+    如果不同的E对象对应相同的类，
+    且属性类型相同。则可以合并
+
+    E用于再进一步细分
+end note
+
+d3 --> e1
+d3 --> e2
+d3 --> e5
+
+folder F{
+object f1{
+    COSEM_Object obj = o1
+}
+object f2{
+    COSEM_Object obj = o1
+}
+object f3{
+    COSEM_Object obj = o2
+}
+}
+
+e1 --> f1
+e2 --> f2
+e5 --> f3
+
+object o1{
+}
+
+f1 --> o1
+f2 --> o1
+
+class Root
+{
+    ObisA* leaf[];
+}
+
+class ObisA
+{
+    u8 value;
+    ObisB* leaf[];
+}
+class ObisB
+{
+    ObisA* a;
+    u8 value;
+    ObisC* leaf[];
+}
+class ObisC
+{
+    ObisB* b;
+    u8 value;
+    ObisD* leaf[];
+}
+class ObisD
+{
+    ObisC* c;
+    u8 value;
+    ObisE* leaf[];
+
+    u16 class_id;
+}
+
+note right of ObisD::class_id
+    ABCD字段决定COSEM类
+end note
+class ObisE
+{
+    ObisD* d;
+    u8 value;
+    ObisF* leaf[];
+
+    u8 ext_class_id;
+}
+note right of ObisE::ext_class_id
+    ABCDE字段决定属性的类型，
+    也就是COSEM大类的一个派生类
+end note
+class ObisF
+{
+    ObisE* e;
+    COSEM_Object* obj;
+}
+note right of ObisF
+    F字段不影响实际对象，
+    值为255或VZ(Billing period counter)
+    见B2p576 6.2.2 Data of historical billing periods
+end note
+
+class COSEM_Object
+{
+    ObisF* f;
+    COSEM_AttributeValue* attribute_values[];
+}
+
+note right of ObisB
+    通过基址加偏移方式降低leaf指针消耗（指针压缩）
+end note
+
+note right of ObisC
+    存储的两种方式：
+
+    1.按类型存：同一类class_id共同保存
+    2.按功能存：按照同一类功能，下属的对象共同保存
+
+    细分类的子类，提取公共信息
+
+    如CHOICE类型的确定，公有属性提取，可变长属性类型的范围
+
+    子类的每个属性拥有独立序列化函数
+
+    TODO:OBIS重复类问题怎么解决?
+end note
+
+Root <-- ObisA
+ObisA <-- ObisB
+ObisB <-- ObisC
+ObisC <-- ObisD
+ObisD <-- ObisE
+ObisE <-- ObisF
+ObisF <-- COSEM_Object
+
+Root *-- ObisA
+ObisA *-- ObisB
+ObisB *-- ObisC
+ObisC *-- ObisD
+ObisD *-- ObisE
+ObisE *-- ObisF
+ObisF --> COSEM_Object
+
+
+@enduml

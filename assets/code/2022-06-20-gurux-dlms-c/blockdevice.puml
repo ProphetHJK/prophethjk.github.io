@@ -1,0 +1,16 @@
+@startuml
+
+class{
+    u16 block_head; // 块链表头位置的块序号，16384个块
+    u8 offset; // 块内偏移，最大256字节
+    u8 device_id; // 物理设备id
+}
+
+struct block{
+    u8 dirty_bit: 1;
+    u8 has_next_bit: 1;
+    u8 bad_bit: 1;
+    u16 crc16;
+}
+
+@enduml

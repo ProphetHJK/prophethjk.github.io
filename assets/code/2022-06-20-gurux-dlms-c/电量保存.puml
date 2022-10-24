@@ -1,0 +1,83 @@
+@startuml
+' !pragma useVerticalIf on
+skinparam conditionStyle InsideDiamond
+start
+:程序启动;
+:读取复位标志;
+if (冷复位?) then (false)
+    :读取增量内存主;
+    :CRC校验;
+    if (校验通过？) then (true)
+        :设置读取标志为内存;
+    else (false)
+        :读取增量内存备;
+        :CRC校验;
+        if (校验通过？) then (true)
+            :将增量内存备拷贝至增量内存主;
+            :设置读取标志为内存;
+        else (false)
+            :设置读取标志为EE;
+        endif
+    endif
+else (true)
+    :设置读取标志为EE;
+endif
+
+if (增量读取标志?) then (内存:0)
+else (EE:1)
+    :读取增量EE备;
+    :CRC校验;
+    if (校验通过？) then (true)
+        :将增量EE备拷贝至增量内存主;
+    else (false)
+        #pink:增量内存主备清零;
+    endif
+endif
+:使用增量内存主;
+:增量EE备清零;
+note right
+    保证增量EE备的时效性，
+    防止读到过期的增量EE备
+end note
+stop
+
+start
+
+:检查总量保存事件;
+if (需要保存？) then (true)
+    :从存储器度读对应费率总电量;
+    :关中断;
+    note left
+        非抢占式调度无需关开中断
+    end note
+    :总量增加增量;
+    :增量内存主清零;
+    :增量内存备清零;
+    note left
+        清零后如果发生复位
+        内存主备CRC正确，增量丢失
+        关中断后不会处理掉电事件
+    end note
+    :总电量保存回存储器;
+    :开中断;
+else (false)
+endif
+
+:检查是否有增量递增事件;
+if (需要递增？) then (true)
+    :尾数增加到递增内存主;
+    :计算并保存CRC;
+    :复制递增内存主到递增内存备;
+else (false)
+endif
+
+:检查是否有掉电事件;
+if (已经掉电?) then (true)
+    :检查递增内存主合法性;
+    :保存递增内存主到递增EE备;
+else (false)
+endif
+stop
+
+
+@enduml

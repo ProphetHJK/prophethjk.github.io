@@ -1,0 +1,313 @@
+@startuml cosem对象类图
+
+allowmixing
+
+map "map: Map<class_id+LN, COSEM_Object*>" as object_map {
+ 0x00030000010301FF => objectRegister1
+ 0x00030000010302FF => objectRegister2
+ 0x00070000010301FF => objectProfile1
+ ... => ...
+}
+
+note left of object_map
+    能不能用树的方式表示这个对应表，因为有很多共同点，
+    如类、ABCDEF也有很多重复的，
+    通过树状表示能否解决很多共性问题
+end note
+
+class COSEM_Class
+{
+    +id: u16
+    +version: u8
+
+    +num_of_attributes: size_t
+    +attribute_types: COSEM_AttributeType* []
+}
+
+class COSEM_Object
+{
+    +cosem_class: COSEM_Class*
+
+    +specific_attribute_types: COSEM_AttributeType* []
+    +--attribute_values--: COSEM_AttributeValue* []
+    +base_address: u32
+
+    +{static} load(COSEM_Object*)
+    +{static} save(COSEM_Object*,u8* buf)
+    +{static} get(COSEM_Object*,u8* buf,SelectAccess* selective_access)
+    +{static} set(COSEM_Object*,u8* buf)
+}
+
+note left of COSEM_Object::specific_attribute_types
+  可以通过在空指针中填写对应执行的地址，
+  如0xFFFFFF02表示为第二个为空。但这个地址不能保证一定是没被使用的，
+  可能就是合法的，需要指定合法且不会用于该目的的地址，如存这个指针的内存的地址
+end note
+
+note left of COSEM_Object::attribute_values
+    可以不保存每个属性的地址
+end note
+
+note left of COSEM_Object::base_address
+    value的基地址，可以通过基址加上attribute_type信息得到每个属性的地址，用于提取
+end note
+
+class COSEM_AttributeType
+{
+    +type: u8
+    +ext_type: u8*
+    +value_load_mothod: ValueLoadMothod
+}
+
+class COSEM_DynSimpleType
+{
+    +type: u8
+}
+note top of COSEM_DynComplexType
+    使用二进制保存/读取简单类型数据，type记录类型tag
+end note
+class COSEM_DynComplexType
+{
+    +type: u8
+}
+
+note top of COSEM_StaticSimpleType
+    使用二进制保存/读取简单类型数据，type记录类型tag
+end note
+class COSEM_StaticSimpleType
+{
+    +type: u8
+}
+
+note top of COSEM_StaticComplexType
+    使用二进制保存/读取复杂类型数据，type仅记录基本结构tag，不区分CHOICE
+end note
+class COSEM_StaticComplexType
+{
+    +type: u8
+}
+
+class COSEM_AttributeValue
+{
+    +value: void*
+    +--value_id--: u16
+}
+
+object classRegister{
+    id = 3
+    version = 0
+    num_of_attributes = 3
+    attribute_types = {x1,&a[1],x3}
+}
+object classData{
+    id = 1
+    version = 0
+    num_of_attributes = 2
+    attribute_types = {x1,x2}
+}
+
+
+
+object classProfile{
+    id = 7
+    version = 1
+    num_of_attributes = 8
+    attribute_types = {x1,x2,x3,x4,x5,x6,x7,x8}
+}
+object objectRegister1{
+    cosem_class = &classRegister
+    specific_attribute_types = {{2,y2}}
+    attribute_values = {{}}
+}
+
+note left of COSEM_AttributeType::type
+    基本类型
+
+    type的表示还可以用OOP的方式。
+    TODO:OOP方式与编码方式的优劣
+
+    对于static的数据，也就是只能通过set方式设置的，
+    是否直接使用二进制保存。使用的时候用单独的反序列化函数读取，利用static
+    主要针对结构体+CHOICE的情况
+end note
+note left of COSEM_AttributeType::ext_type
+    非基本类型，如不定长的string，array，struct
+    用编码的方式表示type，就像compact压缩一样
+    0x01020416111206表示一个数组，未指定数量，
+    包含一个结构体，结构体内有4个元素
+    劣势：不能表示CHOICE类型
+end note
+
+note right of COSEM_AttributeValue::value
+    保存数据管理层提供的句柄。
+    如果是捕获型的值，
+    如profile的buffer或compactdata里的compact_buffer这种，
+    要单独考虑
+end note
+
+note left of COSEM_AttributeValue::value_load_mothod
+    访问value的方式，包括数据ID以及访问方式
+end note
+
+note left of COSEM_Object::load(COSEM_Object*)
+    向数据管理层获取句柄
+    value_get_mothod作为入参。
+    (为void* 指针赋值为数据管理层提供的地址)，需要调用数据管理层接口，
+    一般就初始化或者数据位置变动时需要load，
+    这个值应该还是个raw值，不能直接使用，因为涉及结构或精度转换
+    是不是只能通过get接口访问
+end note
+note left of COSEM_Object::save
+    通过value_get_mothod指定方式保存value值
+end note
+
+note left of COSEM_Object::get
+    根据type、exttype和value值编码为axdr格式数据
+end note
+
+
+enum ValueLoadMothod
+{
+    参数类数据
+    捕获类数据
+    寄存器类数据
+    ...
+}
+
+class SelectAccess
+{
+
+}
+
+note right of ValueLoadMothod
+    加载和存入方式，将访问方式相同的归为一类
+end note
+
+class COSEM_Method
+{
+    args: void*
+    +action()
+}
+
+file "cosem_object定义文件(asn1、xml、excel)"
+
+class 数据管理层
+{
+    +open(type,value_id,&fd)
+    +read(fd,*buf)
+    +readArrayByIndex(fd,index,*buf)
+    +searchArrayByElement(fd,element_id,regex_value,&index)
+    +insertArray(fd,value,&index)
+    +updateArrayByIndex(fd,value,index)
+    +deleteArrayByIndex(fd,value,index)
+    +write(fd,*buf)
+}
+note left of 数据管理层
+    将不同介质的地址和访问方式映射成同一套地址和访问方式。
+    包括根据数据ID获取句柄，句柄包含了实际地址和访问方式。
+    通过句柄访问数据
+end note
+database "电表数据ram"
+database "电表数据eeprom"
+database "电表数据flash"
+note bottom of "电表数据flash"
+    电表运行所需数据与COSEM对象的实现分离，
+    通过数据管理层映射，COSEM对象不存储实际数据，
+    这样也可以支持不同的协议。
+    电表数据要包含COSEM对象需要用到的所有数据
+    
+    TODO:精度转换如何实现
+
+    数据表示的两种方案：
+    1 以运行数据为准，运行所需数据原样保存于存储设备中，
+    如通过packed方式存储，如果cosem对象需要使用，则另外指定转换协议组装
+    2 以COSEM对象为准，通过序列化原样保存于存储设备中，
+    如果运行数据需要其中内容，再通过指定转换协议获取
+    2.2 序列化的实现，同一基本或复杂类型数据的序列化函数相同
+end note
+
+note right of COSEM_AttributeValue::value_id
+  value_id绑定哪些信息：存储介质、地址、长度等
+end note
+
+class 参数类数据
+{
+    -u16 key;
+    -u8 type;
+    -u32 location_address;
+    
+    +getValueByKey(u16 key,void &value,u8 type_out)
+}
+
+note left of 参数类数据::key
+    参数对应的唯一标识，可以是数字或字符串
+end note
+note left of 参数类数据::type
+    放置于存储中的类型，只允许简单类型
+end note
+note left of 参数类数据::location_address
+    参数实际存放位置，存储介质信息也包含在其中
+end note
+
+class 复杂参数类数据
+{
+    -u16 key;
+    -u8 type;
+    -u32 location_address;
+    
+    +getValueByKey(u16 key,void &value,u8 type_out)
+}
+
+note left of 参数类数据::key
+    参数对应的唯一标识，可以是数字或字符串
+end note
+note left of 参数类数据::type
+    放置于存储中的类型，复杂类型
+end note
+note left of 参数类数据::location_address
+    参数实际存放位置，存储介质信息也包含在其中
+end note
+
+class 记录类数据
+{
+    -u16 key;
+    -u16 size;
+    -u16 current_index;
+    -u16 column_type[] 
+    -u32 location_address;
+    
+    +getValueByIndexAndKey(u16 key,void &value,u16 index)
+}
+
+note left of 记录类数据::key
+    对应的唯一标识，可以是数字或字符串
+end note
+note left of 记录类数据::column_type
+    每列的类型，类似于数据库，也只允许基本类型
+end note
+note left of 记录类数据::location_address
+    实际存放位置，存储介质信息也包含在其中
+end note
+
+
+
+COSEM_Object "1" *-right- "n" COSEM_AttributeValue:组合
+' COSEM_Object "1" *-up- "n" COSEM_Method:组合
+COSEM_Class <-- COSEM_Object: 关联
+"cosem_object定义文件(asn1、xml、excel)" --> COSEM_Class
+classData -up-> "cosem_object定义文件(asn1、xml、excel)": 实例化
+classRegister -up-> "cosem_object定义文件(asn1、xml、excel)": 实例化
+classProfile -up-> "cosem_object定义文件(asn1、xml、excel)": 实例化
+classRegister <-down- objectRegister1
+COSEM_Object "1" *-up- "n" COSEM_AttributeType: 组合
+COSEM_Class "1" *-up- "n" COSEM_AttributeType: 组合
+COSEM_Object ..> 数据管理层:依赖
+数据管理层 <--> "电表数据flash"
+数据管理层 <--> "电表数据eeprom"
+数据管理层 <--> "电表数据ram"
+COSEM_AttributeType -right-> ValueLoadMothod: 关联
+' COSEM_Object --> SelectAccess
+object_map -right-> objectRegister1
+object_map --> classRegister
+
+@enduml
