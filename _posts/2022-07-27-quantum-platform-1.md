@@ -125,6 +125,17 @@ tags: [quantum platform, QP状态机]
     - [同步抢占和异步抢占](#同步抢占和异步抢占)
     - [堆栈的利用](#堆栈的利用)
     - [和传统可抢占式内核的比较](#和传统可抢占式内核的比较)
+  - [QK 的实现](#qk-的实现)
+    - [QK 源代码的组织](#qk-源代码的组织)
+    - [头文件 qk.h](#头文件-qkh)
+    - [中断的处理](#中断的处理)
+    - [源文件 qk_sched.c （ QK 调度器）](#源文件-qk_schedc--qk-调度器)
+    - [源文件 qk.c （ QK 的启动和空闲循环）](#源文件-qkc--qk-的启动和空闲循环)
+  - [高级的 QK 特征](#高级的-qk-特征)
+    - [优先级天花板互斥体](#优先级天花板互斥体)
+    - [本地线程存储](#本地线程存储)
+    - [扩展的上下文切换（对协处理器的支持）](#扩展的上下文切换对协处理器的支持)
+  - [移植 QK](#移植-qk)
 - [移植和配置 QF](#移植和配置-qf)
   - [QP 平台抽象层](#qp-平台抽象层)
     - [生成 QP 应用程序](#生成-qp-应用程序)
@@ -4010,9 +4021,9 @@ typedef struct QPSet64Tag
 
 ![qpset](/assets/img/2022-07-27-quantum-platform-1/qpset.jpg)
 
-`uint8_t bits[8]`一共是 8 个 1 字节共 64 位，对应图上的 8x8 矩阵(bitmask)，`bits[0]`表示第 1 行,`bits[7]`表示第 8 行
+`uint8_t bits[8]`一共是 8 个 `1 字节`共 64 位，对应图上的 8x8 矩阵(bitmask)，`bits[0]`表示第 1 行,`bits[7]`表示第 8 行
 
-`uint8_t bytes`用于加快 bitmask `查找`，用来指示对应行的位中是否有`至少一个 1`(字节值大于等于 1)。如`bytes`的`第0位`指示`bits[0]`是否大于等于 1，如大于等于 1 则为 1。bytes 为`0x10010001`表示`bytes[0]`、`bytes[4]`、`bytes[7]`大于等于 1。
+`uint8_t bytes`用于加快 bitmask `查找`，用来指示对应行的位中是否有`至少一个 1`(字节值大于等于 1)。相当于是把 1 个字节`压缩`成 1 位，将 `8 个字节`看成 `1 个字节`处理。如`bytes`的`第0位`指示`bits[0]`是否大于等于 1，如大于等于 1 则为 1。bytes 为`0x10010001`表示`bytes[0]`、`bytes[4]`、`bytes[7]`大于等于 1。
 
 _判断集合是否为空_:
 
@@ -4032,7 +4043,7 @@ _找出集合里最大的元素_:
   } while (0)
 ```
 
-> 二进制对数查找表 `QF_log2Lkup` 见[发行-订阅事件发送](#发行-订阅事件发送)的`订阅`一节
+> 二进制对数查找表 `QF_log2Lkup` 见[发行-订阅事件发送](#发行-订阅事件发送)的`发行`一节
 
 _插入一个值_:
 
@@ -4122,7 +4133,8 @@ void QF_run(void)
       QF_gc(e);                          /* determine if event is garbage and collect it if so */
     }
     else // 没有事件的话不阻塞，要做其他事情，比如进入低功耗模式
-         // 进入Idle函数前必须上锁，进入后在开启低功耗模式前必须解锁中断，防止死锁
+         // 进入Idle函数前必须上锁，这是为了防止这时候其他任务通过中断产生了事件，因为vanilla 内核的非抢占性，导致依然按照原流程进入idle状态，这个事件就不能被及时处理了（像QK内核就可以在事件发生的时候在中断里就产生一次调度，把进入idle的动作抢占了）
+         // 进入后在开启低功耗模式前必须解锁中断，防止死锁，因为需要中断来唤醒，不解锁中断就唤醒不了
     { /* all active object queues are empty */
 #ifndef QF_INT_KEY_TYPE // QF_onIdle是否有参数取决于临界区机制
       QF_onIdle(); /* see NOTE02 */
@@ -4295,6 +4307,546 @@ _异步抢占_:
 通过在`一个堆栈`管理所有的任务和中断的上下文， RTC 内核运行所需的 `RAM` 远比一个典型的阻塞式内核需要的少。
 
 C 编译器生成的 ISR `进入时`仅保留可能在 C 函数被使用那些寄存器，而不是全部，比传统的少，降低了进入 ISR 时的堆栈和 CPU 消耗
+
+### QK 的实现
+
+#### QK 源代码的组织
+
+```console
+<qp>\qpc\ - QP/C root directory (<qp>\qpcpp for QP/C++)
+|
++-include\ - QP platform-independent header files
+| +-qk.h - QK platform-independent interface
+| +-. . .
+|
++-qk\ - QK preemptive kernel
+| +-source\ - QK platform-independent source code (*.C files)
+| | +-qk_pkg.h - internal, interface for the QK implementation
+| | +-qk.c - definitionofQK_getVersion()andQActive_start()
+| | +-qk_sched.c - definition of QK_schedule_()
+| | +-qk_mutex.c - definition of QK_mutexLock()/QK_mutexUnlock()
+| | +-qk_ext.c - definition of QK_scheduleExt_()
+| |
+| +-lint\ - QK options for lint
+| +-opt_qk.lnt - PC-lint options for linting QK
+|
++-ports\ - Platform-specific QP ports
+| +-80x86\ - Ports to the 80x86 processor
+| | +-qk\ - Ports to the QK preemptive kernel
+| | | +-tcpp101\ - Ports with the Turbo C++ 1.01 compiler
+| | | +-l\ - Ports using the Large memory model
+| | | +-dbg\ - Debug build
+| | | | +-qf.lib – QF library
+| | | | +-qep.lib – QEP library
+| | | +-rel\ - Release build
+| | | +-spy\ - Spy build (with software instrumentation)
+| | | +-make.bat – batch script for building the QP libraries
+| | | +-qep_port.h – QEP platform-dependent include file
+| | | +-qf_port.h – QF platform-dependent include file
+| | | +-qk_port.h – QK platform-dependent include file
+| | | +-qs_port.h – QS platform-dependent include file
+| | | +-qp_port.h – QP platform-dependent include file
+| +-cortex-m3\ - Ports to the Cortex-M3 processor
+| | +-qk\ - Ports to the QK preemptive kernel
+| | | +-iar\ - Ports with the IAR compiler
+| |
++-examples\ - Platform-specific QP examples
+| +-80x88\ - Examples for the 80x86 processor
+| | +-qk\ - Examples for the QK preemptive kernel
+| | | +- . . .
+| +-cortex-m3\ - Examples for the Cortex-M3 processor
+| | +-qk\ - Examples for the QK preemptive kernel
+| | | +- . . .
+| +- . . .
+```
+
+#### 头文件 qk.h
+
+![qkdataelements](/assets/img/2022-07-27-quantum-platform-1/qkdataelements.jpg)
+
+```c
+#ifndef qk_h
+#define qk_h
+// QK 内核使用原生 QF 事件队列
+#include "qequeue.h"                  /* The QK kernel uses the native QF event queue */
+// QK 内核使用原生 QF 内存池
+#include "qmpool.h"                   /* The QK kernel uses the native QF memory pool */
+// QK 内核使用原生 QF 优先级集合
+#include "qpset.h"                    /* The QK kernel uses the native QF priority set */
+/* public-scope objects */
+// 优先级集合，相当于等待队列
+extern QPSet64 volatile QK_readySet_; /**< QK ready-set */
+// 当前正在运行的任务或中断的全局系统范围的优先级
+extern uint8_t volatile QK_currPrio_; /**< current task/interrupt priority */
+// 全局系统范围的中断嵌套层
+extern uint8_t volatile QK_intNest_;  /**< interrupt nesting level */
+/***************************************************************************************/
+/* QF configuration for QK */
+#define QF_EQUEUE_TYPE QEQueue
+#if defined(QK_TLS) || defined(QK_EXT_SAVE)
+// 活动对象中的osObject变量的类型，比如Linux移植中使用pthread_cond_t用来表示条件变量控制线程休眠和唤醒，
+// 这里QK里用来表示位掩码
+#define QF_OS_OBJECT_TYPE uint8_t
+// 活动对象里的thread变量的类型，标识线程，如Linux移植中使用pthread_t标识活动对象的线程id。
+#define QF_THREAD_TYPE void *
+#endif /* QK_TLS || QK_EXT_SAVE */
+/* QK active object queue implementation...................................*/
+// QK内核不阻塞，这个宏由QActive_get_调用，原用于事件队列为空时阻塞get,这里加了断言表示调用get时要保证事件队列非空，从而满足不阻塞要求
+#define QACTIVE_EQUEUE_WAIT_(me_) \
+  Q_ASSERT((me_)->eQueue.frontEvt != (QEvent *)0)
+// 当空的事件队列插入新事件时被调用，
+#define QACTIVE_EQUEUE_SIGNAL_(me_)           \
+  // 加入预备队列
+  QPSet64_insert(&QK_readySet_, (me_)->prio); \
+  // 如果发生在任务层，则调用调度器，否则发生在中断层，不调用调度器，因为任务不可能抢占中断
+  if (QK_intNest_ == (uint8_t)0)              \
+  {                                           \
+    QK_SCHEDULE_();                           \
+  }                                           \
+  else                                        \
+    ((void)0)
+// 移除事件导致事件队列为空时调用
+#define QACTIVE_EQUEUE_ONEMPTY_(me_) \
+  QPSet64_remove(&QK_readySet_, (me_)->prio)
+/* QK event pool operations...............................................*/
+// 使用QF事件池
+#define QF_EPOOL_TYPE_ QMPool
+#define QF_EPOOL_INIT_(p_, poolSto_, poolSize_, evtSize_) \
+  QMPool_init(&(p_), poolSto_, poolSize_, evtSize_)
+#define QF_EPOOL_EVENT_SIZE_(p_) ((p_).blockSize)
+#define QF_EPOOL_GET_(p_, e_) ((e_) = (QEvent *)QMPool_get(&(p_)))
+#define QF_EPOOL_PUT_(p_, e_) (QMPool_put(&(p_), (e_)))
+void QK_init(void);   /* QK initialization */
+void QK_onIdle(void); /* QK idle callback */
+char const Q_ROM *Q_ROM_VAR QK_getVersion(void);
+// QK自己实现的互斥体
+typedef uint8_t QMutex; /* QK priority-ceiling mutex */
+// QK自己实现的互斥锁（用于临界区）
+QMutex QK_mutexLock(uint8_t prioCeiling);
+void QK_mutexUnlock(QMutex mutex);
+/* QK scheduler and extended scheduler */
+// 如果QF_INT_KEY_TYPE未定义
+#ifndef QF_INT_KEY_TYPE
+// 使用无条件中断上锁解锁
+void QK_schedule_(void);
+void QK_scheduleExt_(void); /* QK extended scheduler */
+#define QK_SCHEDULE_() QK_schedule_()
+#else
+// 使用保存和恢复中断状态，参数需要一个保存当前中断状态的变量
+void QK_schedule_(QF_INT_KEY_TYPE intLockKey);
+void QK_scheduleExt_(QF_INT_KEY_TYPE intLockKey); /* extended scheduler */
+#define QK_SCHEDULE_() QK_schedule_(intLockKey_)
+#endif /* QF_INT_KEY_TYPE */
+#endif /* qk_h */
+```
+
+#### 中断的处理
+
+可抢占型内核需要通过中断夺回`控制权`来执行调度，需要编写自己的ISR处理程序
+
+_QK 里的 ISR:_
+
+```c
+void interrupt YourISR(void)
+{/* typically entered with interrupts locked */
+  // 一般进ISR中断是上锁的，但有些CPU不上锁
+  // 清除中断源如有必要，防止中断丢失
+  Clear the interrupt source, if necessary
+
+  // 如果中断原来就是上锁的，不用上锁，否则要先上锁
+  // 修改QK_intNest_（需要临界区）让QK知道现在是在中断层，不允许任务抢占
+  ++QK_intNest_; /* account for one more interrupt nesting level */
+  // 退出临界区
+  Unlock interrupts(depending on the interrupt policy used)
+  
+  // 执行QF相关服务
+  Execute ISR body,including calling QF services, such as : 
+    Q_NEW(), QActive_postFIFO(), QActive_postLIF(), QF_publish(), or QF_tick()
+   
+  Lock interrupts, if they were unlocked in step(4)
+  // 给中断控制器发送EOI
+  Send the EOI instruction to the interrupt controller
+  // 通知QK结束了中断层，可以开始调度
+  --QK_intNest_; /* account for one less interrupt nesting level */
+  if (QK_intNest_ == (uint8_t)0)
+  {                 /* coming back to the task level? */
+    QK_schedule_(); /* handle potential asynchronous preemption */
+  }
+}
+```
+
+![qktimeline](/assets/img/2022-07-27-quantum-platform-1/qktimeline.jpg)
+
+#### 源文件 qk_sched.c （ QK 调度器）
+
+qk_sched.c 源文件实现了 QK `调度器`，它是 QK 内核的最重要的部分。
+
+仅在 2 个时刻调用 QK 调度器：
+
+- 当一个事件被发送给一个活动对象的一个事件队列（`同步抢占`）
+- 在 ISR 处理的尾部（`异步抢占`）。
+
+QK 调度器是一个简单的常规 C 函数 `QK_schedule_()` ，它的工作是有效的找出预备运行的`最高优先级`的活动对象。为了执行这个工作， QK 调度器依靠 2 个数据元素：
+
+- 预备运行的任务的集合 `QK_readySet_`
+
+  QPSet64类型，是个位图，每个bit表示一个活动对象，按照位排序1-64优先级
+
+- 当前被服务的优先级 `QK_currPrio_`
+
+  uint8_t类型，存储当前优先级
+
+```c
+#include "qk_pkg.h"
+/* Public-scope objects -------------------------------------------------*/
+// 优先级位图
+QPSet64 volatile QK_readySet_; /* QK ready-set */
+/* start with the QK scheduler locked */
+// 当前优先级
+uint8_t volatile QK_currPrio_ = (uint8_t)(QF_MAX_ACTIVE + 1);
+// 嵌套级别，0表示任务层，大于等于1表示是非任务层
+uint8_t volatile QK_intNest_; /* start with nesting level of 0 */
+/*......................................................................*/
+/* NOTE: the QK scheduler is entered and exited with interrupts LOCKED */
+#ifndef QF_INT_KEY_TYPE
+// 中断上锁策略选择
+void QK_schedule_(void)
+{
+#else
+void QK_schedule_(QF_INT_KEY_TYPE intLockKey_)
+{
+#endif
+  uint8_t p;
+  /* the QK scheduler must be called at task level only */
+  // 需要当前为任务层，如果是中断层不执行调度
+  Q_REQUIRE(QK_intNest_ == (uint8_t)0);
+  if (QPSet64_notEmpty(&QK_readySet_))
+  {
+    /* determine the priority of the highest-priority task ready to run */
+    // 从位图找优先级最高的已就绪对象
+    QPSet64_findMax(&QK_readySet_, p);
+    // 判断这个对象优先级是否超过当前优先级
+    // 注意此处如果任务执行中又发送事件给其他对象，导致再次调用本调度函数形成嵌套，通过这个判断可以终止嵌套，防止低优先级任务抢占
+    if (p > QK_currPrio_)
+    {/* do we have a preemption? */
+      // 保存优先级用于恢复
+      uint8_t pin = QK_currPrio_; /* save the initial priority */
+      QActive *a;
+#ifdef QK_TLS /* thread-local storage used? */
+      uint8_t pprev = pin;
+#endif
+      do
+      {
+        QEvent const *e;
+        a = QF_active_[p]; /* obtain the pointer to the AO */
+        // 更新当前优先级
+        QK_currPrio_ = p;  /* this becomes the current task priority */
+#ifdef QK_TLS              /* thread-local storage used? */
+        if (p != pprev)
+        {            /* are we changing threads? */
+          QK_TLS(a); /* switch new thread-local storage */
+          pprev = p;
+        }
+#endif
+        // 解锁中断，运行任务
+        QK_INT_UNLOCK_();                  /* unlock the interrupts */
+        e = QActive_get_(a);               /* get the next event for this AO */
+        QF_ACTIVE_DISPATCH_(&a->super, e); /* dispatch to the AO */
+        QF_gc(e);                          /* garbage collect the event, if necessary */
+        // 再次上锁
+        /* determine the highest-priority AO ready to run */
+        // 再次检测是否有高优先级任务等待执行，比如在上面的RTC步骤中发送事件给了其他任务（优先级比pin也就是调用本函数时的优先级高，在本函数返回前要把这些任务都处理完）
+        QK_INT_LOCK_();
+        if (QPSet64_notEmpty(&QK_readySet_))
+        {
+          QPSet64_findMax(&QK_readySet_, p);
+        }
+        else
+        {
+          p = (uint8_t)0;
+        }
+      } while (p > pin);  /* is the new priority higher than initial? */
+      // 本次调度执行完成，假设内部有递归也递归执行完成，且所有优先级高于本函数调用时优先级的任务全部执行完成，本函数返回前恢复优先级
+      QK_currPrio_ = pin; /* restore the initial priority */
+#ifdef QK_TLS             /* thread-local storage used? */
+      if (pin != (uint8_t)0)
+      { /* no extended context for idle loop */
+        a = QF_active_[pin];
+        QK_TLS(a); /* restore the original TLS */
+      }
+#endif
+    }
+  }
+}
+```
+
+#### 源文件 qk.c （ QK 的启动和空闲循环）
+
+```c
+#include "qk_pkg.h"
+#include "qassert.h"
+Q_DEFINE_THIS_MODULE(qk)
+/*......................................................................*/
+void QF_init(void)
+{
+  /* nothing to do for the QK preemptive kernel */
+  // 给个机会让QK初始化
+  QK_init(); /* might be defined in assembly */
+}
+/*......................................................................*/
+void QF_stop(void)
+{
+  QF_onCleanup(); /* cleanup callback */
+  /* nothing else to do for the QK preemptive kernel */
+}
+/*......................................................................*/
+// 从main调用QF_run转让控制权
+void QF_run(void)
+{
+  // 实现QK内核的启动，可以和 vanilla 内核对比下
+  QK_INT_LOCK_KEY_
+  QK_INT_LOCK_();
+  // 优先级QK_currPrio_从初始的QF_MAX_ACTIVE+1变为0，开始空闲循环
+  QK_currPrio_ = (uint8_t)0; /* set the priority for the QK idle loop */
+  // 执行一次调度
+  QK_SCHEDULE_();            /* process all events produced so far */
+  QK_INT_UNLOCK_();
+  QF_onStartup(); /* startup callback */
+  for (;;)
+  {/* the QK idle loop */
+    // 给应用程序一个机会去把 CPU放入低功耗睡眠模式，或者执行其他任务(如软件追踪输出)，通常在应用程序层 (BSP) 实现 QK_onIdle()函数
+    // 区别于vanilla 内核，QK内核进入idle前不用上锁（且不能上锁），因为可以实现抢占，只要有事件发生就会触发一次调度，不会导致事件未及时处理
+    QK_onIdle(); /* invoke the QK on-idle callback */
+  }
+}
+/*......................................................................*/
+// 启动活动对象
+void QActive_start(QActive *me, uint8_t prio,
+                   QEvent const *qSto[], uint32_t qLen,
+                   void *tls,
+                   uint32_t flags,
+                   QEvent const *ie)
+{
+  Q_REQUIRE(((uint8_t)0 < prio) && (prio <= (uint8_t)QF_MAX_ACTIVE));
+  QEQueue_init(&me->eQueue, qSto, (QEQueueCtr)qLen);
+  me->prio = prio;
+  QF_add_(me); /* make QF aware of this active object */
+#if defined(QK_TLS) || defined(QK_EXT_SAVE)
+  me->osObject = (uint8_t)flags; /* osObject contains the thread flags */
+  me->thread = tls;              /* contains the pointer to the thread-local storage */
+#else
+  Q_ASSERT((tls == (void *)0) && (flags == (uint32_t)0));
+#endif
+  QF_ACTIVE_INIT_(&me->super, ie); /* execute initial transition */
+}
+/*......................................................................*/
+void QActive_stop(QActive *me)
+{
+  QF_remove_(me); /* remove this active object from the QF */
+}
+```
+
+### 高级的 QK 特征
+
+#### 优先级天花板互斥体
+
+活动对象应该只通过`事件`进行通讯，并且`不共享`任何资源。
+
+你也许想选择共享某些选定的资源，就算要付出增加活动对象之间`耦合`的成本。如果你想这么做，你让自己背上了要处理存取这些资源（共享的内存或设备）的内部`互锁`的负担。可以用 QF 宏QF_INT_LOCK() 和 QF_INT_UNLOCK() 实现的`临界区`机制
+
+QK 支持优先级`天花板互斥体`(priority-ceiling mutex)，在存取一个共享资源时，防止任务级的抢占。
+
+```c
+void your_function(arguments) {
+  // QMutex类型的临时变量（uint8_t）
+  QMutex mutex;
+  ...
+  // 上锁
+  mutex = QK_mutexLock(PRIO_CEILING);
+  // 临界区
+  You can safely access the shared resource here
+  QK_mutexUnlock(mutex);
+  ...
+}
+```
+
+_QK 互斥体(`<qp>\qpc\qk\source\qk_mutex.c`):_
+
+```c
+QMutex QK_mutexLock(uint8_t prioCeiling)
+{
+  uint8_t mutex;
+  QK_INT_LOCK_KEY_
+  QK_INT_LOCK_();
+  // 临时保存当前优先级
+  mutex = QK_currPrio_; /* the original QK priority to return */
+  // 如果当前优先级小于天花板优先级（就是最高优先级，任务最大优先级加1，比所有任务都高）
+  if (QK_currPrio_ < prioCeiling)
+  {
+    // 当前优先级设为天花板优先级
+    QK_currPrio_ = prioCeiling; /* raise the QK priority */
+  }
+  QK_INT_UNLOCK_();
+  // 返回修改前的（调用本函数时）优先级，用于作为后面unlock时的参数
+  return mutex;
+}
+/*..............................................................*/
+void QK_mutexUnlock(QMutex mutex)
+{
+  QK_INT_LOCK_KEY_
+  QK_INT_LOCK_();
+  if (QK_currPrio_ > mutex)
+  {
+    // 恢复优先级
+    QK_currPrio_ = mutex; /* restore the saved priority */
+    QK_SCHEDULE_();
+  }
+  QK_INT_UNLOCK_();
+}
+```
+
+其实类似于关中断让系统无法调度其他进程，只不过这个是应用层面的锁，不需要系统的关中断支持，这样就和操作系统和硬件解耦了。
+
+#### 本地线程存储
+
+线程本地存储 (Thread-local storage,TLS) 是一种机制，`变量`通过它被`分配`，这样每个现存的线程有这个变量的一个`实例`。
+
+该功能是为了解决多线程使用共用的全局变量时的冲突问题。
+
+例如，ANSI C标准里的 errno 功能。errno 是一个 int 类型的宏，当程序出现问题时，设置该宏为一个`错误码`，也就是 errno 的值为上一次错误的错误码。但这个宏是所有线程`共享`的，也就是线程无法分清这是哪个线程设置的。
+
+解决方式是把 errno 定义为一个指针，指向了类型为 `struct_reent` 的结构，每个线程都包含了这个结构的对象(线程本地存储)，上下文切换时让 errno 指针指向对应线程的这个对象。不仅解决了重入的问题，还扩展了 errno 的功能，因为`struct_reent`结构可以包含大量自定义的错误信息。
+
+![tlsswitch](/assets/img/2022-07-27-quantum-platform-1/tlsswitch.jpg)
+
+QK 通过提供一个上下文切换钩子 QK_TLS() 来支持 TLS概念，在每一次，每一个不同任务的优先级被处理时，它被调用。
+
+```c
+#define QK_TLS(act_) (_impure_ptr=(struct _reent *)(act_)->thread)
+```
+
+#### 扩展的上下文切换（对协处理器的支持）
+
+C编译器为中断程序生成的`上下文保存和恢复`通常仅包含CPU核心寄存器，`不包括`各种协处理器的寄存器，比如围绕 CPU 核心的浮点`协处理器`，专门的 DSP 引擎，基带处理器，视频加速器或其他的协处理器。这些寄存器称为`扩展上下文`
+
+两种情况不需要保存扩展上下文：
+
+- `ISR` 和 QK `空闲处理`都不会使用协处理器。空闲循环不对应于某个`活动对象`，因此它不需要拥有 TLS 内存区域来保存扩展的上下文。（因此， 仅当某个任务抢占别的任务时才需要保存扩展上下文）
+- `同步抢占`时一般不需要，因为[同步抢占](#同步抢占和异步抢占)相当于一次函数调用，发送事件时产生调度，然后等高优先级的处理完通过函数返回，不会在存取某个协处理器时发生
+
+这样就只`有异步抢占`时才需要保存扩展上下文，也就是在 QK_ISR_EXIT() 宏调用时。
+
+```c
+#define QK_ISR_EXIT() do { \
+  Lock interrupts \
+  Send the EOI instruction to the interrupt controller \
+  --QK_intNest_; \
+  if (QK_intNest_ == 0) { \
+    QK_scheduleExt_(); \
+  } \
+} while (0)
+```
+
+`QK_scheduleExt_()` 取代 QK_scheduler_() 用于保存扩展上下文。
+
+![tlsextregister](/assets/img/2022-07-27-quantum-platform-1/tlsextregister.jpg)
+
+扩展上下文也包含在 TLS 区
+
+_QK 扩展调度器的实现（ `<qp>\qpc\qk\source\qk_ext.c`）_:
+
+```c
+#ifndef QF_INT_KEY_TYPE
+void QK_scheduleExt_(void)
+{
+#else
+void QK_scheduleExt_(QF_INT_KEY_TYPE intLockKey_)
+{
+#endif
+  uint8_t p;
+  /* the QK scheduler must be called at task level only */
+  Q_REQUIRE(QK_intNest_ == (uint8_t)0);
+  if (QPSet64_notEmpty(&QK_readySet_))
+  {
+    /* determine the priority of the highest-priority task ready to run */
+    QPSet64_findMax(&QK_readySet_, p);
+    if (p > QK_currPrio_)
+    {                             /* do we have a preemption? */
+      uint8_t pin = QK_currPrio_; /* save the initial priority */
+      QActive *a;
+#ifdef QK_TLS /* thread-local storage used? */
+      uint8_t pprev = pin;
+#endif
+#ifdef QK_EXT_SAVE /* extended context-switch used? */
+      // 扩展上下文保存，pin为0表示空闲循环，不保存
+      if (pin != (uint8_t)0)
+      {                      /*no extended context for the idle loop */
+        // 找到被抢占的活动对象的指针
+        a = QF_active_[pin]; /* the pointer to the preempted AO */
+        // 在调度前保存扩展上下文
+        // 即使不启用TLS也会保存
+        QK_EXT_SAVE(a);      /* save the extended context */
+      }
+#endif
+      do
+      {
+        QEvent const *e;
+        a = QF_active_[p]; /* obtain the pointer to the AO */
+        QK_currPrio_ = p;  /* this becomes the current task priority */
+#ifdef QK_TLS              /* thread-local storage used? */
+        if (p != pprev)
+        {            /* are we changing threads? */
+          // 切换TLS指针
+          QK_TLS(a); /* switch new thread-local storage */
+          pprev = p;
+        }
+#endif
+        QK_INT_UNLOCK_();                  /* unlock the interrupts */
+        e = QActive_get_(a);               /* get the next event for this AO */
+        QF_ACTIVE_DISPATCH_(&a->super, e); /* dispatch to the AO */
+        QF_gc(e);                          /* garbage collect the event, if necessary */
+        QK_INT_LOCK_();
+        /* determine the highest-priority AO ready to run */
+        if (QPSet64_notEmpty(&QK_readySet_))
+        {
+          QPSet64_findMax(&QK_readySet_, p);
+        }
+        else
+        {
+          p = (uint8_t)0;
+        }
+      } while (p > pin);  /* is the new priority higher than initial? */
+      QK_currPrio_ = pin; /* restore the initial priority */
+#if defined(QK_TLS) || defined(QK_EXT_RESTORE)
+      // 只有被抢占时才需要恢复，0表示还在空闲循环，没有活动对象运行，不用恢复
+      if (pin != (uint8_t)0)
+      {                      /*no extended context for the idle loop */
+        a = QF_active_[pin]; /* the pointer to the preempted AO */
+#ifdef QK_TLS                /* thread-local storage used? */
+        // 切换TLS指针
+        QK_TLS(a);           /* restore the original TLS */
+#endif
+#ifdef QK_EXT_RESTORE      /* extended context-switch used? */
+        // 恢复扩展上下文
+        QK_EXT_RESTORE(a); /* restore the extended context */
+#endif
+      }
+#endif
+    }
+  }
+}
+```
+
+### 移植 QK
+
+QK 可以被移植到某个处理器和编译器，如果它们满足以下条件：
+
+1. 处理器支持一个`硬件堆栈`，它可以容纳很多数据（最少 256 字节）。
+2. C或 C++编译器可以生成`可重入代码`。特别的，编译器必须可以在堆栈分配`自动变量`。
+3. 可以从 C/C++ 里上锁和解锁`中断`。
+4. 系统提供了一个`时钟节拍中断`（通常是 10 到 100Hz ）。
+
+后面省略，没有用
 
 ## 移植和配置 QF
 
