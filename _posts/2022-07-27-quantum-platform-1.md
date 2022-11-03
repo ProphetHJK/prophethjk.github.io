@@ -1400,7 +1400,7 @@ while (QEP_TRIG_(t, Q_INIT_SIG) == Q_RET_TRAN)
 
 - 不够优化的信号粒度
 
-  计算器状态图把数字 1 到 9 的群表示为一个 信号 `IDC_1_9_SIG`，而不是每个数字一个信号，这样增加了一步读取事件参数获得实际值的操作，但减少了信号数量，总体上增大了信号粒度，避免过细的信号粒度带来的复杂性
+  计算器状态图把数字 1 到 9 的群表示为一个信号 `IDC_1_9_SIG`，而不是每个数字一个信号，这样增加了一步读取事件参数获得实际值的操作，但减少了信号数量，总体上增大了信号粒度，避免过细的信号粒度带来的复杂性
 
   过大的信号粒度会导致一个 case 里写的条件判断过多（switch 套 switch），让代码变成意大利面条
 
@@ -1424,7 +1424,7 @@ while (QEP_TRIG_(t, Q_INIT_SIG) == Q_RET_TRAN)
 
 ![ultimatehook](/assets/img/2022-07-27-quantum-platform-1/ultimatehook.jpg)
 
-specific 重载了 `A 事件`和`进入退出动作`的处理，B、C、D 则继承父状态的处理
+specific 重载了 `A 事件`和`进入退出动作`的处理，B、C、D 事件则继承父状态的处理
 
 其中 C 事件表示复位，D 事件表示终止
 
@@ -5597,7 +5597,7 @@ void QActive_stop(QActive *me)
 
 #### 第一步：需求
 
-5个哲学家，5个餐叉，吃面需要2个餐叉，吃完会思考，核心是防止死锁和饿死。
+5个哲学家，共用5个餐叉，吃面需要2个餐叉，吃完会思考，核心是防止死锁和饿死。
 
 #### 第二步：顺序图
 
@@ -5605,7 +5605,7 @@ void QActive_stop(QActive *me)
 
 `Table` 对象管理餐叉，每个 `Philo` 对象管理一个哲学家
 
-触发 QF 定时事件`Philo[m]`终止思考，开始饥饿，向Table发送事件(HUNGRY(m))请求就餐许可(有足够的叉子)。Table 将就餐许可事件(EAT(m))发送给对应对象。`Philo[m]`进入就餐状态直到下一个定时事件，发送完成事件(DONE(m))归还叉子。
+触发 QF 定时事件`Philo[m]`终止思考，开始饥饿，向Table发送事件 `(HUNGRY(m))` 请求就餐许可(有足够的叉子)。Table 将就餐许可事件 `(EAT(m))` 发送给对应对象。`Philo[m]`进入就餐状态直到下一个定时事件，发送完成事件 `(DONE(m))` 归还叉子。
 
 #### 第三步：信号，事件和活动对象
 
@@ -5633,7 +5633,7 @@ enum
 {
   N_PHILO = 5
 };                     /* number of Philosophers */
-// 构造函数，再main开始时调用
+// 构造函数，在main开始时调用
 void Philo_ctor(void); /* ctor that instantiates all Philosophers */
 void Table_ctor(void);
 extern QActive *const AO_Philo[N_PHILO]; /* "opaque" pointers to Philo AOs */
@@ -5647,7 +5647,7 @@ extern QActive *const AO_Table;          /* "opaque" pointer to Table AO */
 
 这里产生`HUNGRY`事件和`DONE`事件不是由`定时`事件触发而是`进入退出`动作时触发，更`精确`的反应了语义，提高后续的`可维护性`
 
-准则：偏向使用`进入`动作和`退出`动作，而不是`转换`动作。
+> 准则：偏向使用`进入`动作和`退出`动作，而不是`转换`动作。
 
 _哲学家和餐叉编号_：
 
@@ -5680,7 +5680,7 @@ enum ForkState
 // static让其他文件无法访问
 static Table l_table; /* the single instance of the Table active object */
 /* Global-scope objects ---------------------------------------------------*/
-// 指针设为const不能更改，可以让编译器把该指针分配在ROM里
+// 指针设为const不能更改，可以让编译器把该指针分配在ROM里(编译时就能分配)
 QActive *const AO_Table = (QActive *)&l_table; /* "opaque" AO pointer */
 /*........................................................................*/
 // 构造函数，C需要手动调用，C++会自动调用
@@ -5850,6 +5850,8 @@ int main(int argc, char *argv[])
 #### 第六步：优雅的结束应用程序
 
 在嵌入式系统中不需要考虑，一般就是无限运行直到复位。
+
+结束某个活动对象的线程的最干净的方法是通过调用`QActive_stop(me)`让它停止自己(自杀)
 
 ### 在不同的平台运行 DPP
 
