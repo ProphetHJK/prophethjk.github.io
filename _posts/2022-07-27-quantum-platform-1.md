@@ -3,6 +3,7 @@ title: "《UML 状态图的实用 C/C++设计》(QP状态机)学习笔记"
 author: Jinkai
 date: 2022-07-27 09:00:00 +0800
 published: true
+math: true
 categories: [学习笔记]
 tags: [quantum platform, QP状态机]
 ---
@@ -2797,6 +2798,8 @@ QF 框架的代码实现详解，对上一章的补充
 - 可伸缩性
 
   QF 被设计用于一个`细粒度`的对象库的部署，你可以静态的把它链接到你的应用程序。这个策略把责任交给链接器，让它在链接时自动排除任何没用到的代码，应用程序员不需为每个应用程序在编译时刻去配置 QF 代码。
+
+  ![ramrom](/assets/img/2022-07-27-quantum-platform-1/ramrom.jpg)
 
 - 对现代状态机的支持
 

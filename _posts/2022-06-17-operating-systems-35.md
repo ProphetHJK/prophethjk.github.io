@@ -1,8 +1,8 @@
 ---
-title: "《Operating Systems: Three Easy Pieces》学习笔记(三十五) 崩溃一致性：FSCK和日志(未完成)"
+title: "《Operating Systems: Three Easy Pieces》学习笔记(三十五) 日志结构文件系统"
 author: Jinkai
 date: 2022-06-17 09:01:00 +0800
-published: true
+published: false
 categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
 ---
@@ -194,4 +194,4 @@ ext3）`先将数据块`（常规文件）`写入磁盘`。(先写磁盘再写�
 
 ## 参考
 
-- [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/42.pdf)
+- [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/43.pdf)
