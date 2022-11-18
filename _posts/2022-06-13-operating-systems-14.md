@@ -1,5 +1,5 @@
 ---
-title: "《Operating Systems: Three Easy Pieces》学习笔记(十四) 空闲空间管理"
+title: "《Operating Systems: Three Easy Pieces》学习笔记(十四) 分页：介绍"
 author: Jinkai
 date: 2022-06-13 09:00:00 +0800
 published: true

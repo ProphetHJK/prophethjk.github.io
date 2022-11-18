@@ -4,7 +4,7 @@ author: Jinkai
 date: 2022-11-16 09:00:00 +0800
 published: true
 categories: [学习笔记]
-tags: [C语言,内存]
+tags: [C语言, 内存]
 ---
 
 ## 前言
@@ -194,12 +194,12 @@ a 为`局部静态变量`，离开函数不释放，所以并不在栈中，汇�
 
 附录中是一个 map 文件，map 文件就是通过编译器编译之后，生成的程序、数据及 IO 空间信息的一种映射文件，里面包含函数大小，入口地址等一些重要信息。
 
-从map文件我们可以了解到：
+从 map 文件我们可以了解到：
 
 - 程序各区段的寻址是否正确
-- 程序各区段的size，即目前存储器的使用量
-- 程序中各个symbol的地址
-- 各个symbol在存储器中的顺序关系（这在调试时很有用）
+- 程序各区段的 size，即目前存储器的使用量
+- 程序中各个 symbol 的地址
+- 各个 symbol 在存储器中的顺序关系（这在调试时很有用）
 - 各个程序文件的存储用量
 
 ### 堆栈空间大小声明
@@ -232,7 +232,9 @@ a 为`局部静态变量`，离开函数不释放，所以并不在栈中，汇�
 
 总长度为 16,004 Bytes，再往下是每个函数的代码占用的 text 段长度
 
-得益于 `XIP 就地执行`技术，CPU 可以直接从 ROM 中读取指令，而无需将 text 段拷贝入内存
+得益于`XIP 就地执行`技术，CPU 可以直接从 ROM 中读取指令，而无需将 text 段拷贝入内存
+
+`XIP 就地执行`技术核心是将 ROM 空间映射到 CPU 总线，能让 CPU 和访问 RAM 一样直接使用总线地址访问 ROM
 
 ```s
 .text           0x000000c8     0x3e84
@@ -2332,4 +2334,4 @@ the_Ticker0                                       rel/main.o
 - [.bss - wikipedia](https://en.wikipedia.org/wiki/.bss)
 - [XIP 技术总结](https://zhuanlan.zhihu.com/p/368276428)
 - [Static storage union and named members initialization in C language - Stack Overflow](https://stackoverflow.com/questions/54307858/static-storage-union-and-named-members-initialization-in-c-language)
-- [充分理解Linux GCC 链接生成的Map文件](https://zhuanlan.zhihu.com/p/502051758)
+- [充分理解 Linux GCC 链接生成的 Map 文件](https://zhuanlan.zhihu.com/p/502051758)
