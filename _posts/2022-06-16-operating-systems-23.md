@@ -268,9 +268,9 @@ int List_Lookup(list_t *L, int key)
 
 手锁（hand-over-hand locking，也叫作锁耦合，lock coupling）
 
-每个节点都有一个锁，替代之前整个链表一个锁。遍历链表的时候，首先抢占下一个节点的锁，然后释放当前节点的锁。这样多个线程可以独立访问不同的区域，减少冲突。
+每个结点都有一个锁，替代之前整个链表一个锁。遍历链表的时候，首先抢占下一个结点的锁，然后释放当前结点的锁。这样多个线程可以独立访问不同的区域，减少冲突。
 
-它增加了链表操作的并发程度。但是实际上，在遍历的时候，每个节点获取锁、释放锁的开销巨大，很难比单锁的方法快。
+它增加了链表操作的并发程度。但是实际上，在遍历的时候，每个结点获取锁、释放锁的开销巨大，很难比单锁的方法快。
 
 ## 并发队列
 
@@ -293,7 +293,7 @@ typedef struct queue_t
 
 void Queue_Init(queue_t *q)
 {
-    // tmp是假节点
+    // tmp是假结点
     node_t *tmp = malloc(sizeof(node_t));
     tmp->next = NULL;
     q->head = q->tail = tmp;
@@ -319,7 +319,7 @@ int Queue_Dequeue(queue_t *q, int *value)
     pthread_mutex_lock(&q->headLock);
     node_t *tmp = q->head;
     node_t *newHead = tmp->next;
-    // 如果是假节点，则视为空
+    // 如果是假结点，则视为空
     if (newHead == NULL)
     {
         pthread_mutex_unlock(&q->headLock);

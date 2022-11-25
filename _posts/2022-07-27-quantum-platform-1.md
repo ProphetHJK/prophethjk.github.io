@@ -49,9 +49,9 @@ tags: [quantum platform, QP状态机]
   - [层次式状态机的类](#层次式状态机的类)
     - [顶状态和初始伪状态](#顶状态和初始伪状态)
     - [进入 / 退出动作和嵌套的初始转换](#进入--退出动作和嵌套的初始转换)
-    - [最顶层初始转换 (QHsm_init())](#最顶层初始转换-qhsm_init)
-    - [分派事件（ QHsm_dispatch(), 通用结构）](#分派事件-qhsm_dispatch-通用结构)
-    - [在状态机里实施一个转换（ QHsm_dispatch(), 转换）](#在状态机里实施一个转换-qhsm_dispatch-转换)
+    - [最顶层初始转换 (QHsm\_init())](#最顶层初始转换-qhsm_init)
+    - [分派事件（ QHsm\_dispatch(), 通用结构）](#分派事件-qhsm_dispatch-通用结构)
+    - [在状态机里实施一个转换（ QHsm\_dispatch(), 转换）](#在状态机里实施一个转换-qhsm_dispatch-转换)
   - [使用 QEP 实现 HSM 步骤的概要](#使用-qep-实现-hsm-步骤的概要)
   - [常见问题](#常见问题)
 - [状态模式](#状态模式)
@@ -103,7 +103,7 @@ tags: [quantum platform, QP状态机]
     - [发行-订阅事件发送](#发行-订阅事件发送)
   - [时间管理](#时间管理-1)
     - [时间事件结构和接口](#时间事件结构和接口)
-    - [系统时钟节拍和 QF_tick() 函数](#系统时钟节拍和-qf_tick-函数)
+    - [系统时钟节拍和 QF\_tick() 函数](#系统时钟节拍和-qf_tick-函数)
     - [arming 和 disarm 一个时间事件](#arming-和-disarm-一个时间事件)
   - [原生 QF 事件队列](#原生-qf-事件队列)
     - [QEQueue 结构](#qequeue-结构)
@@ -130,7 +130,7 @@ tags: [quantum platform, QP状态机]
     - [QK 源代码的组织](#qk-源代码的组织)
     - [头文件 qk.h](#头文件-qkh)
     - [中断的处理](#中断的处理)
-    - [源文件 qk_sched.c （ QK 调度器）](#源文件-qk_schedc--qk-调度器)
+    - [源文件 qk\_sched.c （ QK 调度器）](#源文件-qk_schedc--qk-调度器)
     - [源文件 qk.c （ QK 的启动和空闲循环）](#源文件-qkc--qk-的启动和空闲循环)
   - [高级的 QK 特征](#高级的-qk-特征)
     - [优先级天花板互斥体](#优先级天花板互斥体)
@@ -142,22 +142,22 @@ tags: [quantum platform, QP状态机]
     - [生成 QP 应用程序](#生成-qp-应用程序)
     - [创建 QP 库](#创建-qp-库)
     - [目录和文件](#目录和文件)
-    - [头文件 qep_port.h](#头文件-qep_porth)
-    - [头文件 qf_port.h](#头文件-qf_porth)
-    - [源代码 qf_port.c](#源代码-qf_portc)
+    - [头文件 qep\_port.h](#头文件-qep_porth)
+    - [头文件 qf\_port.h](#头文件-qf_porth)
+    - [源代码 qf\_port.c](#源代码-qf_portc)
     - [和平台相关的 QF 回调函数](#和平台相关的-qf-回调函数)
-    - [系统时钟节拍（调用 QF_tick() ）](#系统时钟节拍调用-qf_tick-)
+    - [系统时钟节拍（调用 QF\_tick() ）](#系统时钟节拍调用-qf_tick-)
     - [创建 QF 库](#创建-qf-库)
   - [移植合作式 Vanilla 内核](#移植合作式-vanilla-内核)
-    - [头文件 qep_port.h](#头文件-qep_porth-1)
-    - [头文件 qf_port.h](#头文件-qf_porth-1)
-    - [系统时钟节拍（QF_tick()）](#系统时钟节拍qf_tick)
-    - [空闲处理（QF_onIdel()）](#空闲处理qf_onidel)
+    - [头文件 qep\_port.h](#头文件-qep_porth-1)
+    - [头文件 qf\_port.h](#头文件-qf_porth-1)
+    - [系统时钟节拍（QF\_tick()）](#系统时钟节拍qf_tick)
+    - [空闲处理（QF\_onIdel()）](#空闲处理qf_onidel)
   - [QF 移植到 uc/os-II (常规 RTOS)](#qf-移植到-ucos-ii-常规-rtos)
   - [QF 移植到 Linux （常规 POSIX 兼容的操作系统）](#qf-移植到-linux-常规-posix-兼容的操作系统)
-    - [头文件 qep_port.h](#头文件-qep_porth-2)
-    - [头文件 qf_port.h](#头文件-qf_porth-2)
-    - [qf_port.c 源代码](#qf_portc-源代码)
+    - [头文件 qep\_port.h](#头文件-qep_porth-2)
+    - [头文件 qf\_port.h](#头文件-qf_porth-2)
+    - [qf\_port.c 源代码](#qf_portc-源代码)
 - [开发 QP 应用程序](#开发-qp-应用程序)
   - [开发 QP 应用程序的准则](#开发-qp-应用程序的准则)
     - [准则](#准则)
@@ -181,7 +181,7 @@ tags: [quantum platform, QP状态机]
 - [事件驱动型系统的软件追踪](#事件驱动型系统的软件追踪)
   - [QS 目标系统驻留构件](#qs-目标系统驻留构件)
     - [QS 源代码的组织](#qs-源代码的组织)
-    - [QS 的平台无关头文件 qs.h 和 qs_dummy.h](#qs-的平台无关头文件-qsh-和-qs_dummyh)
+    - [QS 的平台无关头文件 qs.h 和 qs\_dummy.h](#qs-的平台无关头文件-qsh-和-qs_dummyh)
     - [QS 的临界区](#qs-的临界区)
     - [QS 记录的一般结构](#qs-记录的一般结构)
     - [QS 的过滤器](#qs-的过滤器)
@@ -191,9 +191,9 @@ tags: [quantum platform, QP状态机]
       - [透明](#透明)
       - [大小端](#大小端)
     - [QS 追踪缓存区](#qs-追踪缓存区)
-      - [初始化 QS 追踪缓存区 QS_initBuf()](#初始化-qs-追踪缓存区-qs_initbuf)
-    - [面向字节的接口： QS_getByte()](#面向字节的接口-qs_getbyte)
-    - [面向块的接口： QS_getBlock()](#面向块的接口-qs_getblock)
+      - [初始化 QS 追踪缓存区 QS\_initBuf()](#初始化-qs-追踪缓存区-qs_initbuf)
+    - [面向字节的接口： QS\_getByte()](#面向字节的接口-qs_getbyte)
+    - [面向块的接口： QS\_getBlock()](#面向块的接口-qs_getblock)
     - [字典追踪记录](#字典追踪记录)
     - [应用程序相关的 QS 追踪记录](#应用程序相关的-qs-追踪记录)
     - [移植和配置 QS](#移植和配置-qs)
@@ -201,7 +201,7 @@ tags: [quantum platform, QP状态机]
   - [向 MATLAB 输出追踪数据](#向-matlab-输出追踪数据)
   - [向 QP 应用程序添加 QS 软件追踪](#向-qp-应用程序添加-qs-软件追踪)
     - [定义平台相关的 QS 回调函数](#定义平台相关的-qs-回调函数)
-    - [使用回调函数 QS_onGetTime() 产生 QS 时间戳](#使用回调函数-qs_ongettime-产生-qs-时间戳)
+    - [使用回调函数 QS\_onGetTime() 产生 QS 时间戳](#使用回调函数-qs_ongettime-产生-qs-时间戳)
     - [从主动对象产生 QS 字典](#从主动对象产生-qs-字典)
     - [添加应用程序相关的追踪记录](#添加应用程序相关的追踪记录)
 - [问题](#问题)
@@ -1004,7 +1004,7 @@ QState Calc_on(Calc *me, QEvent const *e)
 5. 执行由状态 `ready` 定义的和`初始`转换关联的动作，进入 `begin`
 6. 执行和状态 `begin` 关联的进入动作。在这一刻，转换已经完成，因为 `begin` 是没有嵌套的初始转换的`叶状态`。
 
-树状继承结构的优势是从叶节点`返回`到上层节点(如 top)很容易，但从上层节点`进入`到指定的目的节点却很复杂，因为要`遍历`寻找叶节点的父节点
+树状继承结构的优势是从叶结点`返回`到上层结点(如 top)很容易，但从上层结点`进入`到指定的目的结点却很复杂，因为要`遍历`寻找叶结点的父结点
 
 QEP 里的解决方法是使用一个临时的数组 `path[]` 记录从初始状态的目标状态开始的`退出路径`而不执行任何动作（见图 4.4 ）。通过使用保留的 `QEP_EMPTY_SIG_` 信号来调用状态处理函数，令每一个状态处理函数不执行任何动作就立刻返回超状态。返回的路径被保存在 path[] 数组。在到达当前的状态后， path[] 数组被回访，精确的沿着它被退出的`相反次序`进入目标状态
 
@@ -3523,14 +3523,14 @@ void QF_tick(void)
         }
         else
         {
-          // 把定时器对象节点从链表中删除
+          // 把定时器对象结点从链表中删除
           if (t->next != (QTimeEvt *)0)
           { /* not the last event? */
             t->next->prev = t->prev;
           }
           t->prev->next = t->next;
         }
-        // 标记该节点为未使用状态
+        // 标记该结点为未使用状态
         t->prev = (QTimeEvt *)0; /* mark the event disarmed */
       }
       QF_INT_UNLOCK_(); /* unlock interrupts before calling QF service */
@@ -3568,9 +3568,9 @@ void QTimeEvt_arm_(QTimeEvt *me, QActive *act, QTimeEvtCtr nTicks)
             && (me->prev == (QTimeEvt *)0)                  /* time evt must NOT be used */
             && (act != (QActive *)0));                      /* active object must be provided */
   me->ctr = nTicks;
-  // Q_REQUIRE判断了me->prev == (QTimeEvt *)0，表示该节点未使用，
-  // 所以这里赋值一下（不是0就行，这里指向了自己），表示该节点对应的计时器已启用
-  // 后面会利用这个值判断该节点是否
+  // Q_REQUIRE判断了me->prev == (QTimeEvt *)0，表示该结点未使用，
+  // 所以这里赋值一下（不是0就行，这里指向了自己），表示该结点对应的计时器已启用
+  // 后面会利用这个值判断该结点是否
   me->prev = me; /* mark the timer in use */
   me->act = act;
 
@@ -3599,7 +3599,7 @@ uint8_t QTimeEvt_disarm(QTimeEvt *me)
   { /* is the time event actually armed? */
     // prev指针不为0表示已经被插入定时器链表了，但事件还没被发出去
     // 返回1向调用者保证， 这个时间事件还没有被发送也不会被发送，仅对单次定时器有效，
-    // 因为多次的话即使事件发出去了，节点也还在链表内
+    // 因为多次的话即使事件发出去了，结点也还在链表内
     wasArmed = (uint8_t)1;
     // 从链表里删除
     if (me == QF_timeEvtListHead_)
@@ -3885,7 +3885,7 @@ typedef struct QMPoolTag
 _QFreeBlock 结构用于对不同架构 CPU 实现内存对齐_：
 
 ```c
-// 空闲链表节点，里面就一个指针
+// 空闲链表结点，里面就一个指针
 typedef struct QFreeBlockTag {
     struct QFreeBlockTag *next;
 } QFreeBlock;
