@@ -2,7 +2,7 @@
 title: "《Operating Systems: Three Easy Pieces》学习笔记(二十九) 磁盘驱动器"
 author: Jinkai
 date: 2022-06-16 11:01:00 +0800
-published: false
+published: true
 categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
 ---
@@ -39,7 +39,7 @@ tags: [Operating Systems, 操作系统导论]
 
 旋转延迟（rotational delay，有时称为 rotation delay)
 
-最长大约为R，就是转到5。转到0大约为R/2。
+最长大约为R(周长)，就是转到`5`。转到`0`大约为R/2。
 
 ### 多磁道：寻道时间
 
@@ -51,7 +51,7 @@ tags: [Operating Systems, 操作系统导论]
 
 ## I/O 时间：用数学
 
-
+感觉没什么用，省略
 
 ## 参考
 
