@@ -1,5 +1,5 @@
 ---
-title: "《Operating Systems: Three Easy Pieces》学习笔记(三十) 插叙：文件和目录"
+title: "《Operating Systems: Three Easy Pieces》学习笔记(三十一) 插叙：文件和目录"
 author: Jinkai
 date: 2022-06-16 11:03:00 +0800
 published: true
