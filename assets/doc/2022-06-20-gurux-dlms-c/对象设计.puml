@@ -9,10 +9,11 @@ map "map: Map<class_id+LN, COSEM_Object*>" as object_map {
  ... => ...
 }
 
-note left of object_map
-    能不能用树的方式表示这个对应表，因为有很多共同点，
+note top of object_map
+    OBIS码和COSEM对象映射表，用于通过OBIS查找对应对象
+    问题1：能不能用树的方式表示这个对应表，因为有很多共同点，
     如类、ABCDEF也有很多重复的，
-    通过树状表示能否解决很多共性问题
+    问题2：通过树状表示能否解决很多共性问题
 end note
 
 class COSEM_Class
@@ -59,33 +60,33 @@ class COSEM_AttributeType
     +value_load_mothod: ValueLoadMothod
 }
 
-class COSEM_DynSimpleType
-{
-    +type: u8
-}
-note top of COSEM_DynComplexType
-    使用二进制保存/读取简单类型数据，type记录类型tag
-end note
-class COSEM_DynComplexType
-{
-    +type: u8
-}
+' class COSEM_DynSimpleType
+' {
+'     +type: u8
+' }
+' note top of COSEM_DynComplexType
+'     使用二进制保存/读取简单类型数据，type记录类型tag
+' end note
+' class COSEM_DynComplexType
+' {
+'     +type: u8
+' }
 
-note top of COSEM_StaticSimpleType
-    使用二进制保存/读取简单类型数据，type记录类型tag
-end note
-class COSEM_StaticSimpleType
-{
-    +type: u8
-}
+' note top of COSEM_StaticSimpleType
+'     使用二进制保存/读取简单类型数据，type记录类型tag
+' end note
+' class COSEM_StaticSimpleType
+' {
+'     +type: u8
+' }
 
-note top of COSEM_StaticComplexType
-    使用二进制保存/读取复杂类型数据，type仅记录基本结构tag，不区分CHOICE
-end note
-class COSEM_StaticComplexType
-{
-    +type: u8
-}
+' note top of COSEM_StaticComplexType
+'     使用二进制保存/读取复杂类型数据，type仅记录基本结构tag，不区分CHOICE
+' end note
+' class COSEM_StaticComplexType
+' {
+'     +type: u8
+' }
 
 class COSEM_AttributeValue
 {
@@ -174,20 +175,20 @@ enum ValueLoadMothod
     ...
 }
 
-class SelectAccess
-{
+' class SelectAccess
+' {
 
-}
+' }
 
-note right of ValueLoadMothod
-    加载和存入方式，将访问方式相同的归为一类
-end note
+' note right of ValueLoadMothod
+'     加载和存入方式，将访问方式相同的归为一类
+' end note
 
-class COSEM_Method
-{
-    args: void*
-    +action()
-}
+' class COSEM_Method
+' {
+'     args: void*
+'     +action()
+' }
 
 file "cosem_object定义文件(asn1、xml、excel)"
 
@@ -230,64 +231,64 @@ note right of COSEM_AttributeValue::value_id
   value_id绑定哪些信息：存储介质、地址、长度等
 end note
 
-class 参数类数据
-{
-    -u16 key;
-    -u8 type;
-    -u32 location_address;
+' class 参数类数据
+' {
+'     -u16 key;
+'     -u8 type;
+'     -u32 location_address;
     
-    +getValueByKey(u16 key,void &value,u8 type_out)
-}
+'     +getValueByKey(u16 key,void &value,u8 type_out)
+' }
 
-note left of 参数类数据::key
-    参数对应的唯一标识，可以是数字或字符串
-end note
-note left of 参数类数据::type
-    放置于存储中的类型，只允许简单类型
-end note
-note left of 参数类数据::location_address
-    参数实际存放位置，存储介质信息也包含在其中
-end note
+' note left of 参数类数据::key
+'     参数对应的唯一标识，可以是数字或字符串
+' end note
+' note left of 参数类数据::type
+'     放置于存储中的类型，只允许简单类型
+' end note
+' note left of 参数类数据::location_address
+'     参数实际存放位置，存储介质信息也包含在其中
+' end note
 
-class 复杂参数类数据
-{
-    -u16 key;
-    -u8 type;
-    -u32 location_address;
+' class 复杂参数类数据
+' {
+'     -u16 key;
+'     -u8 type;
+'     -u32 location_address;
     
-    +getValueByKey(u16 key,void &value,u8 type_out)
-}
+'     +getValueByKey(u16 key,void &value,u8 type_out)
+' }
 
-note left of 参数类数据::key
-    参数对应的唯一标识，可以是数字或字符串
-end note
-note left of 参数类数据::type
-    放置于存储中的类型，复杂类型
-end note
-note left of 参数类数据::location_address
-    参数实际存放位置，存储介质信息也包含在其中
-end note
+' note left of 参数类数据::key
+'     参数对应的唯一标识，可以是数字或字符串
+' end note
+' note left of 参数类数据::type
+'     放置于存储中的类型，复杂类型
+' end note
+' note left of 参数类数据::location_address
+'     参数实际存放位置，存储介质信息也包含在其中
+' end note
 
-class 记录类数据
-{
-    -u16 key;
-    -u16 size;
-    -u16 current_index;
-    -u16 column_type[] 
-    -u32 location_address;
+' class 记录类数据
+' {
+'     -u16 key;
+'     -u16 size;
+'     -u16 current_index;
+'     -u16 column_type[] 
+'     -u32 location_address;
     
-    +getValueByIndexAndKey(u16 key,void &value,u16 index)
-}
+'     +getValueByIndexAndKey(u16 key,void &value,u16 index)
+' }
 
-note left of 记录类数据::key
-    对应的唯一标识，可以是数字或字符串
-end note
-note left of 记录类数据::column_type
-    每列的类型，类似于数据库，也只允许基本类型
-end note
-note left of 记录类数据::location_address
-    实际存放位置，存储介质信息也包含在其中
-end note
+' note left of 记录类数据::key
+'     对应的唯一标识，可以是数字或字符串
+' end note
+' note left of 记录类数据::column_type
+'     每列的类型，类似于数据库，也只允许基本类型
+' end note
+' note left of 记录类数据::location_address
+'     实际存放位置，存储介质信息也包含在其中
+' end note
 
 
 
@@ -295,10 +296,10 @@ COSEM_Object "1" *-right- "n" COSEM_AttributeValue:组合
 ' COSEM_Object "1" *-up- "n" COSEM_Method:组合
 COSEM_Class <-- COSEM_Object: 关联
 "cosem_object定义文件(asn1、xml、excel)" --> COSEM_Class
-classData -up-> "cosem_object定义文件(asn1、xml、excel)": 实例化
-classRegister -up-> "cosem_object定义文件(asn1、xml、excel)": 实例化
-classProfile -up-> "cosem_object定义文件(asn1、xml、excel)": 实例化
-classRegister <-down- objectRegister1
+classData -up-> "cosem_object定义文件(asn1、xml、excel)": 生成类
+classRegister -up-> "cosem_object定义文件(asn1、xml、excel)": 生成类
+classProfile -up-> "cosem_object定义文件(asn1、xml、excel)": 生成类
+classRegister <-down- objectRegister1: 实例化
 COSEM_Object "1" *-up- "n" COSEM_AttributeType: 组合
 COSEM_Class "1" *-up- "n" COSEM_AttributeType: 组合
 COSEM_Object ..> 数据管理层:依赖
