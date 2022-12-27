@@ -7,6 +7,8 @@ categories: [学习笔记]
 tags: [kernel, Linux]
 ---
 
+本文是对《深入 Linux 内核架构(原书：Professional Linux Kernel Architecture)》一书的学习笔记
+
 ## 内核范型
 
 微内核
@@ -172,6 +174,70 @@ struct list_head {
 
 这是一个首尾相连的`双向链表`
 
+使用方法如下：
+
+```c
+struct test_struct {
+    int value;
+    struct list_head mylist;
+}
+
+struct test_struct[10];
+struct test_struct *test_struct_head = &test_struct[0];
+test_struct_head->mylist.next = &test_struct[2]
+test_struct_head->mylist.prev = &test_struct[5]
+...
+```
+
+这样就能创建一个包含 value 值的双向链表了，如果想把 value 放到两条不同的链上，往 test_struct 里再放一个 list_head 就行了
+
+### 找到 list_head 对应的结构体
+
+list_head 位于自定义的结构体内，而链表只是连接 list_head 实例，怎么通过该实例找到对应的自定义结构的地址？（就是上例中 test_struct 的地址）
+
+```c
+#define container_of(ptr, type, member) ({                      \
+        const typeof(((type *)0)->member) *__mptr = (ptr);    \
+        (type *)((char *)__mptr - offsetof(type, member));})
+#define offsetof(TYPE, MEMBER) ((size_t)&((TYPE *)0)->MEMBER)
+```
+
+如上，利用了结构体内数据在内存上的连续性，可以直接计算成员变量的偏移。这里利用了 0 指针，强制转为对应 type 类型，此时就在 0 地址上虚构了一个该结构体，然后用 offsetof 计算对应成员相对于结构体地址的偏移量。位于不同位置的结构体的成员的偏移都是相同的，知道成员的地址就能用 container_of 反推结构体的实际地址。
+
+### 散列表
+
+```c
+struct hlist_head {
+    // 不需要保存尾部指针，通常对散列表来说都是从头遍历
+    struct hlist_node *first;
+};
+struct hlist_node {
+    struct hlist_node *next, **pprev;
+};
+```
+
+![list_head-and-hlist_node](/assets/img/2022-12-13-linux-kernel/list_head-and-hlist_node.png)
+
+hlist_head 中的 first 元素指向链表头元素，也就是第一个 hlist_node。pprev 表示`上一个` hlist_node 的 next 指针的引用（指向指针的指针），第一个 hlist_node 元素比较特殊，它的的 pprev 指向 first 指针（first 指针也是 hlist_node 类型的，可以用 pprev 指向）
+
+1. 为什么使用 hlist_head 结构体而非 hlist_node 指针表示`头节点的引用`：
+
+    答：其实 hlist_head 里的 first 指针就是`头节点的引用`，封装一层看上去更直观（指针数组看上去总比结构体数组复杂）。
+
+2. 为什么使用 hlist_head 结构体而不是 hlist_node 结构体：
+
+    答：如果用 hlist_node 结构体，那里面的 pprev 指针就没什么用了，因为散列表因为每个链表都比较短，直接是从头遍历的，不需要尾部指针。总之就是 hlist_head 比 hlist_node `省一个指针`的空间
+
+3. 为什么使用 pprev 指针而非 prev 指针：
+
+    答：如果需要删除头节点(第一个 hlist_node)，使用 pprev 这个`指向指针的指针`则可以让头节点能够直接修改 first 指针，否则还必须知晓 first 指针的位置才能对它做修改（也就是说如果用 hlist_node 作为首指针的存储体就不会有这个问题，可以用 prev 直接指向这个结构体，但上面第2点提到了为了省一个指针需要用 hlist_head）。
+
+要按上图定义一个哈希表如下，也就是一个双向链表数组：
+
+```c
+struct hlist_head hash_table[10];
+```
+
 ## 对象管理和引用计数
 
 一般的`内核对象`（这里也使用了面向对象的概念，虽然 C 不是面向对象的语言）需要适应以下`对象操作`：
@@ -279,3 +345,7 @@ struct kset
 ### 访问用户空间
 
 源代码中的多处指针都标记为`__user`，该标识符对用户空间程序设计是未知的。内核使用该记号来标识指向用户地址空间中区域的指针，在没有进一步预防措施的情况下，不能轻易访问这些指针指向的区域。这是因为内存是通过页表映射到虚拟地址空间的用户空间部分的，而不是由物理内存直接映射的。因此内核需要确保指针所指向的页帧确实存在于物理内存中
+
+## 参考
+
+- [深入 Linux 内核架构(Professional Linux Kernel Architecture) - Wolfgang Mauerer](https://www.amazon.com/Professional-Kernel-Architecture-Wolfgang-Mauerer/dp/0470343435)
