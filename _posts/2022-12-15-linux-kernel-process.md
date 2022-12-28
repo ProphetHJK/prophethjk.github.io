@@ -2,7 +2,7 @@
 title: "Linux内核学习笔记之进程管理和调度"
 author: Jinkai
 date: 2022-12-13 09:00:00 +0800
-published: true
+published: false
 math: true
 categories: [学习笔记]
 tags: [kernel, Linux]
