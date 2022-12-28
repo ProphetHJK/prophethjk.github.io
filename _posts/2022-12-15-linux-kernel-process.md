@@ -2105,7 +2105,7 @@ struct rt_rq
 
 ![F2-24](/assets/img/2022-12-15-linux-kernel-process/F2-24.jpg)
 
-`sched_find_first_bit` 是一个标准函数，可以找到 active.bitmap 中`第一个置位`的比特位，这意味着高的实时优先级（对应于较低的内核优先级值），sched_find_first_bit 是一个标准函数，可以找到 active.bitmap 中第一个置位的比特位，这意味着高的`实时优先级`（对应于较低的内核优先级值），取出所选链表的`第一个进程`，并将 `se.exec_start` 设置为就绪队列的当前实际时钟值
+`sched_find_first_bit` 是一个标准函数，可以找到 active.bitmap 中`第一个置位`的比特位，这意味着高的实时优先级（对应于较低的内核优先级值），取出所选链表的`第一个进程`，并将 `se.exec_start` 设置为就绪队列的当前实际时钟值
 
 #### 周期调度器
 
