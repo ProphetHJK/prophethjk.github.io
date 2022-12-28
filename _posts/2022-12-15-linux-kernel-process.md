@@ -1783,7 +1783,7 @@ _calc_delta_fair 函数：_
 
 根据物理时间计算虚拟时间
 
-$$ delta_exec_weighted = delta_exec \times \frac{NICE_0_LOAD}{curr->load.weight} $$
+$$ delta\_exec\_weighted = delta\_exec \times \frac{NICE\_0\_LOAD}{curr->load.weight} $$
 
 负荷权重 weight 的计算方式见[计算负荷权重](#计算负荷权重)，权重和优先级值是反的，权重越大，分到的 CPU 越多（越优先）
 
@@ -1830,7 +1830,7 @@ static inline s64 entity_key(struct cfs_rq *cfs_rq, struct sched_entity *se) {
 
 第二个控制参数 `sched_nr_latency`，控制在一个延迟周期中处理的最大活动进程数目。如果活动进程的数目超出该上限，则延迟周期也成比例地线性扩展。
 
-$$ {sysctl_sched_latency} = \frac{nr_running}{sched_nr_latency} $$
+$$ {sysctl\_sched\_latency} = \frac{nr\_running}{sched\_nr\_latency} $$
 
 通过考虑各个进程的`相对权重`，将一个延迟周期的时间在活动进程之间进行分配。
 
@@ -1849,7 +1849,7 @@ static u64 sched_slice(struct cfs_rq *cfs_rq, struct sched_entity *se)
 }
 ```
 
-$ time \times \frac{NICE_0_LOAD}{weight} $ 用于计算一个`延迟周期`内分配到的`虚拟时间`，上文有提到[计算负荷权重](#计算负荷权重):
+$ time \times \frac{NICE\_0\_LOAD}{weight} $ 用于计算一个`延迟周期`内分配到的`虚拟时间`，上文有提到[计算负荷权重](#计算负荷权重):
 
 ```c
 // kernel/sched_fair.c
@@ -2152,7 +2152,7 @@ static void task_tick_rt(struct rq *rq, struct task_struct *p)
 
 ## 调度器增强
 
-### SMP调度
+### SMP 调度
 
 多处理器系统上，内核必须考虑几个额外的问题，以确保良好的调度：
 
