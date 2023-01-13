@@ -12,29 +12,30 @@
 
   [**Live Demo →**](https://cotes2020.github.io/chirpy-demo)
 
-  [![Devices Mockup](https://raw.githubusercontent.com/cotes2020/chirpy-images/main/commons/devices-mockup.png)](https://cotes2020.github.io/chirpy-demo)
+  [![Devices Mockup](https://chirpy-img.netlify.app/commons/devices-mockup.png)](https://cotes2020.github.io/chirpy-demo)
 
 </div>
 
 ## Features
 
-- Localized Layout
 - Dark/Light Theme Mode
+- Localized UI language
 - Pinned Posts
 - Hierarchical Categories
-- Last Modified Date for Posts
+- Trending Tags
 - Table of Contents
-- Auto-generated Related Posts
+- Last Modified Date of Posts
 - Syntax Highlighting
 - Mathematical Expressions
 - Mermaid Diagram & Flowchart
+- Dark/Light Mode Images
+- Embed Videos
 - Disqus/Utterances/Giscus Comments
 - Search
 - Atom Feeds
 - Google Analytics
-- GA Pageviews Reporting
+- Page Views Reporting
 - SEO & Performance Optimization
-
 
 ## Quick Start
 
@@ -102,4 +103,4 @@ This work is published under [MIT](https://github.com/cotes2020/jekyll-theme-chi
 <!-- ReadMe links -->
 
 [jb]: https://www.jetbrains.com/?from=jekyll-theme-chirpy
-[cn-donation]: https://cotes2020.github.io/sponsor/
+[cn-donation]: https://sponsor.cotes.page/
