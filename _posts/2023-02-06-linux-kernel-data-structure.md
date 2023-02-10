@@ -3,7 +3,6 @@ title: "Linux内核学习笔记之内核数据结构"
 author: Jinkai
 date: 2023-02-03 09:00:00 +0800
 published: true
-math: true
 categories: [学习笔记]
 tags: [kernel, Linux]
 ---
