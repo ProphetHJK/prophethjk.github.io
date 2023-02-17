@@ -219,7 +219,7 @@ OS_CPU_PendSVHandler:
 
 此处仅保存了 r4-r7 寄存器，少了对 r8-r11 寄存器的保存
 
-查看官网更新说明[µC/OS-III v3.06.00 Changelog](https://www.micrium.com/ucos-iii-v3-06-00/)，有如下信息：
+查看官网更新说明[µC/OS-III v3.06.00 Changelog(已废弃)](https://www.micrium.com/ucos-iii-v3-06-00/)或[µC/OS-III Release Notes](https://micrium.atlassian.net/wiki/spaces/osiiidoc/pages/132259/C+OS-III+Release+Notes#id-%C2%B5C%2FOS-IIIReleaseNotes-Version3.06.00)，有如下信息：
 
 ![changelog](/assets/img/2021-03-16-operating-systems-4/changelog.png)
 
