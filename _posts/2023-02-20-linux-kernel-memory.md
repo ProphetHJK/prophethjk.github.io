@@ -332,7 +332,7 @@ slab 是更高层的内存管理手段，它按对象来分配内存，而不是
 
 ### slab 层的设计
 
-![f12-1](../assets/img/2023-02-20-linux-kernel-memory/f12-1.jpg)
+![f12-1](/assets/img/2023-02-20-linux-kernel-memory/f12-1.jpg)
 
 每个`高速缓存(Cache)`包含若干个 `slab` 单元，一个 `slab` 单元一般就 1 页(可能多页)，每个 `slab` 单元存放若干个对象(数据结构)。
 
