@@ -3,6 +3,7 @@ title: "《Operating Systems: Three Easy Pieces》学习笔记(十八) 超越物
 author: Jinkai
 date: 2022-06-15 09:00:00 +0800
 published: true
+math: true
 categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
 ---

@@ -81,6 +81,8 @@ struct task_struct
      */
     struct list_head ptrace_children;
     struct list_head ptrace_list;
+    // 两者含义见https://blog.csdn.net/weixin_48101150/article/details/116207139
+    // mm为真实地址空间，active_mm为匿名地址空间
     struct mm_struct *mm, *active_mm;
     /* 进程状态 */
     struct linux_binfmt *binfmt;
@@ -998,8 +1000,7 @@ p = do_fork(flags | CLONE_VM | CLONE_UNTRACED, 0, &regs, 0, NULL, NULL);
 因为内核线程是由内核自身生成的，应该注意下面两个特别之处:
 
 - (1) 它们在 CPU 的`管态`（supervisor mode）执行，而不是用户状态（参见第 1 章）。
-- (2) 它们只可以访问虚拟地址空间的`内核部分`（高于 `TASK_SIZE` 的所有地址），但**不能访问用户
-  空间**。
+- (2) 它们只可以访问虚拟地址空间的`内核部分`（高于 `TASK_SIZE` 的所有地址），但**不能访问用户空间**。
 
 _关于内核空间和用户空间_：
 
@@ -1637,8 +1638,8 @@ context_switch(struct rq *rq, struct task_struct *prev, struct task_struct *next
     // 内核线程没有自己的用户空间内存上下文，可能在某个随机进程地址空间的上部执行。
     // 其task_struct->mm为NULL。从当前进程“借来”的地址空间记录在active_mm中：
     if (unlikely(!mm))
-    {
-        // 每次都借上一个用户进程的地址空间
+    {// !mm表示mm为空，也就是说是内核线程
+        // 每次都借上一个用户进程的地址空间，内核线程使用匿名地址空间
         next->active_mm = oldmm;
         // 增加引用计数
         atomic_inc(&oldmm->mm_count);
