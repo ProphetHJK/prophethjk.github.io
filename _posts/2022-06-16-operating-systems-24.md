@@ -7,43 +7,85 @@ categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
 ---
 
-锁并不是并发程序设计所需的唯一原语。在很多情况下，线程需要检查某一`条件`（condition）满足之后，才会继续运行。
+在很多情况下，线程需要检查某一`条件`（condition）满足之后，才会继续运行。
+
+父线程等待子线程——自旋等待：
 
 ```c
 void *child(void *arg)
 {
     printf("child\n");
-    // XXX how to indicate we are done?
-    // 自旋锁标记
+    // do someting...
+    // 修改判断条件
     done = 1;
     return NULL;
 }
 
+// 要父线程等待子线程的话，需要加个自旋锁，并加上判断条件
 int main(int argc, char *argv[])
 {
     printf("parent: begin\n");
     pthread_t c;
     Pthread_create(&c, NULL, child, NULL); // create child
     // XXX how to wait for child?
-    // 加个自旋锁等待done为1
+    // 等待判断条件done为1(子线程执行完成)，（一直占着CPU，很浪费）
     while (done == 0)
-        ; // spin
+        ; // 自旋等待
     printf("parent: end\n");
     return 0;
 }
 ```
 
-要父线程等待子线程的话，需要加个自旋锁
-
 ## 定义和程序
 
-线程可以使用条件变量（condition variable），来等待一个条件变成真。条件变量是一个`显式队列`，当某些执行状态（即条件，condition）不满足时，线程可以把自己`加入队列`，`等待`（waiting）该条件。另外某个线程，当它改变了上述状态时，就可以`唤醒`一个或者多个`等待线程`（通过在该条件上发信号），让它们继续执行。
+线程可以使用**条件变量（condition variable）**，来等待一个条件变成真。
 
-声明：pthread_cond_t c
+条件变量是一个`显式队列`，当某些执行状态（即条件，condition）不满足时，线程可以把自己`加入队列`，`等待`（waiting）该条件。另外某个线程，当它改变了上述状态时，就可以`唤醒`一个或者多个`等待线程`（通过在该条件上发信号），让它们继续执行。
 
-相关操作：wait()和 signal()
+声明：
 
-父线程等待子线程--使用条件变量:
+```c
+pthread_cond_t c
+```
+
+相关操作：
+
+```c
+wait()
+signal()
+```
+
+`wait()`调用有一个`参数`，它是`互斥量mutex`。
+
+条件变量一般要与锁一起使用，`wait()` 调用时，这个互斥量必须是`已上锁`状态（处于临界区内）。`wait()` 的职责是`释放锁`，并让调用线程`休眠`（原子地）。当线程被`唤醒`时（在另外某个线程发信号给它后），它必须`重新获取锁`(重新进入临界区)，再返回调用者。
+
+实际应用时由**条件和锁**共同决定临界区，如果获得锁就进入临界区，但如果条件未满足，则暂时**放弃锁**退出临界区，直到被唤醒（且条件满足）时**重新上锁**进入临界区。
+
+典型的条件变量用法（伪代码）：
+
+```c
+lock(&mutex);//进入临界区，保护done及其他临界资源
+while (done == 0) // 判断条件，判断时必须保证在临界区内
+    wait(&cond, &mutex);// 条件不满足时放弃锁，暂时退出临界区
+// 条件满足时，进入真正的临界区
+/* do somting... */
+unlock(&mutex);// 退出临界区
+```
+
+试一下不用条件变量怎么实现：
+
+```c
+lock(&mutex);//进入临界区，保护done及其他临界资源
+while (done == 0) // 判断条件，判断时必须保证在临界区内
+    unlock(&mutex);
+    sleep(1);// 这里就是循环死等，不是通过休眠加被唤醒的方式激活
+    lock(&mutex);
+// 条件满足时，进入真正的临界区
+/* do somting... */
+unlock(&mutex);// 退出临界区
+```
+
+修改本文前言部分的示例，父线程等待子线程——使用条件变量:
 
 ```c
 pthread_cond_wait(pthread_cond_t *c, pthread_mutex_t *m);
@@ -89,10 +131,6 @@ int main(int argc, char *argv[])
 }
 ```
 
-wait()调用有一个`参数`，它是`互斥量`。
-
-它假定在 wait()调用时，这个互斥量是`已上锁`状态。wait()的职责是`释放锁`，并让调用线程`休眠`（原子地）。当线程被`唤醒`时（在另外某个线程发信号给它后），它必须`重新获取锁`，再返回调用者。
-
 > **提示：发信号时总是持有锁**
 >
 > 尽管并不是所有情况下都严格需要，但有效且简单的做法，还是在使用条件变量发送信号时持有锁。虽然上面的例子是必须加锁的情况，但也有一些情况可以不加锁，而这可能是你应该避免的。因此，为了简单，请在`调用 signal` 时`持有锁`（hold the lock when calling signal）。
@@ -111,8 +149,11 @@ void *producer(void *arg)
     for (i = 0; i < loops; i++)
     {
         Pthread_mutex_lock(&mutex);           // p1
+        // 名义上的临界区，在lock之间
         if (count == 1)                       // p2
             Pthread_cond_wait(&cond, &mutex); // p3
+        // 实际上的临界区，由于wait会释放锁退出临界区(被唤醒后重新上锁)，
+        // 所以从这里开始才是真正的临界区
         put(i);                               // p4
         Pthread_cond_signal(&cond);           // p5
         Pthread_mutex_unlock(&mutex);         // p6

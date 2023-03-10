@@ -75,11 +75,11 @@ typedef irqreturn_t (*irq_handler_t) (int, void *);
 
 中断处理程序标志，位掩码
 
-- ~~**IRQF_DISABLED**: 处理该中断时`关中断`(关所有中断，如果未置位，只关闭当前中断线的中断)~~，无需关注，新 Linux 内核[已移除](http://lists.infradead.org/pipermail/linux-mtd/2015-March/058135.html)
+- **IRQF_DISABLED**: ~~处理该中断时`关中断`(关所有中断，如果未置位，只关闭当前中断线的中断)~~，无需关注，新 Linux 内核[已移除](http://lists.infradead.org/pipermail/linux-mtd/2015-March/058135.html)
 
-  旧的内核（2.6.35 版本之前）认为有两种 interrupt handler：`slow handler` 和 `fast handle`（注意**不是**上一节提到的**上下部分**）。在 request irq 的时候，对于 fast handler，需要传递 IRQF_DISABLED 的参数，确保其中断处理过程中是关闭 CPU 的中断的(禁止中断嵌套)，因为是 fast handler，执行很快，即便是关闭 CPU 中断不会影响系统的性能。但是，并不是每一种外设中断的 handler 都是那么快（例如磁盘），因此就有 slow handler 的概念，说明其在中断处理过程中会耗时比较长。对于这种情况，在执行 interrupt handler 的时候不能关闭 CPU 中断，否则对系统的 performance 会有影响。
+  旧的内核（2.6.35 版本之前）认为有两种 interrupt handler：`slow handler` 和 `fast handle`（注意**不是**上一节提到的**上下部分**）。在 request irq 的时候，对于 fast handler，需要传递 IRQF_DISABLED 的参数，确保其中断处理过程中是关闭本地 CPU 的中断的(禁止中断嵌套)，因为是 fast handler，执行很快，即便是关闭 CPU 中断不会影响系统的性能。但是，并不是每一种外设中断的 handler 都是那么快（例如磁盘），因此就有 slow handler 的概念，说明其在中断处理过程中会耗时比较长。对于这种情况，在执行 interrupt handler 的时候不能关闭 CPU 中断，否则对系统的 performance 会有影响。
 
-  新的内核已经不区分 slow handler 和 fast handle，都是 `fast handler`，都是需要`关闭 CPU 中断`的，那些需要后续处理的内容推到 `threaded interrupt handler` 中去执行。
+  新的内核已经不区分 slow handler 和 fast handler，都是 `fast handler`，都是需要`关闭 CPU 中断`的，那些需要后续处理的内容推到 `threaded interrupt handler` 中去执行。
 
 - **IRQF_SAMPLE_RANDOM**: 该中断的间隔时间作为熵加入`内核熵池`(entropy pool)，用于产生`真随机数`的熵。
 - **IRQF_TIMER**: 系统定时器专属标志

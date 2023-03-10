@@ -1,5 +1,5 @@
 ---
-title: "《Operating Systems: Three Easy Pieces》学习笔记(二十一) 并发：介绍"
+title: "《Operating Systems: Three Easy Pieces》学习笔记(二十一) 插叙：线程 API"
 author: Jinkai
 date: 2022-06-15 12:00:00 +0800
 published: true

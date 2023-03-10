@@ -13,7 +13,7 @@ lock()和 unlock()函数的语义很简单。调用 `lock()` 尝试获取锁，�
 
 当持有锁的线程在临界区时，其他线程就无法进入临界区。
 
-## Pthread 锁
+## Pthread 库
 
 POSIX 库将锁称为互斥量（mutex），因为它被用来提供线程之间的互斥。即当一个线程在临界区，它能够阻止其他线程进入直到本线程离开临界区。
 
@@ -24,7 +24,7 @@ balance = balance + 1;
 pthread_mutex_unlock(&lock);
 ```
 
-## 评价锁
+## 评价锁的维度
 
 互斥（mutual exclusion）
 : 能够阻止多个线程 进入临界区
@@ -56,9 +56,9 @@ void unlock() {
 2. 这种方案不支持`多处理器`。如果多个线程运行在`不同`的 CPU 上，每个线程都试图进入`同一个`临界区，关闭中断也没有作用。线程可以运行在其他处理器上，因此`能够进入临界区`
 3. 关闭中断导致`中断丢失`，可能会导致严重的系统问题。假如磁盘设备完成了读取请求，正常应该会给个中断，但 CPU 错失了这一中断，那么，操作系统如何知道去唤醒等待读取的进程
 
-## 测试并设置指令（原子交换）
+## 硬件支持——测试并设置指令
 
-最简单的`硬件支持`是`测试并设置指令`（test-and-set instruction），也叫作`原子交换`（atomic exchange）。
+锁的实现需要硬件支持，最简单的`硬件支持`是`测试并设置指令`（test-and-set instruction），也叫作`原子交换`（atomic exchange）。
 
 ```c
 typedef struct lock_t { int flag; } lock_t;
@@ -81,16 +81,17 @@ void unlock(lock_t *mutex) {
 
 上述代码中，每次 lock 会判断 flag 的值，也就是`测试并设置指令（test-and-set instruction）`中的`test`，然后判断成功才`set`
 
-但如果没有硬件辅助，也就是让测试并设置作为一个原子操作，会导致两个线程有可能`同时进入`临界区。
+但如果没有硬件辅助，也就是让`测试并设置`作为一个原子操作，会导致两个线程有可能`同时进入`临界区。
 
-`自旋等待spin-wait`也影响`性能`
+注意`自旋等待spin-wait`会影响`性能`
 
-自旋锁（spin lock）
-: 一直自旋，利用 CPU 周期，直到锁可用。
+## 自旋锁（spin lock）
+
+一直自旋（判断某个条件成立），直到锁可用。
 
 ### 实现可用的自旋锁
 
-在 SPARC 上，这个指令叫 ldstub（load/store unsigned byte，加载/保存无符号字节）；在 x86 上，是 xchg（atomic exchange，原子交换）指令。但它们基本上在不同的平台上做同样的事，通常称为`测试并设置指令`（test-and-set）。
+在 SPARC 上，需要的指令叫 ldstub（load/store unsigned byte，加载/保存无符号字节）；在 x86 上，是 xchg（atomic exchange，原子交换）指令。但它们基本上在不同的平台上做同样的事，通常称为`测试并设置指令`（test-and-set）。
 
 ```c
 int TestAndSet(int *old_ptr, int new) {
@@ -130,10 +131,9 @@ void unlock(lock_t *lock) {
 
 性能（performance）: 在`单 CPU` 的情况下，性能开销相当大。其他线程都在竞争锁，都会在放弃 CPU 之前，自旋一个时间片，浪费 CPU 周期。在`多 CPU` 上，自旋锁性能不错（如果线程数大致等于 CPU 数）
 
-## 比较并交换
+## 硬件支持——比较并交换指令
 
-`比较并交换指令`（SPARC 系统中是 compare-and-swap，
-x86 系统是 compare-and-exchange）
+`比较并交换指令`（SPARC 系统中是 compare-and-swap，x86 系统是 compare-and-exchange）
 
 ```c
 int CompareAndSwap(int *ptr, int expected, int new) {
@@ -146,7 +146,7 @@ int CompareAndSwap(int *ptr, int expected, int new) {
 
 比较并交换的基本思路是检测 ptr 指向的值是否和 expected `相等`；如果`是`，`更新` ptr 所指的值为新值。否则，什么也不做。不论哪种情况，都返回该内存地址的实际值，让调用者能够知道执行是否成功。
 
-在自旋锁中可以`替换`测试并设置指令
+在自旋锁中可以替换**测试并设置**指令
 
 ```c
 void lock(lock_t *lock) {
@@ -214,10 +214,9 @@ void unlock(lock_t *lock) {
 }
 ```
 
-## 获取并增加
+## 硬件支持——获取并增加指令
 
-`获取并增加`（fetch-and-add）指令
-: 它能`原子`地`返回`特定地址的`旧值`，并且让该值`自增一`。
+`获取并增加`（fetch-and-add）指令能`原子`地`返回`特定地址的`旧值`，并且让该值`自增一`。
 
 ```c
 int FetchAndAdd(int *ptr) {
@@ -236,12 +235,15 @@ void lock_init(lock_t *lock) {
 }
 
 void lock(lock_t *lock) {
+    // 开始挂号，获取当前号码。然后号码加1，保证每个人号码都不同
     int myturn = FetchAndAdd(&lock->ticket);
+    // 等待被叫号
     while (lock->turn != myturn)
         ; // spin
 }
 
 void unlock(lock_t *lock) {
+    // 只需要加1功能，不用返回旧值
     FetchAndAdd(&lock->turn);
 }
 ```
@@ -264,8 +266,7 @@ Solaris 中 park()能够让调用线程休眠，unpark(threadID)则会唤醒 thr
 
 ## 两阶段锁
 
-`两阶段锁`（two-phase lock）
-: 如果第一个`自旋阶段`没有获得锁，`第二阶段`调用者会`睡眠`，直到锁可用。上文的 Linux 锁就是这种锁，不过只自旋一次；更常见的方式是在循环中自旋固定的次数(`希望`这段时间内能`获取到锁`)，然后使用 futex 睡眠。
+`两阶段锁`（two-phase lock），如果第一个`自旋阶段`没有获得锁，`第二阶段`调用者会`睡眠`，直到锁可用。上文的 Linux 锁就是这种锁，不过只自旋一次；更常见的方式是在循环中自旋固定的次数(`希望`这段时间内能`获取到锁`)，然后使用 futex 睡眠。
 
 ## 参考
 
