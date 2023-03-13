@@ -3426,7 +3426,7 @@ typedef struct QSubscrListTag {
   }
   ```
 
-  > 为什么加锁，见[比较并交换](/posts/operating-systems-22/#比较并交换)
+  > 为什么加锁，见[硬件支持：比较并交换指令](/posts/operating-systems-22/#硬件支持比较并交换指令)
 
   二进制算法查找表 `QF_log2Lkup[]` 映射`字节值`到 MSB 的 bit`数字` (找一个字节里的`最高有效位`所在的位置 1-8，可以通过表一一对应)：
 
