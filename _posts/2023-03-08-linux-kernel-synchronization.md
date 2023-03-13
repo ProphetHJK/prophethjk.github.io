@@ -199,7 +199,7 @@ spin_unlock(&mr_lock);
 自旋锁不应被**长时间持有**，所以临界区必须很短。正是因为这个特性，自旋锁才可以使用在**中断处理程序**中（中断处理程序的要求也是尽可能的简短），前提是必须**禁止本地中断**，禁止本地中断有两个目的：
 
 - ~~在中断处理程序中，防止在持有锁时产生中断抢占，抢占的中断也有可能请求该锁，形成死锁~~（新版本内核不允许中断抢占了，见[IRQF_DISABLED 已被移除](/posts/linux-kernel-interrupt/#参数-flags)和[Linux 的中断可以嵌套吗？](https://zhuanlan.zhihu.com/p/91338338)）
-- 在用户或内核空间进程（或者是中断下半部）中，防止持有锁时被中断，该中断可能请求该锁，形成死锁
+- 在用户或内核空间进程（或者是中断下半部）中，防止**持有锁时被中断**，该中断可能也请求该锁，形成死锁
 
 禁止本地中断并使用自旋锁的示例：
 
@@ -637,7 +637,9 @@ write_sequnlock(&jiffies_lock);
 
 ## 顺序和屏障
 
-编译器有可能会对代码做优化，导致实际的汇编指令顺序和代码顺序不同：
+编译器有可能会对代码做优化，导致实际的汇编指令顺序和代码顺序不同。而且现代处理器为了优化其传送管道(pipeline)，也会打乱分派和提交指令的顺序。
+
+TODO:关于乱序 CPU 流水线，需要单独写一篇文章说明。
 
 ```c
 a=1;
@@ -655,18 +657,95 @@ b=a;
 
 `屏障(barries)`用于保护执行顺序。顾名思义，屏障是无法被跨越的，在屏障后的代码绝不会在屏障之前执行，在屏障前的代码绝不会在屏障之后执行。
 
+屏障分为两种：
+
+- **内存屏障**：可以同时阻止编译器的顺序优化和处理器的执行顺序优化
+- **编译器屏障**：只能阻止编译器的执行顺序优化，更加轻量，一般在单处理器情况下使用
+
+### 内存屏障
+
 `rmb()`方法提供了一个“读”内存屏障，`wmb()`方法提供了一个“写”内存屏障。`mb()`方法既提供了读屏障也提供了写屏障。
+
+`read_barrier_depends()`是`rmb()`的变种，它提供了一个读屏障，但是仅仅是前后有**依赖关系**的读操作。对于没有依赖的读，它就是空操作，所以性能可能会比`rmb`好。(写操作好像没有对于的依赖性屏障)
+
+```c
+// 载入*pp前必须依赖载入p，载入也就是对应load指令，
+// 本例有明确的依赖关系，有屏障作用
+pp = p;
+read_barrier_depends();
+b = *pp;
+
+// 没有明确依赖关系，read_barrier_depends()就是空操作，不起到屏障作用
+d = a;
+read_barrier_depends();
+b = a;
+
+// 如果一定要设立屏障，必须使用rmb()或mb()
+d = a;
+rmb();
+b = a;
+```
+
+_示例：_
+
+假设有两个核心 CPU-a 和 CPU-b，它们共享一个对象 obj，obj 有两个字段 data 和 ready。CPU-a 要给 obj 赋值，并把 ready 置为 1，表示 obj 已经准备好了。CPU-b 要检查 obj 是否准备好了，如果是就使用 obj 的 data 做一些事情。
+
+```c
+// CPU-a
+obj->data = xxx; // 给obj的data赋值
+wmb(); // 写内存屏障
+obj->ready = 1; // 把obj的ready置为1
+
+// CPU-b
+if (obj->ready) // 检查obj是否准备好了
+  do_something(obj->data); // 使用obj的data做一些事情
+```
+
+这里的写内存屏障`wmb()`是为了保证 CPU-a 不会对代码进行重排序，从而使得 ready 标记置位的时候，**data 一定是有效的**。但是在 alpha 机器上， CPU-b 上的 do_something 可能使用旧的 data(实际执行 do_someting 还是在 ready 判断之后的，但因为 data 是在 CPU-a 上改的，可能 CPU-b 上的 cache 未及时更新，data 的 cache 还是旧值，所以本质就是 cache 刷新指令和 load 指令的乱序以及多个 CPU 拥有各自独立的 cache，不能做到及时更新)。
+
+```c
+// CPU-a
+obj->data = xxx; // 给obj的data赋值
+wmb(); // 写内存屏障
+obj->ready = 1; // 把obj的ready置为1
+
+// CPU-b
+if (obj->ready) // 检查obj是否准备好了（先更新了ready）
+  do_something(obj->data); // 使用obj的data做一些事情（但此时data还是旧值）
+```
+
+所以需要添加读屏障 rmb()，让 cache 刷新操作必定在 data 被读取前执行。
+
+```c
+// CPU-a
+obj->data = xxx; // 给obj的data赋值
+wmb(); // 写内存屏障
+obj->ready = 1; // 把obj的ready置为1
+
+// CPU-b
+if (obj->ready) // 检查obj是否准备好了（先更新了ready）
+{
+  rmb(); // 读内存屏障
+  do_something(obj->data); // 使用obj的data做一些事情（此时保证读到最新值）
+}
+```
+
+### 编译器屏障
+
+`barrier()`方法可以防止编译器跨屏障对载入或存储操作进行优化。
+
+`smp_rmb()` 等系列宏提供了**自适应**的屏障，在对称多处理器(SMP)上提供内存屏障，在单处理器(UP)上提供编译器屏障
 
 | 屏障                       | 描述                                                                |
 | :------------------------- | :------------------------------------------------------------------ |
-| rmb()                      | 阻止跨越屏障的载和动作发生重排序                                    |
-| read_barrier_depends()     | 阻止跨越屏障的具有数据依赖关系的裁人动作重排序                      |
+| rmb()                      | 阻止跨越屏障的载入动作发生重排序                                    |
+| read_barrier_depends()     | 阻止跨越屏障的具有数据依赖关系的载入动作重排序                      |
 | wmb()                      | 阻止跨越屏障的存储动作发生重排序                                    |
 | mb()                       | 阻止跨越屏障的载入和存储动作重新排序                                |
-| smp_rmb()                  | 在 SMP 上提供 rmb() 功能，在 UP 上提供 barrier() 功能                 |
+| smp_rmb()                  | 在 SMP 上提供 rmb() 功能，在 UP 上提供 barrier() 功能               |
 | smp_read_barrier_depends() | 在 SMP 上提供 read_barrierdepends()功能，在 UP 上提供 barrier()功能 |
 | smp_wmb()                  | 在 SMP 上提供 wmb0 功能，在 UP 上提供 barrier()功能                 |
-| smp_mb()                   | 在 SMP 上提供 mb()功能，在 UP 上提供 barrier()功能                 |
+| smp_mb()                   | 在 SMP 上提供 mb()功能，在 UP 上提供 barrier()功能                  |
 | barrier()                  | 阻止编译器跨屏障对载入和存储动作进行优化                            |
 
 ## 参考
@@ -674,3 +753,4 @@ b=a;
 - [Linux 内核设计与实现（第三版）第九、十章](https://www.amazon.com/Linux-Kernel-Development-Robert-Love/dp/0672329468/ref=as_li_ss_tl?ie=UTF8&tag=roblov-20)
 - [Robert Love](https://rlove.org/)
 - [linux 顺序锁 seqlock](https://zhuanlan.zhihu.com/p/364044850)
+- [原理和实战解析 Linux 中如何正确地使用内存屏障](https://mp.weixin.qq.com/s/s6AvLiVVkoMX4dIGpqmXYA)
