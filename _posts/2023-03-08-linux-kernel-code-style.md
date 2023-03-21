@@ -105,15 +105,15 @@ foo++;
 unsigned long inverted = ~mask;
 ```
 
-提领运算符(\*)应该贴近变量，而不是类型（TODO:有待商榷，个人还是比较喜欢贴近类型）：
+提领运算符(`*`)应该贴近变量，而不是类型（TODO:有待商榷，个人还是比较喜欢贴近类型）：
 
 ```c
-char *strcpy(char *dest，const char *src)
+char *strcpy(char *dest, const char *src)
 ```
 
 ## 花括号
 
-左花括号和标识符放在同一行；如果右花括号后还有同一语句块的另一个标识符，则都放在同一行：
+左花括号和**标识符**放在同一行；如果右花括号后还有同一语句块的另一个标识符，则都放在同一行：
 
 ```c
 if (ret) {
@@ -129,6 +129,15 @@ if (ret) {
 do {
 	percpu_counter_add(&ca->cpustat[idx], val); ca = ca->parent;
 } while (ca);
+```
+
+如果是**函数**，则左花括号另起单独一行：
+
+```c
+void read_persistent_clock(struct timespec *ts)
+{
+	__read_persistent_clock(ts);
+}
 ```
 
 ## 每行代码的长度
@@ -161,6 +170,8 @@ static void get_new_parrot(const char *name,
 
 注释的话只要按照 C 风格就行(`/* */`)，具体的内部定义可以按自己喜好
 
+注意单行注释不要使用 C++ 风格的双斜杠 `//`
+
 多行注释示例：
 
 ```c
@@ -179,7 +190,7 @@ static void get_new_parrot(const char *name,
 - 由于数据类型隐藏起来了，所以很容易因此而犯错误，比如以传值的方式向栈中推入结构（本应该是指针，如果结构较大，传值的方式会导致栈溢出）。
 - 使用 typedef 往往是因为想要偷懒
 
-尽量少用 typedef ，必要的时候再用，内核在 `<linux/types.h>` 中使用了 typedef。对于 struct 的定义，不使用 typedef：
+尽量少用 typedef ，必要的时候再用，内核在 `<linux/types.h>` 中使用了较多的 typedef。对于 struct 的定义，不使用 typedef：
 
 ```c
 struct completion {
@@ -200,7 +211,7 @@ struct completion {
 
 ## 结构初始化
 
-使用C99风格，允许不明确定义初值，使用默认值(如指针被设为NULL，整型被设为0，浮点数被设置为0.0)
+使用 C99 风格，允许不明确定义初值，使用默认值（如指针被设为 NULL，整型被设为 0，浮点数被设置为 0.0）
 
 ```c
 struct foo {

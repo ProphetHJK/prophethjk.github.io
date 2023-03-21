@@ -578,18 +578,18 @@ seqlock_t mr_seq_lock = DEFINE_SEQLOCK(mr_seq_lock);
 ```c
 write_seqlock(&mr_seq_lock); // 自旋锁，且会递增seqcount
 /*临界区...*/
-write_sequnlock (&mr_seq_lock); // 会递增seqcount
+write_sequnlock(&mr_seq_lock); // 会递增seqcount
 ```
 
 读者（和读-写自旋锁有很大区别）：
 
 ```c
 unsigned long seq;
-do{
+do {
     seq = read_seqbegin(&mr_seq_lock);// 保存读取前的seqcount
     /* 类似于临界区... */
 }
-while (read_seqretry(&mr_seq_lock,seq))// 判断当前seqcount是否等于读取前的
+while (read_seqretry(&mr_seq_lock, seq))// 判断当前seqcount是否等于读取前的
 ```
 
 不同于读-写自旋锁，seq 中读者无法排队，而写者可以排队。读者在尝试获取自旋锁前会判断锁是否被争用（是否还有其他读者或写者占用），如果是，则不会尝试去获取自旋锁。而写者在任何情况下都直接尝试获取自旋锁，若无法获取则排队等待。
