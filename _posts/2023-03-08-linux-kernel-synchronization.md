@@ -192,7 +192,7 @@ spin_lock(&mr_lock);
 spin_unlock(&mr_lock);
 ```
 
-`spin_lock()`会**关闭内核抢占**，也就是自旋等待以及处于临界区内时无法被调度，直到`spin_unlock()`，见[本文](/posts/linux-kernel-interrupt/#检查重新调度)。这是为了解决**伪并发**的问题。
+`spin_lock()`会**关闭内核抢占**，也就是自旋等待以及处于临界区内时无法被调度，直到`spin_unlock()`，见[本文](/posts/linux-kernel-process/#内核抢占)。这是为了解决**伪并发**的问题。
 
 注意不要**嵌套**和**递归**使用自旋锁，已经持有锁的情况下请求同样的锁就会发生**死锁**。
 

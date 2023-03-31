@@ -229,9 +229,22 @@ static irqreturn_t rtc_interrupt(int irq, void *dev_id)
 
 ![f7-1](/assets/img/2023-02-13-linux-kernel-interrupt/f7-1.jpg)
 
-发生中断时，处理器会**中断**正在执行的任务，**跳转**到内存预定义的`硬件中断处理初始入口点`（一般是用**汇编**写的，由内核启动时注册到 CPU 上，x86上是在`<arch/x86/kernel/entry_32.S>`中的`common_interrupt`）。`初始入口点`在栈中保存 `IRQ 号`，并存放当前`寄存器`的值(这些值属于被中断的任务，有关寄存器的保存具体见[受限直接执行协议(时钟中断)](/posts/operating-systems-4/#%E5%8F%97%E9%99%90%E7%9B%B4%E6%8E%A5%E6%89%A7%E8%A1%8C%E5%8D%8F%E8%AE%AE%E6%97%B6%E9%92%9F%E4%B8%AD%E6%96%AD))。然后，调用函数`do_IRQ()`：
+发生中断时，处理器会**中断**正在执行的任务，**跳转**到内存预定义的`硬件中断处理初始入口点`（一般是用**汇编**写的，由内核启动时注册到 CPU 上，x86上是在`<arch/x86/kernel/entry_32.S>`中的`common_interrupt`）:
 
-> 因为初始入口点已经将 IRQ 号和寄存器都存在栈中了，而且 C 语言的函数调用参数读取就是从**栈顶**读取，执行函数`do_IRQ()`时非常自然的读取到了之前压栈的原始寄存器值作为其参数`regs`，包含了 IRQ 号。
+```x86asm
+common_interrupt:
+	ASM_CLAC
+	addl $-0x80,(%esp)	/* 将栈顶的值减去0x80，Adjust vector into the [-256,-1] range */
+	SAVE_ALL    /* 保存所有寄存器到栈，中断处理完后恢复 */
+	TRACE_IRQS_OFF
+	movl %esp,%eax /* 将栈指针（ESP）的值保存到通用寄存器EAX */
+	call do_IRQ /* 执行IRQ_handler */
+	jmp ret_from_intr /* 从中断返回 */
+```
+
+`初始入口点`在栈中保存 `IRQ 号`，并存放当前`寄存器`的值(这些值属于被中断的任务，有关寄存器的保存具体见[受限直接执行协议(时钟中断)](/posts/operating-systems-4/#%E5%8F%97%E9%99%90%E7%9B%B4%E6%8E%A5%E6%89%A7%E8%A1%8C%E5%8D%8F%E8%AE%AE%E6%97%B6%E9%92%9F%E4%B8%AD%E6%96%AD))。然后，调用函数`do_IRQ()`。
+
+> 因为初始入口点已经将 IRQ 号和寄存器都存在栈中了，而且 C 语言的函数调用参数读取就是从**栈顶**读取，执行函数`do_IRQ()`时非常自然的读取到了之前用汇编压栈的原始寄存器值作为其参数`regs`，包含了 IRQ 号。
 
 声明：
 
@@ -376,21 +389,9 @@ handle_irq_event_percpu(struct irq_desc *desc, struct irqaction *action)
 `do_IRQ()`执行完毕处理完所有中断服务程序后，会执行`ret_from_intr()`(汇编)，检查是否需要**重新调度**（`need_resched` 标志）：
 
 - 返回用户空间：发生在内核正在返回用户空间(中断打断的是用户进程)，`schedule()` 将被调用（就像利用定时中断执行调度，见[时钟中断](/posts/operating-systems-4/#%E9%9D%9E%E5%8D%8F%E4%BD%9C%E6%96%B9%E5%BC%8F%E6%97%B6%E9%92%9F%E4%B8%AD%E6%96%AD)）
-- 返回内核空间：在支持**内核抢占**的内核上，发生在内核正在返回内核空间(中断打断的是内核)，只有在`preempt_count`为 0 时，`schedule()` 才会被调用；否则将不触发重新调度(比如自旋锁会调用`preempt_disable`关闭内核抢占)。在不支持内核抢占的内核上，只要在内核空间，就永远不会发生重新调度。
+- 返回内核空间：在支持[内核抢占](/posts/linux-kernel-process/#内核抢占)的内核上，发生在内核正在返回内核空间(中断打断的是内核)，在`preempt_count`为 0 时，`schedule()` 会被调用；否则将不触发重新调度(比如自旋锁会调用`preempt_disable`临时关闭内核抢占)；在不支持内核抢占的内核上，只要在内核空间，就永远不会发生重新调度。
   
   > 关闭内核抢占是比关中断更加温和的同步方式，只是禁止了重新调度，中断还是可以发生的
-
-linux kernel 2.4(不支持内核抢占)：
-
-![linux2.4](/assets/img/2023-02-13-linux-kernel-interrupt/linux2.4.gif)
-
-橙色和紫色是两个不同的进程，紫色触发了 read()系统调用，进入内核空间，此时发生中断，中断处理完毕后返回内核空间继续执行，因为处于内核空间，在 2.4 中无法触发调度。
-
-linux kernel 2.6(支持内核抢占)：
-
-![linux2.4](/assets/img/2023-02-13-linux-kernel-interrupt/linux2.6.gif)
-
-在 2.6 中，即使是在内核空间，只要`preempt_count`为 0 表明可以抢占，就可以直接触发调度切换到其他的高优先级进程。
 
 ## /proc/interrupts
 
@@ -594,7 +595,7 @@ void softirq_handler(struct softirq_action *)
 
 一个注册的软中断必须在被`标记`后才会执行。这被称作触发软中断(Taising the softirq)。中断处理程序会在返回前标记它的软中断，使其在稍后被执行。在下列地方，待处理的软中断会被检查和执行:
 
-- 一个硬件中断代码处返回时（此时中断处理程序已执行完）
+- 一个硬件中断代码处返回时（此时中断处理程序已执行完），在[do_IRQ()](#中断处理机制的实现)中的`irq_exit()`会调用`do_softirq()`
 - 在 `ksoftirqd` 内核线程中
 - 在那些显式检查和执行待处理的软中断的代码中，如网络子系统中
 

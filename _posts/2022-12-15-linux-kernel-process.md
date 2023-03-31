@@ -571,7 +571,7 @@ int fastcall attach_pid(struct task_struct *task, enum pid_type type, struct pid
 static struct hlist_head *pid_hash;
 ```
 
-##### 函数
+##### 辅助函数
 
 内核提供了若干辅助函数，用于操作和扫描上面描述的数据结构。本质上内核必须完成下面两个
 不同的任务：
@@ -660,7 +660,7 @@ struct pid *alloc_pid(struct pid_namespace *ns)
 
 task_struct 数据结构提供了两个链表表头，用于实现这些关系：
 
-```C
+```c
 // <sched.h>
 struct task_struct {
     ...
@@ -772,7 +772,7 @@ asmlinkage int sys_clone(struct pt_regs regs)
 
 在 do_fork 中大多数工作是由 `copy_process` 函数完成的，其代码流程如图所示。请注意，该函数必须处理 3 个系统调用（fork、vfork 和 clone）的主要工作。
 
-其中 clone 允许转递大量的参数给 copy_process
+其中 clone 允许传递大量的参数给 copy_process
 
 ![F2-8](/assets/img/2022-12-15-linux-kernel-process/F2-8.jpg)
 
@@ -805,6 +805,14 @@ _检查标志：_
 _dup_task_struct：_
 
 新进程分配了一个**新的内核态栈**，即 `task_struct->stack`。通常栈和 `thread_info` 一同保存在一个联合 `thread_union` 中，`thread_info` 保存了线程所需的所有特定于处理器的**底层信息**。
+
+> **内核栈和用户栈**
+>
+> **用户栈**是用户空间中的一块区域，用于保存用户进程的子程序(函数)间相互调用的参数、返回值以及局部变量等信息。在 linux 系统中，用户栈的大小一般是可变的，可以通过 ulimit 命令设置。
+>
+> **内核栈**是内核空间中为每个进程分配的一块区域，用于保存进程在内核态执行时的函数调用、系统调用、异常处理等信息，还会保存上下文切换时被切换的进程的寄存器等信息（进程切换时会陷入内核态，所以实际会使用进程的内核栈存放信息）。在 linux 系统中，内核栈的大小一般是固定的，通常为 8KB 或 16KB。
+>
+> 当进程从用户态切换到内核态时，需要保留用户态现场（上下文、寄存器、用户栈等），复制用户态参数，用户栈切到内核栈，进入内核态。当进程从内核态切换回用户态时，需要恢复用户态现场（上下文、寄存器、用户栈等），释放或回收内核资源，返回到原来的执行点。
 
 ```c
 // <sched.h>
@@ -880,7 +888,9 @@ _设置各个 ID、进程关系，等等：_
 
 > 下面会提到很多 current，意思是当前进程，此时子进程还未创建完成，其 task_struct 结构为 p，p 的父进程就是 current
 
-用之前描述的机制为进程分配一个新的 pid 实例，然后为 task_struct 赋值：
+用之前描述的机制为进程分配一个新的 pid 实例，然后为 task_struct 赋值。
+
+整个线程组使用组长(主线程)的 PID 作为线程组 ID(TGID)，它们的**父进程**是**组长进程**的**父进程**。
 
 ```c
 // kernel/fork.c
@@ -897,16 +907,15 @@ if (clone_flags & CLONE_THREAD)
 ...
 ```
 
-可以把整个线程组看成同一个进程，然后共享组长的 PID 作为线程组 ID(TGID)，同理它们的**父进程**都是**组长进程**的**父进程**。（虽然实际上组长进程是各个线程的父进程，但名义上讲不是）
+假设新 fork 的进程为 A，当前进程为 B。一般情况下，我们认为 A 是 B 的子进程，B 是 A 的父进程。但如果在`fork()`时指定了`CLONE_PARENT`或`CLONE_THREAD`，则表示保留 **当前进程(curr)** 的父进程信息，也就是说 A 和 B 变为兄弟进程，此时 A 的父进程不是 B 而是 B 的父进程：
 
 ```c
 // kernel/fork.c
-// 如果是线程
 if (clone_flags & (CLONE_PARENT | CLONE_THREAD))
-    // 真实父进程是组长(实际父进程)的父进程，可以理解为名义父进程
+    // 成为兄弟关系
     p->real_parent = current->real_parent;
 else
-    // 普通进程的正式父进程就是其父进程
+    // 成为父子关系
     p->real_parent = current;
 p->parent = p->real_parent;
 ```
@@ -924,12 +933,12 @@ if (clone_flags & CLONE_THREAD)
 }
 ```
 
-新进程接下来必须通过 children 链表与父进程连接起来
+新进程接下来必须通过 children 链表与父进程连接起来：
 
 ```c
 // kernel/fork.c
 add_parent(p);
-// 检查新进程的pid和tgid是否相同。倘若如此，则该进程是线程组的组长(也就是普通进程)。
+// 检查新进程的pid和tgid是否相同。倘若如此，则该进程是线程组的组长（也就是普通进程）。
 if (thread_group_leader(p))
 {
     // 如果创建新PID命名空间
@@ -957,11 +966,6 @@ return p;
 用户空间线程库使用 clone 系统调用来生成新线程。该调用支持（上文讨论之外的）标志，对 copy_process（及其调用的函数）具有某些特殊影响。
 
 一些专用于线程库的标志，这里不做介绍
-
-#### 小结
-
-- 线程也是用 task_struct 维护，和进程相同，有独立的 PID
-- 线程的各类名义定义和线程组组长相同，整个线程组可以看成一个整体，如名义父进程、线程组 ID 等。
 
 ### 内核线程
 
@@ -1007,14 +1011,6 @@ p = do_fork(flags | CLONE_VM | CLONE_UNTRACED, 0, &regs, 0, NULL, NULL);
 > - **内核空间**：专供内核使用
 >
 > 内核空间和用户空间有很高的隔离性，用户进程无法访问内核空间，但可以通过系统调用陷入内核态，此时系统调用可以访问内核空间。处于内核态时，也不能直接访问用户空间，需要通过`copy_from_user()`和`copy_to_user()`API 保证访问合法性。
-
-> **内核栈和用户栈**
->
-> **用户栈**是用户空间中的一块区域，用于保存用户进程的子程序(函数)间相互调用的参数、返回值以及局部变量等信息。在 linux 系统中，用户栈的大小一般是可变的，可以通过 ulimit 命令设置。
->
-> **内核栈**是内核空间中为每个进程分配的一块区域，用于保存进程在内核态执行时的函数调用、系统调用、异常处理等信息，还会保存上下文切换时被切换的进程的寄存器等信息（进程切换时会陷入内核态，所以实际会使用进程的内核栈存放信息）。在 linux 系统中，内核栈的大小一般是固定的，通常为 8KB 或 16KB。
->
-> 当进程从用户态切换到内核态时，需要保留用户态现场（上下文、寄存器、用户栈等），复制用户态参数，用户栈切到内核栈，进入内核态。当进程从内核态切换回用户态时，需要恢复用户态现场（上下文、寄存器、用户栈等），释放或回收内核资源，返回到原来的执行点。
 
 ```c
 // <sched.h>
@@ -1142,22 +1138,22 @@ struct linux_binfmt
 };
 ```
 
-每种二进制格式必须提供下面 3 个函数（应该是内核提供的，每种格式的函数都相同）:
+对于每种二进制格式对象都必须提供下面 3 个函数（应该是内核提供的，每种格式的函数都相同）:
 
 - (1) **load_binary** 用于加载普通程序。
 - (2) **load_shlib** 用于加载共享库，即动态库。
 - (3) **core_dump** 用于在程序错误的情况下输出内存转储。该转储随后可使用调试器（例如，gdb）分析，以便解决问题。**min_coredump** 是生成内存转储时，内存转储文件长度的下界（通常，这是一个内存页的长度）。
 
-每种二进制格式首先必须使用 register_binfmt 向内核注册（每种格式仅注册一次，后续该格式文件都可用这个结构）。该函数的目的是向一个链表增加一种新的二进制格式，该链表的表头是 `fs/exec.c` 中的全局变量 formats。linux_binfmt 实例通过其 next 成员彼此连接起来。
+每种二进制格式对象首先必须使用 register_binfmt 向内核注册（每种格式仅注册一次，后续该格式文件都可用这个结构）。该函数的目的是向一个链表增加一种新的二进制格式，该链表的表头是 `fs/exec.c` 中的全局变量 formats。linux_binfmt 实例通过其 next 成员彼此连接起来。
 
 ### 退出进程
 
-进程可以主动调用 exit 系统调用终止自己，也可以被动的被终止。即使代码中没有显示使用 exit 系统调用，C 编译器也会自动在 main()函数返回前加上 exit()。
+进程可以主动调用 exit 系统调用终止自己，也可以被动的被终止。即使代码中没有显式使用 exit 系统调用，C 编译器也会自动在 main()函数返回前加上 exit()。
 
 #### 释放进程关联的资源
 
 1. 将 tast_struct 中的标志成员设置为 `PF_EXITING`。
-2. 调用 del_timer_sync()删除任一内核**定时器**。根据返回的结果，它确保没有定时器在排队，也没有定时器处理程序在运行。
+2. 调用 del_timer_sync()删除关联的[内核定时器](/posts/linux-kernel-time/#定时器)。根据返回的结果，它确保没有定时器在排队，也没有定时器处理程序在运行。
 3. 如果 BSD 的进程记账功能是开启的，do_exit()调用 acct_update_integrals()来输出记账信息。
 4. 然后调用 exit_mm()函数释放进程占用的 `mm_struct`，如果没有别的进程使用它们(也就是说，这个地址空间没有被共享)，就彻底释放它们。
 5. 接下来调用 sem_exit()函数。如果进程排队等候 **IPC 信号**，它则离开队列。
@@ -1236,10 +1232,10 @@ nice 值与实时优先级属于两个体系，并无直接关系。
 
 如图所示可以用两种方法激活调度:
 
-- **通用调度器**（generic scheduler）：直接的，比如进程打算睡眠或出于其他原因`放弃CPU`；
+- **主调度器**（generic scheduler）：直接的，比如进程打算睡眠或出于其他原因`放弃CPU`；
 - **核心调度器**（core scheduler）：通过周期性机制，以固定的频率运行，**不时检测**是否有必要进行进程切换。
 
-在**调度器**被调用时，它会查询**调度器类**，得知接下来运行哪个进程。内核支持不同的**调度策略**（完全公平调度、实时调度、在无事可做时调度空闲进程等），每种策略对应一个调度器类。每个进程都只属于某一调度器类，各个调度器类负责管理所属的进程。**通用调度器**自身完全**不涉及**进程管理，其工作都委托给调度器类。
+在**调度器**被调用时，它会查询**调度器类**，得知接下来运行哪个进程。内核支持不同的**调度策略**（完全公平调度、实时调度、在无事可做时调度空闲进程等），每种策略对应一个调度器类。每个进程都只属于某一调度器类，各个调度器类负责管理所属的进程。
 
 在选中将要运行的进程之后，必须执行底层任务切换。这需要与 CPU 的紧密交互。
 
@@ -1278,7 +1274,7 @@ struct task_struct
 
 #### 调度器类
 
-目前 Linux 提高以下调度器类：
+目前 Linux 提供以下调度器类：
 
 - **Completely Fair Scheduler (CFS)**：CFS 是 Linux 内核默认的调度器，采用红黑树数据结构来维护进程队列，并根据进程的优先级和时间片大小来进行进程调度。
 - **Real-time Scheduler (RT)**：Real-time Scheduler 是 Linux 内核提供的实时调度器，可用于需要满足硬实时性要求的应用程序。它提供了多种调度策略，如 FIFO、RR 和 Deadline 等。
@@ -1393,28 +1389,54 @@ DECLARE_PER_CPU(struct rq, runqueues);
 **调度器**操作的是比进程描述符更通用的`调度实体(sched_entity)`，而非 task_struct 结构。
 
 ```c
-// <sched.h>
-struct sched_entity
-{
-    struct load_weight load; /* 用于负载均衡 */
+// include/linux/sched.h
+struct sched_entity {
+	struct load_weight	load;		/* for load-balancing */
     // 红黑树节点
-    struct rb_node run_node;
+	struct rb_node		run_node;
+	struct list_head	group_node;
     // 该实体当前是否在就绪队列上接受调度
-    unsigned int on_rq;
+	unsigned int		on_rq;
     // 在进程运行时，我们需要记录消耗的CPU时间，以用于完全公平调度器。
     // 进程开始运行时间(一个运行周期内，被调度切换进程时清空)
-    u64 exec_start;
-    // 进程总物理运行时间（进程总生命周期，一个运行周期结束不重置），通过当前时间减去exec_start获得（分段累计，防止exec_start的清空）
-    u64 sum_exec_runtime;
+	u64			exec_start;
+    // 进程总物理运行时间（进程总生命周期，一个运行周期结束不重置），
+    // 通过当前时间减去exec_start获得（分段累计，防止exec_start的清空）
+	u64			sum_exec_runtime;
     // 进程总虚拟运行时间（类似sum_exec_runtime）
-    u64 vruntime;
+	u64			vruntime;
     // 上个运行周期结束sum_exec_runtime的值
-    u64 prev_sum_exec_runtime;
-    ...
-}
+	u64			prev_sum_exec_runtime;
+
+	u64			nr_migrations;
+
+#ifdef CONFIG_SCHEDSTATS
+	struct sched_statistics statistics;
+#endif
+
+#ifdef CONFIG_FAIR_GROUP_SCHED
+	struct sched_entity	*parent;
+	/* rq on which this entity is (to be) queued: */
+	struct cfs_rq		*cfs_rq;
+	/* rq "owned" by this entity/group: */
+	struct cfs_rq		*my_q;
+#endif
+
+/*
+ * Load-tracking only depends on SMP, FAIR_GROUP_SCHED dependency below may be
+ * removed when useful for applications beyond shares distribution (e.g.
+ * load-balance).
+ */
+#if defined(CONFIG_SMP) && defined(CONFIG_FAIR_GROUP_SCHED)
+	/* Per-entity load-tracking */
+	struct sched_avg	avg;
+#endif
+};
 ```
 
-每个 task_struct 都嵌入了一个 sched_entity 成员，以便其可以被调度器调度
+每个 task_struct 都嵌入了一个 sched_entity 成员，以便其可以被调度器调度。多个进程可以合并为调度组，由同一个调度实体管理（组调度），通过启用`CONFIG_FAIR_GROUP_SCHED`实现：
+
+![F2-29](/assets/img/2022-12-15-linux-kernel-process/F2-29.jpg)
 
 ### 处理优先级
 
@@ -1620,41 +1642,42 @@ static void inc_nr_running(struct task_struct *p, struct rq *rq)
 
 #### 周期性调度器
 
-周期性调度器函数`scheduler_tick()`在每个 CPU ticks 调用一次，该函数有下面两个主要任务：
+[周期性调度器函数 scheduler_tick()](/posts/linux-kernel-time/#时钟中断处理程序)在每个 CPU ticks 调用一次，该函数有下面两个主要任务：
 
 - (1) 管理内核中与整个系统和各个进程的调度相关的**统计量**。其间执行的主要操作是对各种`计数器加 1`。
-- (2) 激活负责当前进程的**调度类**的周期性调度方法：
+- (2) 激活负责当前进程的**调度类**的周期性调度方法（`task_tick`钩子）
 
-  ```c
-  void scheduler_tick(void)
-  {
-       // 当前 CPU
-      int cpu = smp_processor_id();
-      // 当前CPU的就绪队列
-      struct rq *rq = cpu_rq(cpu);
-      // 当前运行的进程
-      struct task_struct *curr = rq->curr;
+```c
+void scheduler_tick(void)
+{
+    // 当前 CPU
+    int cpu = smp_processor_id();
+    // 当前CPU的就绪队列
+    struct rq *rq = cpu_rq(cpu);
+    // 当前运行的进程
+    struct task_struct *curr = rq->curr;
 
-      sched_clock_tick();
+    sched_clock_tick();
 
-      raw_spin_lock(&rq->lock);
-      // 处理就绪队列时钟的更新，也就是clock成员
-      update_rq_clock(rq);
-      // 更新cpu_load[]数组，保存历史负荷值
-      update_cpu_load_active(rq);
-      // 调用进程对应的的调度器类实例的方法
-      curr->sched_class->task_tick(rq, curr, 0);
-      raw_spin_unlock(&rq->lock);
+    raw_spin_lock(&rq->lock);
+    // 处理就绪队列时钟的更新，也就是clock成员
+    update_rq_clock(rq);
+    // 更新cpu_load[]数组，保存历史负荷值
+    update_cpu_load_active(rq);
+    // 调用进程对应的的调度器类实例的方法
+    curr->sched_class->task_tick(rq, curr, 0);
+    raw_spin_unlock(&rq->lock);
 
-      perf_event_task_tick();
+    perf_event_task_tick();
 
-  #ifdef CONFIG_SMP
-      rq->idle_balance = idle_cpu(cpu);
-      trigger_load_balance(rq, cpu);
-  #endif
-      rq_last_tick_reset(rq);
-  }
-  ```
+#ifdef CONFIG_SMP
+    rq->idle_balance = idle_cpu(cpu);
+    // SMP相关，触发CPU负载均衡，软中断实现
+    trigger_load_balance(rq, cpu);
+#endif
+    rq_last_tick_reset(rq);
+}
+```
 
 `task_tick` 的实现方式取决于底层的调度器类。例如，**完全公平调度器**会在该方法中检测是否进程已经运行**太长时间**，以避免过长的延迟。（这里就是和**时间片轮转**不同的地方，完全公平调度器会实时检测进程的运行的时长而**动态调整**调度它的时间，而不是死板的进程开始就确定只能运行多长时间片）
 
@@ -1664,7 +1687,7 @@ static void inc_nr_running(struct task_struct *p, struct rq *rq)
 
 #### 主调度器
 
-在内核中的许多地方，如果要将 CPU 分配给与当前活动进程不同的另一个进程（切换进程），都会直接调用**主调度器函数**（schedule）。在从**系统调用返回**或[中断返回](/posts/linux-kernel-interrupt/#检查重新调度)之后，内核也会检查当前进程是否设置了`重调度标志 TIF_NEED_RESCHED`，例如，前述的 `scheduler_tick` 就会设置该标志，**标志置位时内核会调用 `schedule()`**。
+在内核中的许多地方，如果要将 CPU 分配给与当前活动进程不同的另一个进程（切换进程），都会直接调用**主调度器函数**（schedule）。在从**系统调用返回**之后（如果支持内核抢占，[中断返回](/posts/linux-kernel-interrupt/#检查重新调度)后也会检测一次），内核也会检查当前进程是否设置了`重调度标志 TIF_NEED_RESCHED`，例如，前述的 `scheduler_tick` 就会设置该标志，**标志置位时内核会调用 `schedule()`**。
 
 会调用 schedule 的函数模板必须有 `__sched` 前缀：
 
@@ -1714,17 +1737,22 @@ need_resched:
 
 	switch_count = &prev->nivcsw;
     /*
-     * 如果state为TASK_RUNNING(0)。表示可能是CPU时间用尽被强制切换，则不会进入该分支。
-     * 如果不为TASK_RUNNING，表示可能是主动进入休眠了，比如等待I/O等。
-     * 后一部分判断当前是否正在进行内核抢占，只有不在内核抢占状态才进入分支。
+     * 如果state为TASK_RUNNING(0)或是抢占计数器设置了PREEMPT_ACTIVE
+     * 表示本次调度由抢占触发，也就是被更高优先级进程强制抢占。判断条件
+     * 失败，跳过该分支
+     * 如果不为TASK_RUNNING且调度不是由抢占触发的，表示可能是
+     * 主动进入休眠了，比如等待I/O等，此时就要进入分支停用该
+     * 进程(deactivate_task)
      */
 	if (prev->state && !(preempt_count() & PREEMPT_ACTIVE)) {
-        // 如果当前进程prev处于可中断睡眠状态TASK_INTERRUPTIBLE，
-        // 判断一次是否有唤醒信号，
-        // (不知道这里是不是唯一一处
-        // 判断唤醒信号并将进程转为可运行状态的地方)
+        /*
+         * 如果当前进程prev处于可中断睡眠状态TASK_INTERRUPTIBLE
+         * （一般进程主动休眠前都会将自己的状态置为TASK_INTERRUPTIBLE），
+         * 判断当前是否有唤醒信号。这样如果进程刚休眠就收到唤醒信号，
+         * 就能及时重新运行(如果优先级还是最高)，也免去了调度的消耗。
+         */
 		if (unlikely(signal_pending_state(prev->state, prev))) {
-            // 则当前进程置为可运行状态
+            // 当前进程置为可运行状态
 			prev->state = TASK_RUNNING;
 		} else {
             // 否则将其移出调度器类的队列
@@ -1796,11 +1824,12 @@ need_resched:
 	post_schedule(rq);
     // 重新开启内核抢占
 	sched_preempt_enable_no_resched();
-    // 再次检测TIF_NEED_RESCHED标志，如果需要重新调度则重复上面步骤,
-    // 这样将不会返回用户空间继续本进程，而是再次调度
-    // TODO:一般发生在什么时候?可能的情况是进程在休眠期间自己的
-    // TIF_NEED_RESCHED又被其他进程置位了
-	if (need_resched())
+    /* 再次检测TIF_NEED_RESCHED标志，如果进程又需要被重新调度，
+     * 可以及时处理，不用返回用户空间等待下次调度。
+     * TODO:一般发生在什么时候?可能的情况是进程在休眠期间自己的
+     * TIF_NEED_RESCHED又被其他进程置位了
+	 */
+    if (need_resched())
 		goto need_resched;
 }
 ```
@@ -1837,16 +1866,36 @@ pick_next_task(struct rq *rq)
 }
 ```
 
-在开启抢占式调度(CONFIG_PREEMPT)的情况下，`__schedule`会被`preempt_schedule_context()`执行。首先会判断进程的`TIF_NEED_RESCHED`标志是否置位，然后执行主调度器函数`__schedule()`：
+#### 主调度器的触发时机
 
-```c
-// include/linux/preempt.h
-#define preempt_check_resched_context() \
-do { \
-	if (unlikely(test_thread_flag(TIF_NEED_RESCHED))) \
-		preempt_schedule_context(); \
-} while (0)
-```
+- 内核抢占，详见[内核抢占的触发时机](#内核抢占的触发时机)
+- 进程阻塞，主动放弃 CPU
+- 在内核中耗时较长的函数中见缝插针(比如每个循环中)的触发，这会使用到`cond_resched()`（其实很像`preempt_schedule()`）：
+  
+    ```c
+    static inline int should_resched(void)
+    {
+        return need_resched() && !(preempt_count() & PREEMPT_ACTIVE);
+    }
+
+    static void __cond_resched(void)
+    {
+        add_preempt_count(PREEMPT_ACTIVE);
+        __schedule();
+        sub_preempt_count(PREEMPT_ACTIVE);
+    }
+
+    int __sched _cond_resched(void)
+    {
+        if (should_resched()) {
+            __cond_resched();
+            return 1;
+        }
+        return 0;
+    }
+    ```
+
+    即使没有显式内核抢占，这也能够保证较高的响应速度。
 
 #### 与 fork 的交互
 
@@ -1954,8 +2003,8 @@ prev = switch_to(prev,next)
 > _惰性 FPU 模式：_
 >
 > 上下文切换时一般会把当前进程用到的寄存器压栈，然后从需要执行的进程的栈中恢复寄存器。但浮点计算寄存器由于很少使用且每次保存恢复的开销较大，就有了惰性 FPU 模式，也就是上下文切换期间默认**不去操作**该寄存器(假定新的进程不会去操作该寄存器)，直到进程**第一次**使用该寄存器时将原有的值**压入**最后一次使用的进程的**栈**中。
-
-现代 CPU 为 FPU context 切换进行了**优化**，所以 save/restore 的开销不再是一个问题。
+>
+> 现代 CPU 为 FPU context 切换进行了**优化**，所以 save/restore 的开销不再是一个问题。
 
 ### 休眠和唤醒
 
@@ -2742,9 +2791,198 @@ Linux 提供了一个系统调用族，用于管理与调度程序相关的参�
 
 ### SMP 调度
 
-多处理器系统上，内核必须考虑几个额外的问题，以确保良好的调度：
+为了高效利用 CPU，内核需要支持以下功能：
 
-TODO:后面在看
+- CPU 负载均衡，不要出现 1 核有难，7 核围观。
+- CPU 亲和性设置，例如在 4 个 CPU 系统中，可以将计算密集型应用程序绑定到前 3 个 CPU，而剩余的（交互式）进程则在第 4 个 CPU 上运行。
+- 进程能在 CPU 间移动，但要考虑高速缓存切换和内存移动带来的代价。
+
+数据结构：
+
+```c
+// kernel/sched/sched.h
+struct rq {
+...
+#ifdef CONFIG_SMP
+	struct root_domain *rd;
+	struct sched_domain *sd;
+
+	unsigned long cpu_power;
+
+	unsigned char idle_balance;
+	/* For active balancing */
+	int post_schedule;
+	int active_balance;
+	int push_cpu;
+	struct cpu_stop_work active_balance_work;
+	/* cpu of this runqueue: */
+	int cpu;
+	int online;
+
+	struct list_head cfs_tasks;
+
+	u64 rt_avg;
+	u64 age_stamp;
+	u64 idle_stamp;
+	u64 avg_idle;
+#endif
+...
+};
+```
+
+和 SMP 调度相关的变量部分在就绪队列结构 rq 中
+
+#### 负载均衡流程
+
+![F2-25](/assets/img/2022-12-15-linux-kernel-process/F2-25.jpg)
+
+在[周期性调度器](#周期性调度器)中，会触发`trigger_load_balance()`，并使用软中断`SCHED_SOFTIRQ`来延后执行负载均衡：
+
+```c
+// kernel/sched/fair.c
+void trigger_load_balance(struct rq *rq, int cpu)
+{
+	/* Don't need to rebalance while attached to NULL domain */
+	if (time_after_eq(jiffies, rq->next_balance) &&
+	    likely(!on_null_domain(cpu)))
+		raise_softirq(SCHED_SOFTIRQ);
+#ifdef CONFIG_NO_HZ_COMMON
+	if (nohz_kick_needed(rq, cpu) && likely(!on_null_domain(cpu)))
+		nohz_balancer_kick(cpu);
+#endif
+}
+```
+
+软中断`SCHED_SOFTIRQ`绑定的中断处理程序为`run_rebalance_domains()`:
+
+```c
+// kernel/sched/fair.c
+static void run_rebalance_domains(struct softirq_action *h)
+{
+	int this_cpu = smp_processor_id();
+	struct rq *this_rq = cpu_rq(this_cpu);
+	enum cpu_idle_type idle = this_rq->idle_balance ?
+						CPU_IDLE : CPU_NOT_IDLE;
+
+	rebalance_domains(this_cpu, idle);
+
+	/*
+	 * If this cpu has a pending nohz_balance_kick, then do the
+	 * balancing on behalf of the other idle cpus whose ticks are
+	 * stopped.
+	 */
+	nohz_idle_balance(this_cpu, idle);
+}
+```
+
+CPU 较多的情况下可以选择将物理上相邻的 CPU 的就绪队列组织为**调度域**（scheduling domain），从而划分为多个调度域，在同一调度域间搬迁进程消耗较少。不过一般非大型的系统上用不上该特性，所有 CPU 都在一个调度域内。
+
+对于`rebalance_domains()`的具体调度算法，这里不再展开。
+
+### 内核抢占
+
+在 2.5 版本之前，内核在内核空间中的操作不会被“暂停”，比如进程使用系统调用陷入内核空间后会执行完整个系统调用操作，即使耗时很长。即使中断打断了该系统调用，中断返回后该系统调用也继续运行，不触发调度。
+
+linux kernel 2.4(不支持内核抢占)：
+
+![linux2.4](/assets/img/2022-12-15-linux-kernel-process/linux2.4.gif)
+
+橙色和紫色是两个不同的进程，紫色触发了 read()系统调用，进入内核空间，此时发生中断，中断处理完毕后返回内核空间继续执行，因为处于内核空间，在 2.4 中无法触发调度。
+
+Linux 2.6 内核引入了完全抢占式内核（Fully Preemptible Kernel）的支持，它实现了**内核抢占**的特性，即使是在执行系统调用，也可被抢占调度。
+
+linux kernel 2.6(支持内核抢占)：
+
+![linux2.6](/assets/img/2022-12-15-linux-kernel-process/linux2.6.gif)
+
+在 2.6 中，即使是在内核空间，只要`preempt_count`为 0 表明可以抢占，就可以直接触发调度切换到其他的高优先级进程。
+
+#### 内核抢占的实现
+
+在 task_struct 的 `thread_info` 结构中，有一个抢占计数器 `preempt_count`:
+
+```c
+// <asm-arch/thread_info.h>
+struct thread_info {
+    ...
+    int preempt_count; /* 0 => 可抢占，>0 => 不可抢占， <0 => BUG */
+    ...
+}
+```
+
+`preempt_count` 确定了内核当前是否处于一个**可以被抢占**的位置。如果 `preempt_count` 为零，则内核可以被抢占，否则不行。比如处于临界区时内核是不希望自己被抢占的，可以通过`preempt_disable`暂时停用内核抢占。
+
+preempt_count 是一个 int 而不是 bool 类型的值，表示对内核抢占的开关可以嵌套，多次增加 preempt_count 关闭内核抢占后，必须递减同样次数的 preempt_count，才能再次启用内核抢占。
+
+`preempt_count` 操作相关的函数：
+
+- **preempt_disable**：通过调用 `inc_preempt_count` 增加计数来停用抢占。此外，会指示编译器避免某些内存优化，以免导致某些与抢占机制相关的问题。
+- **preempt_check_resched**：会检测是否有必要进行调度，如有必要则进行。
+- **preempt_enable**：启用内核抢占，然后立即用 preempt_check_resched 检测是否有必要重调度。
+- **preempt_enable_no_resched**：启用内核抢占，但不进行重调度。实际操作是调用 `dec_preempt_count()`为 preempt_count 加 1。
+
+抢占的实际操作就是调用主调度器`__schedule()`函数触发一次调度。
+
+在开启抢占式调度(CONFIG_PREEMPT)的情况下，`preempt_schedule_context()`会在合适的时机执行，此时会检测当前进程是否需要被调度(TIF_NEED_RESCHED 标志)，然后执行`preempt_schedule()`：
+
+```c
+// include/linux/preempt.h
+#define preempt_check_resched() \
+do { \
+	if (unlikely(test_thread_flag(TIF_NEED_RESCHED))) \
+		preempt_schedule(); \
+} while (0)
+```
+
+在 `preempt_schedule()` 中，判断当前是否允许内核抢占(preempt_count 是否为 0)或是否停用了中断（irqs_disabled()），如果允许，则调用主调度器函数`__schedule()`触发调度：
+
+```c
+asmlinkage void __sched notrace preempt_schedule(void)
+{
+	struct thread_info *ti = current_thread_info();
+
+	/*
+	 * If there is a non-zero preempt_count or interrupts are disabled,
+	 * we do not want to preempt the current task. Just return..
+	 */
+	if (likely(ti->preempt_count || irqs_disabled()))
+		return;
+
+	do {
+        /*
+         * 触发调度前首先将preempt_count加上极大值PREEMPT_ACTIVE
+         * 保证关闭内核抢占，防止嵌套。同时该标志用于schedule()中
+         * 对是否是由抢占触发的情况做判断。
+         */
+		add_preempt_count_notrace(PREEMPT_ACTIVE);
+		__schedule();
+        // 调度结束回来时要把临时加的PREEMPT_ACTIVE减掉
+		sub_preempt_count_notrace(PREEMPT_ACTIVE);
+
+		/*
+		 * Check again in case we missed a preemption opportunity
+		 * between schedule and now.
+		 */
+		barrier();
+    // 每次循环判断一次TIF_NEED_RESCHED标记，如果依然需要调度，则再次执行不返回
+	} while (need_resched());
+}
+```
+
+#### 内核抢占的触发时机
+
+- 内核抢占被重新激活时，也就是 `preempt_enable()` 被调用时，会调用 `preempt_check_resched()`进行调度(如果条件满足)
+
+  ```c
+  #define preempt_enable() \
+  do { \
+      preempt_enable_no_resched(); \
+      barrier(); \
+      preempt_check_resched(); \
+  } while (0)
+  ```
+
+- 在处理了一个硬件中断请求之后。如果处理器在处理中断请求后返回**核心态**（返回用户态不属于内核抢占讨论的范畴），特定于体系结构的汇编例程会检查抢占计数器值是否为 0(是否允许抢占)，以及是否设置了重调度标志，然后调用 `__schedule()`
 
 ## 参考
 
