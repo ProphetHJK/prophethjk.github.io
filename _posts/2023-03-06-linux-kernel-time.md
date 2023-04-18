@@ -179,7 +179,7 @@ x86 架构集成了名为可编程中断时钟 PIT(Programmable Interval Timer)�
   - 给 `jiffes64` 变量增加 1(这个操作即使是在 32 位体系结构上也是安全的，因为前面已经获得了锁)。
   - 更新资源消耗的统计值，比如当前进程所消耗的系统时间和用户时间。
   - 执行已经到期的[动态定时器](#定时器)。
-  - 执行[周期性调度器]中(/posts/linux-kernel-process/#周期性调度器)曾讨论的 `scheduler_tick()` 函数。
+  - 执行[周期性调度器](/posts/linux-kernel-process/#周期性调度器)中曾讨论的 `scheduler_tick()` 函数。
   - 更新墙上时间，该时间存放在 xtime 变量中。
   - 计算平均负载值。
 

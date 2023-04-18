@@ -1000,8 +1000,8 @@ p = do_fork(flags | CLONE_VM | CLONE_UNTRACED, 0, &regs, 0, NULL, NULL);
 
 因为内核线程是由内核自身生成的，应该注意下面两个特别之处:
 
-- (1) 它们在 CPU 的**管态**（supervisor mode）执行，而不是用户态（参见第 1 章）。
-- (2) 它们只可以访问虚拟地址空间的**内核部分**（高于 `TASK_SIZE` 的所有地址），但**不能访问用户空间**。
+- (1) 它们在 CPU 的**管态**（supervisor mode）执行，而不是[用户态](/posts/linux-kernel/#地址空间与特权级别)。
+- (2) 它们只可以访问虚拟地址空间的[**内核部分**](/posts/linux-kernel/#地址空间与特权级别)（高于 `TASK_SIZE` 的所有地址），但**不能访问用户空间**。
 
 > **内核空间和用户空间**
 >
