@@ -1,0 +1,103 @@
+@startuml
+
+state Meter {
+  state Reset {
+    Reset : entry/postFIFO(me,OFF)
+    Reset : SOME_REQUEST/defer()
+  }
+
+  state Working {
+    Working : entry/loadDeferEvents()
+    Working : entry/getMode()
+    Working : MINUTE/readRegister()
+
+    state c <<choice>>
+    [*] --> c
+
+    c --> PowerOn : [mode==0]
+    c --> Simple : [mode==1]
+    state "上电状态" as PowerOn {
+      PowerOn : entry/recall()
+      PowerOn : QUARTER/saveDataToFlash()
+    }
+
+    note top of PowerOn : 恢复延迟的事件
+
+    note top of Simple : 断电状态下延迟\n无法处理的事件\n可以使用QF的延迟事件功能\n也可以自定义一种标志
+    state "断电状态" as Simple {
+      Simple : SOME_REQUEST/defer()
+      [*] --> LowPower
+      state "低功耗状态" as LowPower {
+        LowPower : entry/reduceSampFreq()
+      }
+
+
+      state "唤醒状态" as WakeUp {
+        WakeUp : entry/setTimer()
+      }
+    }
+  }
+
+  [*] --> Working
+  note top of Working : 利用状态模式中的终极钩子模式，\n使多个子状态继承自同一个父状态，\n从而让这些子状态表现出部分一致的功能
+  note top of Working
+    OFF事件表示主动关机，
+    对于剩余电量的评估应该是可控的。
+    OFF事件应该是FIFO的，
+    保证事件被加入等待队列后再关机
+    由优先级最低的AO处理最后的关机操作
+  end note
+
+  note top of Working
+    defer事件队列由AO自行管理
+    利用这点可以实现AO管理的保存和加载，
+    而无需依赖或修改QF。
+    需要同时把事件指针指向的空间保存下来,
+    每一种事件类型都不同，
+    可以定义压缩方式减少占用的EE空间
+  end note
+
+  PowerOn --> Reset : 掉电事件
+  LowPower --> WakeUp : 按键事件
+  LowPower <-- WakeUp : 超时事件
+  Simple --> Reset : 上电事件
+
+  Reset --> [*] : OFF/saveDeferEvents() //退出时保存等待队列中的事件\n不同AO可以都存放在同一片内存区域\n再由某个数据管理AO统一保存到持久化存储设备
+  note top of Working : 掉电上电按键事件由ISR产生\n并使用LIFO方式发送给其他AO
+  ||
+  ' RTC Active Object
+  state RTC{
+    [*] --> RTCWorking
+    state RTCWorking {
+      RTCWorking : TICK[second==0 && flag]/MINUTE,flag=0
+      RTCWorking : TICK[second!=0]/flag=1
+      RTCWorking : TICK[second==0 && minute%15 == 0]/QUARTER
+      RTCWorking : TICK[minute==0 && second==0]/HOUR
+    }
+  }
+  note top of RTCWorking : 过整点和整分钟发送事件
+  note top of RTCWorking
+    由于使用了非抢占内核，
+    应保证其他AO的RTC步骤不能过长,
+    否则TICK事件无法及时处理，
+    影响事件的时序
+  end note
+
+  note top of RTC
+    AO间的同步通信，可以参考MQTT的同步通信实现
+    事件的参数携带回调函数
+    回调函数发送结果回请求者
+  end note
+  ||
+  state "EEpromWorking" as eeWorking {
+    eeWorking : entry/setTimer()
+    eeWorking : TIMER/saveRingBufToEE()
+    eeWorking : SAVEDATA/saveDataToEE()
+  }
+  note top of eeWorking
+    异步写入存储的方式并不好，
+    没有明显优势且提升了复杂度
+  end note
+}
+
+@enduml

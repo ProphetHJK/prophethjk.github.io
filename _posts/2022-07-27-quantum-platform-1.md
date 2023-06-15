@@ -86,8 +86,8 @@ tags: [quantum platform, QP状态机]
   - [QF 的结构](#qf-的结构)
     - [QF 源代码的组织](#qf-源代码的组织)
   - [QF 里的临界区](#qf-里的临界区)
-    - [保存和恢复中断状态](#保存和恢复中断状态)
     - [无条件上锁和解锁中断](#无条件上锁和解锁中断)
+    - [保存和恢复中断状态](#保存和恢复中断状态)
     - [中断上锁/解锁的内部 QF 宏](#中断上锁解锁的内部-qf-宏)
   - [主动对象](#主动对象)
     - [活动对象的内部状态机](#活动对象的内部状态机)
@@ -109,7 +109,7 @@ tags: [quantum platform, QP状态机]
     - [QEQueue 结构](#qequeue-结构)
     - [QEQueue 的初始化](#qequeue-的初始化)
     - [原生 QF 活动对象队列](#原生-qf-活动对象队列)
-    - [“ 原始的”线程安全的队列](#-原始的线程安全的队列)
+    - [“原始的”线程安全的队列](#原始的线程安全的队列)
   - [原生 QF 内存池](#原生-qf-内存池)
     - [原生 QF 内存池的初始化](#原生-qf-内存池的初始化)
     - [从池里获得一个内存块](#从池里获得一个内存块)
@@ -244,7 +244,7 @@ tags: [quantum platform, QP状态机]
 
 一个事件是对系统有`重大意义`的一个在时间和空间上所发生的事情。
 
-UML图中事件表示`事件类型`而不是实例，实际程序中判断的是事件类型实例化后的`事件实例`。
+UML 图中事件表示`事件类型`而不是实例，实际程序中判断的是事件类型实例化后的`事件实例`。
 
 #### 动作和转换 (Action and Transition)
 
@@ -305,7 +305,7 @@ UML 的状态图里的每个状态机都可以有`可选`的`进入动作`，它
 
 ![entryexit](/assets/img/2022-07-27-quantum-platform-1/entryexit.jpg)
 
-如图，当炉门在打开时总是关闭加热器(heating状态退出动作)。另外当炉门被打开，应该点亮内部照明灯(door_open状态进入动作)。
+如图，当炉门在打开时总是关闭加热器(heating 状态退出动作)。另外当炉门被打开，应该点亮内部照明灯(door_open 状态进入动作)。
 
 进入动作的执行必须总是按从最外层状态到最里层状态的次序被处理，如 DOOR_CLOSE 事件让状态变为 heating ，此时先执行 heater_on() ，再因初始转换自动进入子状态 toasting ，并执行 arm_time_event(me->toast_color) 。类比于构造函数的调用顺序
 
@@ -355,14 +355,14 @@ UML 的状态图里的每个状态机都可以有`可选`的`进入动作`，它
 - 图中(b)上半：外部转换在主目标状态是`主源状态`的一个`子状态`时，导致退出和重新进入主源状态。
 - 图中(b)下半：本地转换在主目标状态是`主源状态`的一个`超状态`时，导致退出和重新进入目标状态。
 
-> 在本书第四章描叙的 HSM实现（以及本书第一版描叙的HSM实现）仅支持`本地转换`语义。
+> 在本书第四章描叙的 HSM 实现（以及本书第一版描叙的 HSM 实现）仅支持`本地转换`语义。
 
 #### UML 里的事件类型
 
 UML 规范定义了四种事件，通过具体的符号区分它们：
 
 - `signalEvent` 代表一个特定的（异步）信号。它的格式是：_`信号名 ’(’ 逗号分开的变量表 ’)’`_ 。
-- `TimeEvnt` 对一个特定的最后期限建模。它用关键词 `after` 标识，后面是一个具体指明时间量的表达式。时间从进入到以 TimeEvnt为一个触发的状态开始计时。
+- `TimeEvnt` 对一个特定的最后期限建模。它用关键词 `after` 标识，后面是一个具体指明时间量的表达式。时间从进入到以 TimeEvnt 为一个触发的状态开始计时。
 - `callEvent` 代表了同步地调用一个特定操作的请求。它的格式是：_`操作名 ’(’ 逗号分开的变量表 ’)’`_ 。
 - `changeEvent` 对一个明确的布尔表达式为真时出现的一个事件建模。它用关键词 `when` 标识，后面是一个布尔表达式。
 
@@ -436,7 +436,7 @@ operator   ::= '+' | '-' | '*' | '/'
 
 (A)的问题是没有结果显示状态(result)，完善后得到(B)，可以在开始下一次输入 operand1 前清空屏幕，还可以将结果作为下一次的 operand1
 
-> 把信号 PLUS ，MINUS， MULTIPLY 和 DIVIDE `合并`成一个高级的信号 `OPER` （操作数）。这个变换避免了在两个转换（从 operand1 到 opEntered，和从 result 到 opEntered）上重复相同的触发（这里的意思应该就是简化设计，不然要画4条箭头）。
+> 把信号 PLUS ，MINUS， MULTIPLY 和 DIVIDE `合并`成一个高级的信号 `OPER` （操作数）。这个变换避免了在两个转换（从 operand1 到 opEntered，和从 result 到 opEntered）上重复相同的触发（这里的意思应该就是简化设计，不然要画 4 条箭头）。
 
 #### 寻找重用 (Reuse)
 
@@ -491,7 +491,7 @@ operator   ::= '+' | '-' | '*' | '/'
 
 ## 标准状态机的实现方法
 
-定时炸弹有一个带有LCD的控制面板显示当前的超时值，还有三个按钮： UP ，DOWN 和 ARM 。用户开始时要设定时炸弹，使用 UP 和 DOWN 按钮以一秒的步长调节超时值。一旦所需要的超时值被选中，用户能通过按 ARM 按钮来启动这个炸弹。当启动后，炸弹开始每秒递减这个超时值， 并在超时值到达零时爆炸。附加的安全特征是通过输入一个密码来拆除一个已启动的定时炸弹雷管的选项。拆雷管的密码是 UP 和 DOWN 按钮的某个组合，并以 ARM 按钮被按下结束。当然，拆雷管的密码必须在炸弹超时前被正确的输入。
+定时炸弹有一个带有 LCD 的控制面板显示当前的超时值，还有三个按钮： UP ，DOWN 和 ARM 。用户开始时要设定时炸弹，使用 UP 和 DOWN 按钮以一秒的步长调节超时值。一旦所需要的超时值被选中，用户能通过按 ARM 按钮来启动这个炸弹。当启动后，炸弹开始每秒递减这个超时值， 并在超时值到达零时爆炸。附加的安全特征是通过输入一个密码来拆除一个已启动的定时炸弹雷管的选项。拆雷管的密码是 UP 和 DOWN 按钮的某个组合，并以 ARM 按钮被按下结束。当然，拆雷管的密码必须在炸弹超时前被正确的输入。
 
 定时炸弹状态机的 UML 状态图:
 
@@ -1758,7 +1758,7 @@ QState Sensor_busy(Sensor *me, QEvent const *e)
 
 ![defer](/assets/img/2022-07-27-quantum-platform-1/defer.jpg)
 
-延迟事件状态模式严重依赖事件队列，所以用了QF框架
+延迟事件状态模式严重依赖事件队列，所以用了 QF 框架
 
 ```c
 #include "qp_port.h"
@@ -2005,7 +2005,7 @@ void BSP_onConsoleInput(uint8_t key)
 
 - 问题
 
-许多对象包含`相对独立`的具有状态行为的部分。例如，考虑一个简单的数字闹钟。这个设备执行 2 个大的`独立`的功能：`基本的计时功能`和`闹钟功能`。每个功能都有自己的操作模式。例如，计时可以使用 2 个模式： 12小时制或 24小时制。类似的，闹钟功能也可以启动或停止。
+许多对象包含`相对独立`的具有状态行为的部分。例如，考虑一个简单的数字闹钟。这个设备执行 2 个大的`独立`的功能：`基本的计时功能`和`闹钟功能`。每个功能都有自己的操作模式。例如，计时可以使用 2 个模式： 12 小时制或 24 小时制。类似的，闹钟功能也可以启动或停止。
 
 在 UML 状态图里建模这样行为的标准方法是吧每个这种松散关联的功能放到一个独立的`正交区域`。相当于两个线程，重用少，资源消耗大，且 QEP 不支持
 
@@ -2025,7 +2025,7 @@ void BSP_onConsoleInput(uint8_t key)
 
 ![alarmclock3](/assets/img/2022-07-27-quantum-platform-1/alarmclock3.jpg)
 
-*共有信号和事件 clock.h:*
+_共有信号和事件 clock.h:_
 
 ```c
 #ifndef clock_h
@@ -2058,7 +2058,7 @@ extern QActive *APP_alarmClock; /* AlarmClock container active object */
 #endif /* clock_h */
 ```
 
-*Alarm 组件(闹钟功能)声明 alarm.h:*
+_Alarm 组件(闹钟功能)声明 alarm.h:_
 
 ```c
 #ifndef alarm_h
@@ -2076,7 +2076,7 @@ void Alarm_ctor(Alarm *me);
 #endif /* alarm_h */
 ```
 
-*Alarm 组件(闹钟功能)的定义 alarm.c:*
+_Alarm 组件(闹钟功能)的定义 alarm.c:_
 
 ```c
 #include "alarm.h"
@@ -2185,7 +2185,7 @@ QState Alarm_on(Alarm *me, QEvent const *e)
 }
 ```
 
-*AlarmClock 容器（计时功能）定义 clock.c:*
+_AlarmClock 容器（计时功能）定义 clock.c:_
 
 ```c
 #include "qp_port.h"
@@ -2379,7 +2379,7 @@ UML 状态图使用 2 类`历史伪状态`处理这种情况：浅历史和深�
 - 解决方法
 
 它把 doorClosed 状态最近的活动`叶子状态`存储在一个专用的数据成员 `doorClosed_history` 里。doorOpen 状态的转换到`历史`（带
-圆圈的 H* ）时使用这个属性作为这个转换的目标。
+圆圈的 H\* ）时使用这个属性作为这个转换的目标。
 
 ![historystate](/assets/img/2022-07-27-quantum-platform-1/historystate.jpg)
 
@@ -2576,7 +2576,7 @@ QState ToasterOven_doorOpen(ToasterOven *me, QEvent const *e)
 - 需要一个用于`存储历史状态`的变量，这个变量是个指针，指向了状态处理函数
 - 转换到历史伪状态（深历史和浅历史）使用标准的 `Q_TRAN()` 宏编码，这里目标被特定为历史变量。
 - 为了实现[`深历史伪状态`](#伪状态-pseudostates)，需要在相应组合状态的每个叶子状态的`进入动作`上明确的设置历史变量。
-- 为了实现`浅历史伪状态`，需要在每一个从所需层次的`退出动作`上明确的设置历史变量。例如，图5.12中的 doorClosed 浅历史需要在从 toasting 的退出动作把 doorClosed_history 设置为 &ToasterOven_toasting，在从 baking 的退出动作把它设置为 &ToasterOven_baking ，以及 doorClosed 全部`直接子状态`。
+- 为了实现`浅历史伪状态`，需要在每一个从所需层次的`退出动作`上明确的设置历史变量。例如，图 5.12 中的 doorClosed 浅历史需要在从 toasting 的退出动作把 doorClosed_history 设置为 &ToasterOven_toasting，在从 baking 的退出动作把它设置为 &ToasterOven_baking ，以及 doorClosed 全部`直接子状态`。
 - 你可以通过`复位`相应的`历史变量`明确的`清理`任何组合状态的`历史`。
 
 ## 实时框架的概念
@@ -2879,50 +2879,11 @@ QF 和其他任何系统层软件一样，必须保护某些指令的顺序不�
 
 QF 平台抽象层包含 了 2 个宏 QF_INT_LOCK()和 QF_INT_UNLOCK() ，分别用来`进入临界区`和`退出临界区`。
 
-#### 保存和恢复中断状态
-
-一种临界区实现方式：
-
-```c
-{
-  unsigned int lock_key;
-  . . .
-  // 关中断前保存当前中断状态，用于后面恢复
-  lock_key = get_int_status();
-  // 关闭中断，功能由编译器提供
-  int_lock();
-  . . .
-  /* critical section of code */
-  . . .
-  // 恢复中断状态，相当于开中断
-  set_int_status(lock_key);
-  . . .
-}
-```
-
-用于实现这个功能的宏定义：
-
-```c
-// 这个宏用于在预编译时告诉QF框架是否使用“保存和恢复中断状态”策略(该宏定义)，
-// 还是下一节的“无条件锁住和解锁中断”策略(该宏不定义)
-#define QF_INT_KEY_TYPE unsigned int
-#define QF_INT_LOCK(key_)          \
-    do                             \
-    {                              \
-        (key_) = get_int_status(); \
-        int_lock();                \
-    } while (0)
-#define QF_INT_UNLOCK(key_) set_int_status(key_)
-```
-
-> QF_INT_LOCK()宏的 do {…} while (0) 循环是语法正确的用来`组合指令`的`标准做法`。这个宏可以被安全的用于 `if-else` 语句（在宏后加分号），而不会造成[“悬吊 if”（ dangling-if ）](https://en.wikipedia.org/wiki/Dangling_else)问题。
-{: .prompt-tip }
-
-“保存和恢复中断状态”政策的主要优点是可以`嵌套临界区`的能力。当 QF 函数从一个已经建立的临界段比如 ISR 里调用时，且`部分处理器`在进入 ISR 后自动关中断(进临界区)，需要在 ISR 内部先解锁中断才能使用 QF 函数(详见下节例子)，如果做不到就需要使用上述的办法`嵌套临界区`。
-
-> 为什么要解锁中断才能调用 QF 函数，见下一节
+有两种方式来实现临界区：`无条件锁住和解锁中断`和`保存和恢复中断状态`
 
 #### 无条件上锁和解锁中断
+
+简单粗暴的做法，直接关闭中断(直接调用`int_lock()`)来进入临界区：
 
 ```c
 /* QF_INT_LOCK_KEY not defined */
@@ -2930,7 +2891,11 @@ QF 平台抽象层包含 了 2 个宏 QF_INT_LOCK()和 QF_INT_UNLOCK() ，分别
 #define QF_INT_UNLOCK(key_) int_unlock()
 ```
 
-“无条件上锁和解锁”策略是简单和快捷的，但是`不允许`临界区的`嵌套`且需要`基于优先级`的中断控制器，理由见上节
+“无条件上锁和解锁”策略是简单和快捷的，但缺点是`不允许`临界区的`嵌套`，因为调用了`int_lock()`后在`int_unlock()`前无法再次调用`int_lock()`，这会造成阻塞（类似死锁）。
+
+必须配套使用一个`基于优先级`的中断控制器，相比于不基于优先级的中断控制器，它可以在 ISR 中仅开启`更高优先级`的中断的嵌套而不是所有的中断。这个特性为在 ISR 中调用内部拥有临界区的 QF 函数提供可能。(如果开启所有中断，特别是同一个中断，相同的 ISR 就会重复执行，一般这是不允许的，也就是不能在 ISR 中开启所有中断，而开启更高优先级的中断是允许的)
+
+除了在 ISR 中暂时关闭临界区外还有一种方法就是让 QF 相关函数在 ISR 内执行时不去使用锁（因为 ISR 本身就在临界区），这就需要函数能判断当前的中断状态，这就是下一节中的`保存和恢复中断状态`
 
 使用一个`基于优先级`的中断控制器时一个 ISR 的常规结构：
 
@@ -2957,11 +2922,52 @@ void interrupt ISR(void) { /* entered with interrupts locked in hardware */
 }
 ```
 
-> `基于优先级`的中断控制器`记忆`当前所服务的中断的优先级，并仅允许比当前优先级高的中断抢占这个 ISR 。`较低`的或`相同`优先级的中断在中断控制器层次被`锁住`，`即使`这些中断在处理器层次`被解锁`。中断优先排序发生在中断控制器硬件层，直到中断控制器接受到中断结束 EOI 指令为止。所以说这个“无条件上锁和解锁中断”策略需要`基于优先级`的`中断控制器`的支持，这样即使在ISR内部开中断，也不会导致低优先级中断插进来影响ISR主体的执行
+> `基于优先级`的中断控制器`记忆`当前所服务的中断的优先级，并仅允许比当前优先级高的中断抢占这个 ISR 。`较低`的或`相同`优先级的中断在中断控制器层次被`锁住`，`即使`这些中断在处理器层次`被解锁`。中断优先排序发生在中断控制器硬件层，直到中断控制器接受到中断结束 EOI 指令为止。所以说这个“无条件上锁和解锁中断”策略需要`基于优先级`的`中断控制器`的支持，这样即使在 ISR 内部开中断，也不会导致低优先级中断插进来影响 ISR 主体的执行
 
-> TODO: 开中断是为了什么？是不是为了防止执行主 ISR 代码(QF 函数)的过程太长导致临界区时间太长。还是为了主 ISR 代码执行时需要用到某些中断
+> 问: 上例中 ISR 内使用`QF_INT_UNLOCK(dummy);`开中断是为了什么？
 >
-> 解答：QF 函数执行部分`内部`有些也使用的`关开中断`创建临界区的部分，为了防止`中断嵌套`，也就是`外面`关了中断，进了函数`内部`又关一次就会造成阻塞，也就是`死锁`。
+> 解答：QF 函数执行部分`内部`有些也使用的`关开中断`创建临界区的部分，为了防止再次调用`QF_INT_LOCK()`导致的阻塞，需要关闭。
+
+#### 保存和恢复中断状态
+
+相比于`无条件上锁和解锁中断`，`保存和恢复中断状态`增加了中断状态的保存和判断，使其使用时更加灵活，无需考虑是否会发生死锁。
+
+```c
+{
+  unsigned int lock_key;
+  . . .
+  // 关中断前保存当前中断状态，用于后面恢复
+  lock_key = get_int_status();
+  // 关闭中断，功能由编译器提供
+  int_lock();
+  . . .
+  /* critical section of code */
+  . . .
+  // 恢复中断状态，相当于开中断
+  set_int_status(lock_key);
+  . . .
+}
+```
+
+用于实现这个功能的宏定义：
+
+```c
+// 这个宏用于在预编译时告诉QF框架是否使用“保存和恢复中断状态”策略(该宏定义时生效)，
+// 还是下一节的“无条件锁住和解锁中断”策略(该宏不定义时生效)
+#define QF_INT_KEY_TYPE unsigned int
+#define QF_INT_LOCK(key_)          \
+    do                             \
+    {                              \
+        (key_) = get_int_status(); \
+        int_lock();                \
+    } while (0)
+#define QF_INT_UNLOCK(key_) set_int_status(key_)
+```
+
+> QF_INT_LOCK()宏的 do {…} while (0) 循环是语法正确的用来`组合指令`的`标准做法`。这个宏可以被安全的用于 `if-else` 语句（在宏后加分号），而不会造成[“悬吊 if”（ dangling-if ）](https://en.wikipedia.org/wiki/Dangling_else)问题。
+{: .prompt-tip }
+
+“保存和恢复中断状态”政策的主要优点是可以`嵌套临界区`的能力。当 QF 函数从一个已经建立的临界段比如 ISR 里调用时，且`部分处理器`在进入 ISR 后自动关中断(进临界区)，需要在 ISR 内部先解锁中断才能使用 QF 函数(详见上节例子)，如果做不到就需要使用上述的办法`嵌套临界区`。
 
 #### 中断上锁/解锁的内部 QF 宏
 
@@ -3176,7 +3182,7 @@ void QF_poolInit(void *poolSto, uint32_t poolSize, QEventSize evtSize)
 }
 ```
 
-> 所有 QP 构件，包括 QF 框架，一致地假设，在`系统开始`时，没有明确初始值的变量被`初始化为 0` ，这是 ANSI-C 标准的要求。在嵌入式系统，这个初始化步骤对应于`清除.BSS段`(用来放`全局变量`)。你应该确信在你的系统里，在 main() 被调用前 .BSS 段确实被清除了。
+> 所有 QP 构件，包括 QF 框架，一致地假设，在`系统开始`时，所有初始值未明确的变量被`初始化为 0` ，这是 ANSI-C 标准的要求。在嵌入式系统，这个初始化步骤对应于`清除.BSS段`(用来放`全局变量`)。你应该确信在你的系统里，在 main() 被调用前 .BSS 段确实被清除了。
 
 _从最小事件尺寸池分配一个事件的简单策略_:
 
@@ -3762,7 +3768,7 @@ void QActive_postFIFO(QActive *me, QEvent const *e)
   {                             /* empty queue? */
     // 如果为空就直接赋值给frontEvt，不需要插入head再赋值给frontEvt
     me->eQueue.frontEvt = e;    /* deliver event directly */
-    // 队列非空信号，给QActive_get_()的QACTIVE_EQUEUE_WAIT_()
+    // 出现事件，发送队列非空信号给QActive_get_()的QACTIVE_EQUEUE_WAIT_()
     QACTIVE_EQUEUE_SIGNAL_(me); /* signal the event queue */
   }
   else // 不为空
@@ -3793,7 +3799,7 @@ void QActive_postFIFO(QActive *me, QEvent const *e)
 }
 ```
 
-#### “ 原始的”线程安全的队列
+#### “原始的”线程安全的队列
 
 ```c
 /* Application header file -----------------------------------------------*/
@@ -4214,8 +4220,8 @@ extern QPSet64 volatile QF_readySet_; /** QF-ready set of active objects */
 
 **正常情况并不需要可抢占式内核**：
 
-- 长过程被分割成了`短`的 RTC(run-to-completion) 步骤，不需要内核来`分割`（QP从设计层面就避免了长过程，如果用可抢占式内核就可以通过内核调度分割长过程）
-- 活动对象执行线程不会`阻塞`（不阻塞意味着CPU控制权会在RTC步骤执行完成时被让出）
+- 长过程被分割成了`短`的 RTC(run-to-completion) 步骤，不需要内核来`分割`（QP 从设计层面就避免了长过程，如果用可抢占式内核就可以通过内核调度分割长过程）
+- 活动对象执行线程不会`阻塞`（不阻塞意味着 CPU 控制权会在 RTC 步骤执行完成时被让出）
 - RTC 步骤足够短，`响应延迟`较低
 
 **需要可抢占式内核的情况**：
@@ -4224,7 +4230,7 @@ extern QPSet64 volatile QF_readySet_; /** QF-ready set of active objects */
 
 以一个 GPS 接收机系统为例。这个接收机在一个`定点` CPU 上执行大量的`浮点`运算去`计算` GPS 的位置（计算步骤不容易分解，且占用较长 RTC 时间）。同时， GPS 接收机必须`跟踪` GPS 卫星的`信号`，这牵涉到在小于`毫秒级`间隔内的`闭环控制回路`。很明显我们不容易把`位置计算`分解成`足够短`的 RTC 步骤从而允许`可靠的`信号跟踪，即使把信号跟踪定义为最高优先级，低优先级的 RTC 过程过长依然会影响时序。
 
-> 定点和浮点详见[定点vs浮点数字信号处理](https://www.analog.com/cn/technical-articles/fixedpoint-vs-floatingpoint-dsp.html)
+> 定点和浮点详见[定点 vs 浮点数字信号处理](https://www.analog.com/cn/technical-articles/fixedpoint-vs-floatingpoint-dsp.html)
 
 ### RTC 内核简介
 
@@ -4263,7 +4269,7 @@ _同步抢占_：
 - （2）时低优先级任务发送事件给高优先级任务，且调度器开始调度。
 - （5）时高优先级任务发送事件给低优先级任务，调度器不执行调度，
 - （7）时高优先级任务运行完成并返回（2）时调用的调度器。
-- （8）调度器再一次检查是否有一个较高优先级任务准备运行，但是它没找到。 RTC调度器返回低优先级任务。
+- （8）调度器再一次检查是否有一个较高优先级任务准备运行，但是它没找到。 RTC 调度器返回低优先级任务。
 
 _异步抢占_：
 
@@ -4275,6 +4281,7 @@ _异步抢占_：
 - （6）RTC 内核相关的 ISR 退出，发送 End-Of-Interrupt(`EOI`) 指令给`中断控制器`，`恢复`被中断任务的被保留的`优先级`，并调用 `RTC 调度器`。
 
   > 退出中断有 `EOI` 和 `IRET` 两步，EOI 表示停止对当前的中断嵌套层进行优先级排序(此时可以插入任意优先级新中断)，IRET 表示从中断返回。这一步只发 EOI 表示还不想从中断返回
+
 - （7）调度器`开中断`，并开始调度到高优先级任务。此时 RTC 调度器没有返回。
 - （9）高优先级任务执行完毕并返回到 RTC 调度器
 - （10）IRET 执行，IRET 恢复低优先级任务的上下文，从（2）开始的中断返回
@@ -4445,7 +4452,7 @@ void QK_scheduleExt_(QF_INT_KEY_TYPE intLockKey); /* extended scheduler */
 
 #### 中断的处理
 
-可抢占型内核需要通过中断夺回`控制权`来执行调度，需要编写自己的ISR处理程序
+可抢占型内核需要通过中断夺回`控制权`来执行调度，需要编写自己的 ISR 处理程序
 
 _QK 里的 ISR:_
 
@@ -4461,11 +4468,11 @@ void interrupt YourISR(void)
   ++QK_intNest_; /* account for one more interrupt nesting level */
   // 退出临界区
   Unlock interrupts(depending on the interrupt policy used)
-  
+
   // 执行QF相关服务
-  Execute ISR body,including calling QF services, such as : 
+  Execute ISR body,including calling QF services, such as :
     Q_NEW(), QActive_postFIFO(), QActive_postLIF(), QF_publish(), or QF_tick()
-   
+
   Lock interrupts, if they were unlocked in step(4)
   // 给中断控制器发送EOI
   Send the EOI instruction to the interrupt controller
@@ -4493,11 +4500,11 @@ QK 调度器是一个简单的常规 C 函数 `QK_schedule_()` ，它的工作�
 
 - 预备运行的任务的集合 `QK_readySet_`
 
-  QPSet64类型，是个位图，每个bit表示一个活动对象，按照位排序1-64优先级
+  QPSet64 类型，是个位图，每个 bit 表示一个活动对象，按照位排序 1-64 优先级
 
 - 当前被服务的优先级 `QK_currPrio_`
 
-  uint8_t类型，存储当前优先级
+  uint8_t 类型，存储当前优先级
 
 ```c
 #include "qk_pkg.h"
@@ -4655,7 +4662,7 @@ void QActive_stop(QActive *me)
 
 活动对象应该只通过`事件`进行通讯，并且`不共享`任何资源。
 
-你也许想选择共享某些选定的资源，就算要付出增加活动对象之间`耦合`的成本。如果你想这么做，你让自己背上了要处理存取这些资源（共享的内存或设备）的内部`互锁`的负担。可以用 QF 宏QF_INT_LOCK() 和 QF_INT_UNLOCK() 实现的`临界区`机制
+你也许想选择共享某些选定的资源，就算要付出增加活动对象之间`耦合`的成本。如果你想这么做，你让自己背上了要处理存取这些资源（共享的内存或设备）的内部`互锁`的负担。可以用 QF 宏 QF_INT_LOCK() 和 QF_INT_UNLOCK() 实现的`临界区`机制
 
 QK 支持优先级`天花板互斥体`(priority-ceiling mutex)，在存取一个共享资源时，防止任务级的抢占。
 
@@ -4716,13 +4723,13 @@ void QK_mutexUnlock(QMutex mutex)
 
 该功能是为了解决多线程使用共用的全局变量时的冲突问题。
 
-例如，ANSI C标准里的 errno 功能。errno 是一个 int 类型的宏，当程序出现问题时，设置该宏为一个`错误码`，也就是 errno 的值为上一次错误的错误码。但这个宏是所有线程`共享`的，也就是线程无法分清这是哪个线程设置的。
+例如，ANSI C 标准里的 errno 功能。errno 是一个 int 类型的宏，当程序出现问题时，设置该宏为一个`错误码`，也就是 errno 的值为上一次错误的错误码。但这个宏是所有线程`共享`的，也就是线程无法分清这是哪个线程设置的。
 
 解决方式是把 errno 定义为一个指针，指向了类型为 `struct_reent` 的结构，每个线程都包含了这个结构的对象(线程本地存储)，上下文切换时让 errno 指针指向对应线程的这个对象。不仅解决了重入的问题，还扩展了 errno 的功能，因为`struct_reent`结构可以包含大量自定义的错误信息。
 
 ![tlsswitch](/assets/img/2022-07-27-quantum-platform-1/tlsswitch.jpg)
 
-QK 通过提供一个上下文切换钩子 QK_TLS() 来支持 TLS概念，在每一次，每一个不同任务的优先级被处理时，它被调用。
+QK 通过提供一个上下文切换钩子 QK_TLS() 来支持 TLS 概念，在每一次，每一个不同任务的优先级被处理时，它被调用。
 
 ```c
 #define QK_TLS(act_) (_impure_ptr=(struct _reent *)(act_)->thread)
@@ -4730,7 +4737,7 @@ QK 通过提供一个上下文切换钩子 QK_TLS() 来支持 TLS概念，在每
 
 #### 扩展的上下文切换（对协处理器的支持）
 
-C编译器为中断程序生成的`上下文保存和恢复`通常仅包含CPU核心寄存器，`不包括`各种协处理器的寄存器，比如围绕 CPU 核心的浮点`协处理器`，专门的 DSP 引擎，基带处理器，视频加速器或其他的协处理器。这些寄存器称为`扩展上下文`
+C 编译器为中断程序生成的`上下文保存和恢复`通常仅包含 CPU 核心寄存器，`不包括`各种协处理器的寄存器，比如围绕 CPU 核心的浮点`协处理器`，专门的 DSP 引擎，基带处理器，视频加速器或其他的协处理器。这些寄存器称为`扩展上下文`
 
 两种情况不需要保存扩展上下文：
 
@@ -4750,7 +4757,7 @@ C编译器为中断程序生成的`上下文保存和恢复`通常仅包含CPU�
 } while (0)
 ```
 
-`QK_scheduleExt_()` 取代 QK_scheduler_() 用于保存扩展上下文。
+`QK_scheduleExt_()` 取代 `QK_scheduler_()` 用于保存扩展上下文。
 
 ![tlsextregister](/assets/img/2022-07-27-quantum-platform-1/tlsextregister.jpg)
 
@@ -4845,7 +4852,7 @@ void QK_scheduleExt_(QF_INT_KEY_TYPE intLockKey_)
 QK 可以被移植到某个处理器和编译器，如果它们满足以下条件：
 
 1. 处理器支持一个`硬件堆栈`，它可以容纳很多数据（最少 256 字节）。
-2. C或 C++编译器可以生成`可重入代码`。特别的，编译器必须可以在堆栈分配`自动变量`。
+2. C 或 C++编译器可以生成`可重入代码`。特别的，编译器必须可以在堆栈分配`自动变量`。
 3. 可以从 C/C++ 里上锁和解锁`中断`。
 4. 系统提供了一个`时钟节拍中断`（通常是 10 到 100Hz ）。
 
@@ -4879,7 +4886,7 @@ QF 示例（QEP 或 QK 可以参考这个）：
 
 PAL 使用一个一致的`目录结构`，允许你很容易的找到 QP 向某个给定 `CPU`，`操作系统`和`编译器`的移植。
 
-``` plaintext
+```plaintext
 qpc\ - QP/C root directory (qpcpp\ for QP/C++),根目录可移动和改名，内部用的都是相对路径
 |
 +-ports\ - Platform-specific QP ports
@@ -4990,7 +4997,7 @@ TODO:Q_ROM 和哈佛架构相关，需要了解下
 #define Q_ROM_BYTE(rom_var_) ????
 /* size of the QSignal data type */
 #define Q_SIGNAL_SIZE ?
-/* exact-width integer types */ 
+/* exact-width integer types */
 // 使用编译器提供的标准stdint.h头文件或自定义编写来定义QP需要的扩展类型
 #include <stdint.h>              /* WG14/N843 C99 Standard, Section 7.18.1.1 */
 typedef signed char int8_t;      /* signed 8-bit integer */
@@ -5005,7 +5012,7 @@ typedef unsigned long uint32_t;  /* unsigned 32-bit integer */
 
 #### 头文件 qf_port.h
 
-头文件 qf_port.h 包含了 PAL宏的定义， typedef，包含文件，和用于移植和配置 QF 实时框架的常数。 这是目前为止在整个 QP PAL 里最复杂和重要的文件。
+头文件 qf_port.h 包含了 PAL 宏的定义， typedef，包含文件，和用于移植和配置 QF 实时框架的常数。 这是目前为止在整个 QP PAL 里最复杂和重要的文件。
 
 ```c
 #ifndef qf_port_h
@@ -5183,13 +5190,13 @@ QEvent const *QActive_get_(QActive *me)
 
 #### 和平台相关的 QF 回调函数
 
-下面这几个函数是属于应用程序而不是QF框架的(意思就是就算这几个函数不定义，QF也能正常运行，不是必需的)。它们不在QF_port.c中定义，在 `QP 应用开发`中有说明
+下面这几个函数是属于应用程序而不是 QF 框架的(意思就是就算这几个函数不定义，QF 也能正常运行，不是必需的)。它们不在 QF_port.c 中定义，在 `QP 应用开发`中有说明
 
 ```c
 void QF_onStartup(void)
 ```
 
-在 QF 取得应用程序的控制之前这个回调函数被调用。 QF_onStartup()回调函数的主要意图是`初始化并启动中断`(TICK时钟中断)
+在 QF 取得应用程序的控制之前这个回调函数被调用。 QF_onStartup()回调函数的主要意图是`初始化并启动中断`(TICK 时钟中断)
 
 ```c
 void QF_onCleanup(void)
@@ -5217,9 +5224,9 @@ void Q_onAssert(char const Q_ROM * const Q_ROM_VAR file, int line)
 
 不是所有 QF 源文件都要包含。
 
-`qa_fifo.c`,`qa_lifo.c`,`qa_get_.c`，如果自己定义了QActive_postFIFO()，QActive_postLIFO()，和 QActive_get_()可以不包含，也就是仅在使用 QF 原生的队列时才包含
+`qa_fifo.c`,`qa_lifo.c`,`qa_get_.c`，如果自己定义了 `QActive_postFIFO()`，`QActive_postLIFO()`，和 `QActive_get_()`可以不包含，也就是仅在使用 QF 原生的队列时才包含
 
-`qvanilla.c`，仅当你使用vanilla合作式内核时才需包含这个文件。
+`qvanilla.c`，仅当你使用 vanilla 合作式内核时才需包含这个文件。
 
 ### 移植合作式 Vanilla 内核
 
@@ -5227,9 +5234,9 @@ void Q_onAssert(char const Q_ROM * const Q_ROM_VAR file, int line)
 
 #### 头文件 qep_port.h
 
-展示了用于 80x86/DOS/Turbo C++ 1.01/Large内存模型的 qep_port.h头文件
+展示了用于 80x86/DOS/Turbo C++ 1.01/Large 内存模型的 qep_port.h 头文件
 
-*用于 `80x86/DOS/Turbo C++ 1.01/Large `内存模型的 qep_port.h 头文件:*
+_用于 `80x86/DOS/Turbo C++ 1.01/Large` 内存模型的 qep_port.h 头文件:_
 
 ```c
 #ifndef qep_port_h
@@ -5246,7 +5253,7 @@ typedef unsigned long uint32_t;
 #endif           /* qep_port_h */
 ```
 
-*用于 `Cortex-M3/IAR` 的 qep_port.h头文件:*
+_用于 `Cortex-M3/IAR` 的 qep_port.h 头文件:_
 
 ```c
 #ifndef qep_port_h
@@ -5263,7 +5270,7 @@ typedef unsigned long uint32_t;
 
 通常，你的第一安全选择应该是更先进的`保存和恢复中断状态`策略。然而，如果你发现在 ISR 内解锁中断是安全的，因为你的目标处理器可以在硬件对`中断优先级排序`，你可以使用简单和快捷的`无条件中断解锁`策略
 
-*用于 80x86/DOS/Turbo C++ 1.01/Large 内存模型的 qf_port.h 头文件：*
+_用于 80x86/DOS/Turbo C++ 1.01/Large 内存模型的 qf_port.h 头文件：_
 
 ```c
 #ifndef qf_port_h
@@ -5281,7 +5288,7 @@ typedef unsigned long uint32_t;
 #endif                /* qf_port_h */
 ```
 
-*Cortex-M3/IAR的 qf_port.h 头文件:*
+_Cortex-M3/IAR 的 qf_port.h 头文件:_
 
 ```c
 #ifndef qf_port_h
@@ -5300,9 +5307,9 @@ typedef unsigned long uint32_t;
 
 #### 系统时钟节拍（QF_tick()）
 
-DOS的系统时钟节拍 ISR ，它由连接到 IRQ0 的 `8253/8254` 时间计数器芯片的`通道 0` 触发
+DOS 的系统时钟节拍 ISR ，它由连接到 IRQ0 的 `8253/8254` 时间计数器芯片的`通道 0` 触发
 
-*80x86/DOS/Turbo C++ 1.01/Large 内存模式下的系统时钟节拍 ISR:*
+_80x86/DOS/Turbo C++ 1.01/Large 内存模式下的系统时钟节拍 ISR:_
 
 ```c
 void interrupt ISR_tmr0(void)
@@ -5318,7 +5325,7 @@ void interrupt ISR_tmr0(void)
 
 用于 Cortex-M3 的系统时钟节拍 ISR ，它由特别为这个目的而设计的，被称为 `SysTick` 的周期性定时器触发。进 ISR 是中断是解锁的，无需手动解锁。NVIC 中断控制器自动完成发送 EOI，不需要手动发送 EOI 指令
 
-*Cortex-M3/IAR的 SysTick ISR:*
+_Cortex-M3/IAR 的 SysTick ISR:_
 
 ```c
 void ISR_SysTick(void)
@@ -5336,7 +5343,7 @@ void ISR_SysTick(void)
 
 80x86 没有低功耗模式，所以只解锁中断
 
-*用于 80x86/DOS 的 QF_onIdle() 回调函数:*
+_用于 80x86/DOS 的 QF_onIdle() 回调函数:_
 
 ```c
 void QF_onIdle(void)
@@ -5346,7 +5353,7 @@ void QF_onIdle(void)
 }
 ```
 
-*用于 Cortex-M3/IAR 的 QF_onIdle() 回调函数:*
+_用于 Cortex-M3/IAR 的 QF_onIdle() 回调函数:_
 
 ```c
 void QF_onIdle(void)
@@ -5368,11 +5375,11 @@ void QF_onIdle(void)
 
 ### QF 移植到 uc/os-II (常规 RTOS)
 
-TODO:uc/os-II不太了解，以后用到再说
+TODO:uc/os-II 不太了解，以后用到再说
 
 ### QF 移植到 Linux （常规 POSIX 兼容的操作系统）
 
-大型操作系统和RTOS/裸机的区别是不允许关开中断，只能使用系统提供的 API（POSIX API、Win32 API）做有限的操作
+大型操作系统和 RTOS/裸机的区别是不允许关开中断，只能使用系统提供的 API（POSIX API、Win32 API）做有限的操作
 
 #### 头文件 qep_port.h
 
@@ -5585,7 +5592,7 @@ void QActive_stop(QActive *me)
 #### 准则
 
 - 活动对象应该仅通过某个`异步事件`交换来相互作用，不应该`共享内存`或其他资源。
-- 活动对象不应该`阻塞`或者在RTC处理的中间`忙等待`事件。
+- 活动对象不应该`阻塞`或者在 RTC 处理的中间`忙等待`事件。
 
 #### 启发式
 
@@ -5600,7 +5607,7 @@ void QActive_stop(QActive *me)
 
 #### 第一步：需求
 
-5个哲学家，共用5个餐叉，吃面需要2个餐叉，吃完会思考，核心是防止死锁和饿死。
+5 个哲学家，共用 5 个餐叉，吃面需要 2 个餐叉，吃完会思考，核心是防止死锁和饿死。
 
 #### 第二步：顺序图
 
@@ -5608,7 +5615,7 @@ void QActive_stop(QActive *me)
 
 `Table` 对象管理餐叉，每个 `Philo` 对象管理一个哲学家
 
-触发 QF 定时事件`Philo[m]`终止思考，开始饥饿，向Table发送事件 `(HUNGRY(m))` 请求就餐许可(有足够的叉子)。Table 将就餐许可事件 `(EAT(m))` 发送给对应对象。`Philo[m]`进入就餐状态直到下一个定时事件，发送完成事件 `(DONE(m))` 归还叉子。
+触发 QF 定时事件`Philo[m]`终止思考，开始饥饿，向 Table 发送事件 `(HUNGRY(m))` 请求就餐许可(有足够的叉子)。Table 将就餐许可事件 `(EAT(m))` 发送给对应对象。`Philo[m]`进入就餐状态直到下一个定时事件，发送完成事件 `(DONE(m))` 归还叉子。
 
 #### 第三步：信号，事件和活动对象
 
@@ -6105,14 +6112,14 @@ _main.c_：
 #include "dpp.h"
 #include "bsp.h"
 /* Local-scope objects ---------------------------------------------------*/
-... 
+...
 static OS_STK l_philoStk[N_PHILO][256]; /* stacks for the Philosophers */
 static OS_STK l_tableStk[256];              /* stack for the Table */
 static OS_STK l_ucosTaskStk[256];           /* stack for the ucosTask */
 /*........................................................................*/
 int main(int argc, char *argv[])
 {
-  ... 
+  ...
   for (n = 0; n < N_PHILO; ++n)
   {
     // 需要为每个活动对象分配私有堆栈
@@ -6192,7 +6199,7 @@ _bsp.c_:
 #include "dpp.h"
 #include "bsp.h"
 #include <sys/select.h>
-... 
+...
 Q_DEFINE_THIS_FILE
 /* Local objects ---------------------------------------------------------*/
 // Linux控制台默认配置不允许异步接收用户按键，需要修改控制台配置，这个变量备份了修改前的配置
@@ -6317,7 +6324,7 @@ void Q_onAssert(char const Q_ROM *const Q_ROM_VAR file, int line)
 ```plaintext
 平均事件产生速率 <P(t)> 不高于平均事件消耗速率 <C(t)>
 ```
-  
+
 一旦 `P(t)` 过大导致事件队列`满`，QP 会视其为`异常`，而不是`阻塞`生产者或`丢弃`事件
 
 **解决方法**：
@@ -6591,7 +6598,7 @@ QS 目标构件必须保护`追踪缓存`的内部完整性，它在并发运行
 
 > QS_BEGIN 和 QS_END()就是利用的`qs_port.h`里定义的锁宏
 
-自定义的锁_qs_port.h_:
+自定义的锁*qs_port.h*:
 
 ```c
 #define QS_INT_KEY_TYPE . . .
@@ -6622,7 +6629,7 @@ QS_END_xxx() /* trace record end */
 
 预定义的类型就是`qs.h`中的`QSpyRecords`枚举型，通过过滤器启用/禁用对应类型的日志记录
 
-全局开 / 关过滤器使用一个位掩码数据`QS_glbFilter_[]`而高效的实现，这个数组的`每一位`代表一个追踪记录。当前 QS*glbFilter*[]包含 32 字节，总共 32×8 位可以代表 `256` 个不同的追踪记录。其中大约四分之一已经被用于预定义的 QP 追踪记录。剩下四分之三可以用于应用程序。
+全局开 / 关过滤器使用一个位掩码数据`QS_glbFilter_[]`而高效的实现，这个数组的`每一位`代表一个追踪记录。当前 `QS_glbFilter_[]`包含 32 字节，总共 32×8 位可以代表 `256` 个不同的追踪记录。其中大约四分之一已经被用于预定义的 QP 追踪记录。剩下四分之三可以用于应用程序。
 
 ```c
 #define QS_BEGIN(rec_, obj_) \

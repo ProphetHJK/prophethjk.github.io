@@ -1,7 +1,7 @@
 ---
 title: "我与计算机"
 author: Jinkai
-date: 2023-05-04 09:00:00 +0800
+date: 2021-01-22 09:00:00 +0800
 published: False
 categories: [浮世杂谈]
 tags: [computer]
