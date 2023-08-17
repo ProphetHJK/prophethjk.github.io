@@ -3499,7 +3499,7 @@ void QTimeEvt_arm_(QTimeEvt *me, QActive *act, QTimeEvtCtr nTicks);
 
 #### 系统时钟节拍和 QF_tick() 函数
 
-QF 需要获取节拍管理时间事件，一般就是在 `ISR` 中调用自己的 `QF_tick()`
+QF 需要获取节拍管理时间事件，在老版本QP中一般就是在 `ISR` 中调用自己的 `QF_tick()`
 
 ```c
 void QF_tick(void)
@@ -3560,6 +3560,12 @@ void QF_tick(void)
   QF_INT_UNLOCK_();
 }
 ```
+
+对于新版本的 QP，可选择不将定时器的管理放在 TICK ISR 中，而是一个专用的主动对象(QTicker)中，从而将定时器链表的的扫描操作从**中断级**降到**线程级**，降低了中断处理的负荷。
+
+**QTicker** 是一个高效的活动对象，专门用于以指定的 tick 速率 `[0...#QF_MAX_TICK_RATE]` 处理 QF 系统时钟 tick。 将系统时钟滴答处理置于活动对象中，可以将非确定性 QTIMEEVT_TICK_X() 处理从中断级移除，并将其移入线程级，在线程级中可以根据需要降低优先级。
+
+**QTIMEEVT_TICK_X()** 宏用于管理用户生成的周期性或非周期性定时器事件，每次执行时会扫描链表中是否有到期的定时器，并发送相应定时器事件。 将该操作放在线程级而非中断中能提高中断处理的性能。很像 Linux 内核中的中断下半部中的[工作队列](/posts/linux-kernel-interrupt/#工作队列)。
 
 #### arming 和 disarm 一个时间事件
 
