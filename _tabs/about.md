@@ -4,7 +4,7 @@ icon: fas fa-info-circle
 order: 4
 ---
 
-<iframe frameborder="no" border="0" marginwidth="0" marginheight="0" width=330 height=210 src="//music.163.com/outchain/player?type=0&id=6760131912&auto=0&height=430"></iframe>
+<iframe id="aplayer" frameborder="no" border="0" marginwidth="0" marginheight="0" width=330 height=210 src="assets/code/about/aplayer.html"></iframe>
 
 ## 爱好
 
