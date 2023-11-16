@@ -117,3 +117,20 @@ timer_delete(timerid);
 - 注意在链接时加上 `-lrt` 参数。
 - 如果你的编译器默认未启用 Posix 支持，需要手动添加`#define _POSIX_C_SOURCE 199309L`宏
 - 还有个古老的 Posix 接口 `setitimer`，这里不再做介绍。
+- 信号模式下如果配置了信号将会导致同样使用该信号的功能失效，如 usleep 函数就会因为信号提前退出，可以考虑使用 nanosleep 函数：
+
+  ```c
+  struct timespec req, rem;
+  req.tv_sec  = ms / 1000;
+  req.tv_nsec = ms % 1000 * 1000 * 1000;
+  while (nanosleep(&req, &rem) == -1) {
+      if (errno == EINTR) {
+          // 因信号中断，重新设置休眠时间
+          req = rem;
+      }
+      else {
+          perror("nanosleep");
+          return;
+      }
+  }
+  ```
