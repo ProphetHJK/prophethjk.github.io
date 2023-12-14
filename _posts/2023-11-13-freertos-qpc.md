@@ -152,28 +152,23 @@ qf_port.c:
 #include "task.h"
 #include "semphr.h"
 
-// 采用静态分配内存方式
-static SemaphoreHandle_t l_pThreadMutex;
-static StaticSemaphore_t xSemaphoreBuffer;
-
-// 初始化部分只需初始化互斥锁
+// 初始化部分
 void QF_init(void)
 {
-    /* init the global mutex with the default non-recursive initializer */
-    // 静态分配一个非递归锁
-    l_pThreadMutex = xSemaphoreCreateMutexStatic(&xSemaphoreBuffer);
+    // 这里不使用锁
 }
 
-// 进入临界区，使用互斥锁
+// 进入临界区
 void QF_enterCriticalSection_(void)
 {
-    xSemaphoreTake(l_pThreadMutex, portMAX_DELAY);
+    // 使用freeRTOS提供的进入临界区功能
+    xtaskENTER_CRITICAL();
 }
 
 // 退出临界区
 void QF_leaveCriticalSection_(void)
 {
-    xSemaphoreGive(l_pThreadMutex);
+    taskEXIT_CRITICAL();
 }
 
 // 启动QV内核
@@ -354,7 +349,7 @@ int main(){
 
 ### 在 FreeRTOS 中使用条件变量
 
-在一般的操作系统中都会有几个用于同步的原语：互斥量(锁)、条件变量、信号量等([见本文](/posts/operating-systems-24/))。FreeRTOS 省略了条件变量的单独实现，可以用信号量或直达通知来实现条件变量的功能。
+FreeRTOS 省略了条件变量的单独实现，可以用直达通知来实现简单的条件变量的功能。
 
 示例：
 
@@ -376,7 +371,7 @@ while(iReady):
 }
 ```
 
-由于没有像 pthread 库那样自动管理互斥量的封装接口，这里使用手动解锁加锁的方式保证休眠前释放线程锁。这里还使用了 FreeRTOS 中的直达通知的方式取代了信号量，据官方称直达通知比信号量快 45%。
+由于没有像 pthread 库那样自动管理互斥量的封装接口，这里使用手动解锁加锁的方式保证休眠前释放线程锁。这里还使用了 FreeRTOS 中的直达通知的方式，据官方称直达通知比信号量快 45%。
 
 ## 互斥锁和二值信号量的区别
 
