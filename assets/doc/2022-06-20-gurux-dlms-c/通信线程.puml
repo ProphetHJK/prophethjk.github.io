@@ -1,5 +1,5 @@
 @startuml guruxdlms活动图
-
+!theme crt-green
 start
 :参数初始化svr_init(dlmsServerSettings);
 note right:包括所有AL层和传输层参数(如果是HDLC包括链路层)

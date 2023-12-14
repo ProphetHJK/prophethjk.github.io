@@ -152,28 +152,23 @@ qf_port.c:
 #include "task.h"
 #include "semphr.h"
 
-// 采用静态分配内存方式
-static SemaphoreHandle_t l_pThreadMutex;
-static StaticSemaphore_t xSemaphoreBuffer;
-
-// 初始化部分只需初始化互斥锁
+// 初始化部分
 void QF_init(void)
 {
-    /* init the global mutex with the default non-recursive initializer */
-    // 静态分配一个非递归锁
-    l_pThreadMutex = xSemaphoreCreateMutexStatic(&xSemaphoreBuffer);
+    // 这里不使用锁
 }
 
-// 进入临界区，使用互斥锁
+// 进入临界区
 void QF_enterCriticalSection_(void)
 {
-    xSemaphoreTake(l_pThreadMutex, portMAX_DELAY);
+    // 使用freeRTOS提供的进入临界区功能
+    xtaskENTER_CRITICAL();
 }
 
 // 退出临界区
 void QF_leaveCriticalSection_(void)
 {
-    xSemaphoreGive(l_pThreadMutex);
+    taskEXIT_CRITICAL();
 }
 
 // 启动QV内核
