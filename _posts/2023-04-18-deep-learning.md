@@ -104,7 +104,7 @@ $$\|\mathbf{x}\|_p = \left(\sum_{i=1}^n \left|x_i \right|^p \right)^{1/p}.$$
 
 #### 偏导数
 
-在多元函数中只对一个变量求导（其余变量视为常数）：$$ \frac{\partial y}{\partial x*i} = \lim*{h \rightarrow 0} \frac{f(x*1, \ldots, x*{i-1}, x*i+h, x*{i+1}, \ldots, x_n) - f(x_1, \ldots, x_i, \ldots, x_n)}{h}.$$
+在多元函数中只对一个变量求导（其余变量视为常数）：$$ \frac{\partial f}{\partial x_i} = \lim_{h \rightarrow 0} \frac{f(x_1, \ldots, x_{i-1}, x_i+h, x_{i+1}, \ldots, x_n) - f(x_1, \ldots, x_i, \ldots, x_n)}{h}.$$
 
 > 注意偏导的符号和导数不同
 
