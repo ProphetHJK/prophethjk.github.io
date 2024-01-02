@@ -19,7 +19,9 @@ tags: [constexpr, cpp]
 
 constexpr 修饰符是在 C++ 11 标准中引入的，官方规定的含义为 specifies that the value of a variable or function can appear in constant expressions(指定变量或函数的值可以出现在**常量表达式**中)，用于在**编译时**计算表达式的值，并在某些情况下将函数标记为在编译时可执行的常量表达式。
 
-将部分无需在运行时执行的运算放到编译时可以在一定程度上提高运行时性能(可能会以编译时间增加作为代价)，所以在性能敏感系统中应尽可能考虑使用 constexpr。
+将部分无需在运行时执行的运算放到编译时可以在一定程度上提高**运行时性能**(可能会以编译时间增加作为代价)，所以在性能敏感系统中应尽可能考虑使用 constexpr。
+
+### 与宏的区别
 
 其与 C 语言中的宏的区别在于其可以理解部分高级语法，比如从 C++14 开始其可以在编译时完成对 if 等条件语句的判断并返回对应分支的结果。可以将 constexpr 理解为加强版的宏，在 C++ 编程中应该尽可能多的使用 constexpr 而不是宏。
 
@@ -28,15 +30,31 @@ constexpr 修饰符是在 C++ 11 标准中引入的，官方规定的含义为 s
 constexpr unsigned int max_height = 720;
 ```
 
+### 与 const 的区别
+
+const 用于修饰**运行时**不可变的**常量**(变量、函数参数、成员函数)，constexpr 用于修饰**编译时**可确定的**常量表达式**(变量、函数、成员函数)。所以 constexpr 比 const 更加严格，且更为强大，可以在编译时执行一些计算，使得代码更加灵活。
+
+```cpp
+int a = 0; // a是变量
+const Student stu("小明", a, 90.6);  /* 正确，const仅要求运行时不变，
+                                        构造过程可以放在运行时，
+                                        可以在构造参数中使用变量 */
+constexpr Student stu("小明", a, 90.6); /* 错误，constexpr要求编译时可确定，
+                                           构造过程在编译阶段，
+                                           不能在构造参数中使用变量 */
+```
+
 ```cpp
 constexpr int square(int x) {
     return x * x;
 }
 constexpr int factorial(int n) {
     // int a = 10; // ERROR in C++11，NO ERROR in C++14
-    return (n <= 1) ? 1 : n * factorial(n - 1); // C++ 11 标准规定三元条件运算符可以在编译时展开
+    // C++ 11 标准规定三元条件运算符可以在编译时展开
+    return (n <= 1) ? 1 : n * factorial(n - 1);
 }
 int main() {
+    // 修饰基本变量时，const与constexpr作用相同
     const int square_result = square(5); // 在编译时计算
     const int factorial_result = factorial(5); // 编译时全部展开并计算
 }
@@ -60,27 +78,19 @@ int main() {
 #include <iostream>
 using namespace std;
 
-class Person
-{
+class Person {
 protected:
     int m_height;
 
 public:
     constexpr Person(int height) : m_height(height) {}
     constexpr Person() : Person(170) {}
-    int getHeight() const
-    {
-        return m_height;
-    }
+    int getHeight() const { return m_height; }
     virtual void action1() const = 0;
-    virtual void action2() const
-    {
-        cout << "Person action2" << endl;
-    }
+    virtual void action2() const { cout << "Person action2" << endl; }
 };
 
-class Student : public Person
-{
+class Student : public Person {
 public:
     constexpr Student();
     constexpr Student(char *name, int age, float score);
@@ -91,9 +101,7 @@ public:
     char *getname() const;
     int getage() const;
     float getscore() const;
-    void action1() const {
-        cout<< "Student action1" << endl;
-    }
+    void action1() const { cout << "Student action1" << endl; }
 
 public:
     char *m_name;
@@ -101,22 +109,17 @@ public:
     float m_score;
 };
 
-class SpecStudent : public Student
-{
+class SpecStudent : public Student {
 public:
     constexpr SpecStudent();
 };
 
-constexpr Student::Student(char *name, int age, float score) : m_name(name), m_age(age), m_score(score), Person(171)
-{
-}
-constexpr Student::Student() : Student("name", 10, 12.0)
-{
-}
+constexpr Student::Student(char *name, int age, float score)
+    : m_name(name), m_age(age), m_score(score), Person(171)
+{}
+constexpr Student::Student() : Student("name", 10, 12.0) {}
 
-constexpr SpecStudent::SpecStudent() : Student("name2", 15, 14.0)
-{
-}
+constexpr SpecStudent::SpecStudent() : Student("name2", 15, 14.0) {}
 void Student::show()
 {
     cout << m_name << "的年龄是" << m_age << "，成绩是" << m_score << endl;
@@ -152,11 +155,13 @@ int main()
     const Student stu("小明", age, 90.6);
     // constexpr Student stu("小明", age, 90.6); // error
     // stu.show();  //error
-    cout << stu.getname() << "的年龄是" << stu.getage() << "，成绩是" << stu.getscore() << endl;
+    cout << stu.getname() << "的年龄是" << stu.getage() << "，成绩是"
+         << stu.getscore() << endl;
 
     const Student *pstu = new Student("李磊", 16, 80.5);
     // pstu -> show();  //error
-    cout << pstu->getname() << "的年龄是" << pstu->getage() << "，成绩是" << pstu->getscore() << endl;
+    cout << pstu->getname() << "的年龄是" << pstu->getage() << "，成绩是"
+         << pstu->getscore() << endl;
 
     return 0;
 }

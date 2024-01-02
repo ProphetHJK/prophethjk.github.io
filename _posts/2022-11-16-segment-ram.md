@@ -111,7 +111,7 @@ rodata 又称`常量区`，ro 代表 `read only`，即`只读数据`(`const`)。
 - 常量不一定就放在 rodata 里，有的立即数直接`编码在指令里`，存放在`代码段(.text)`中。
 - 对于字符串常量，编译器会自动`去掉重复`的字符串，保证一个字符串在一个可执行文件(EXE/SO)中只存在一份拷贝。
 - 在有的嵌入式系统中，rodata 放在 ROM(如 norflash)里，运行时`直接读取 ROM` 内存，`无需要加载`到 RAM 内存中。
-- 在嵌入式 linux 系统中，通过一种叫作 `XIP（就地执行）`的技术，也可以`直接读取`，而无需要加载到 RAM 内存中。
+- 在嵌入式 linux 系统中，通过一种叫作 `XIP（就地执行）`[^xip]的技术，也可以`直接读取`，而无需要加载到 RAM 内存中。
 - rodata 是在`多个进程`间是`共享`的（多个进程使用同一份 ROM，利用直接读取技术），这可以提高空间利用率。
 
 由此可见，把在运行过程中不会改变的数据设为 rodata 类型的，是有很多好处的：在多个进程间共享，可以大大提高空间利用率，甚至`不占用 RAM 空间`。同时由于 rodata 在只读的内存页面(page)中，是`受保护`的，任何试图对它的修改都会被及时发现，这可以帮助提高程序的稳定性。
@@ -2335,3 +2335,5 @@ the_Ticker0                                       rel/main.o
 - [XIP 技术总结](https://zhuanlan.zhihu.com/p/368276428)
 - [Static storage union and named members initialization in C language - Stack Overflow](https://stackoverflow.com/questions/54307858/static-storage-union-and-named-members-initialization-in-c-language)
 - [充分理解 Linux GCC 链接生成的 Map 文件](https://zhuanlan.zhihu.com/p/502051758)
+
+[^xip]: [XIP 技术总结](https://zhuanlan.zhihu.com/p/368276428)
