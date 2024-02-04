@@ -1,0 +1,35 @@
+@startuml
+' !theme crt-green
+start
+:读取日志，取出最新记录;
+if (最新记录完整?) then(yes)
+    :取出最后一个页号和新标志;
+    :读取从区域该页;
+    note left: 假设主区先写
+
+    if (从区是否为新?) then(yes)
+        stop
+    endif
+
+    :读取主区域该页;
+
+    if (主区是否为新?) then(yes)
+        :取出记录内其他页号;
+        :将从区页同步为主区域页;
+    else(no)
+        :取出记录内其他页号;
+        :将主区页同步为从区域页;
+    endif
+
+else(no)
+    if (单次写入?) then (yes)
+    :修补或清空日志;
+    stop
+    else(no)
+    :取出记录内所有页号;
+    :将主区页同步为从区域页;
+    endif
+endif
+
+stop
+@enduml

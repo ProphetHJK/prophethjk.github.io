@@ -1871,31 +1871,31 @@ pick_next_task(struct rq *rq)
 - 内核抢占，详见[内核抢占的触发时机](#内核抢占的触发时机)
 - 进程阻塞，主动放弃 CPU
 - 在内核中耗时较长的函数中见缝插针(比如每个循环中)的触发，这会使用到`cond_resched()`（其实很像`preempt_schedule()`）：
-  
-    ```c
-    static inline int should_resched(void)
-    {
-        return need_resched() && !(preempt_count() & PREEMPT_ACTIVE);
-    }
 
-    static void __cond_resched(void)
-    {
-        add_preempt_count(PREEMPT_ACTIVE);
-        __schedule();
-        sub_preempt_count(PREEMPT_ACTIVE);
-    }
+  ```c
+  static inline int should_resched(void)
+  {
+      return need_resched() && !(preempt_count() & PREEMPT_ACTIVE);
+  }
 
-    int __sched _cond_resched(void)
-    {
-        if (should_resched()) {
-            __cond_resched();
-            return 1;
-        }
-        return 0;
-    }
-    ```
+  static void __cond_resched(void)
+  {
+      add_preempt_count(PREEMPT_ACTIVE);
+      __schedule();
+      sub_preempt_count(PREEMPT_ACTIVE);
+  }
 
-    即使没有显式内核抢占，这也能够保证较高的响应速度。
+  int __sched _cond_resched(void)
+  {
+      if (should_resched()) {
+          __cond_resched();
+          return 1;
+      }
+      return 0;
+  }
+  ```
+
+  即使没有显式内核抢占，这也能够保证较高的响应速度。
 
 #### 与 fork 的交互
 
@@ -2002,33 +2002,264 @@ prev = switch_to(prev,next)
 
 > _惰性 FPU 模式：_
 >
-> 上下文切换时一般会把当前进程用到的寄存器压栈，然后从需要执行的进程的栈中恢复寄存器。但浮点计算寄存器由于很少使用且每次保存恢复的开销较大，就有了惰性 FPU 模式，也就是上下文切换期间默认**不去操作**该寄存器(假定新的进程不会去操作该寄存器)，直到进程**第一次**使用该寄存器时将原有的值**压入**最后一次使用的进程的**栈**中。
+> 上下文切换时一般会把当前进程用到的寄存器压栈，然后从需要执行的进程的栈中恢复寄存器。但浮点计算寄存器(FPU)由于很少使用且每次保存恢复的开销较大，就有了惰性 FPU 模式，也就是上下文切换期间默认**不去操作**该寄存器(假定新的进程不会去操作该寄存器)，直到进程**第一次**使用该寄存器时将原有的值**压入**最后一次使用的进程的**栈**中。
 >
 > 现代 CPU 为 FPU context 切换进行了**优化**，所以 save/restore 的开销不再是一个问题。
 
 ### 休眠和唤醒
 
+进程休眠肯定是为了等待一些事件，如文件 I/O、等待键盘输入等。
+
 休眠有两种相关的进程状态:`TASK_INTERRUPTIBLE`和`TASK_UNINTERRUPTIBLE`，见[state](#state)。
 
 进程休眠时离开就绪队列进入等待队列，如果是 CFS 策略，则从红黑树中移出。
 
+休眠通过等待队列进行，数据结构为进程组成的链表。休眠的实现可能会有竞争条件：condition 为真后进程却进入了休眠，导致永远无法被唤醒。以下实现可以规避该问题：
+
+```c
+#define __wait_event(wq, condition) 					\
+do {									\
+	DEFINE_WAIT(__wait);						\
+									\
+	for (;;) {							\
+		prepare_to_wait(&wq, &__wait, TASK_UNINTERRUPTIBLE);	\
+		if (condition)						\
+			break;						\
+		schedule();						\
+	}								\
+	finish_wait(&wq, &__wait);					\
+} while (0)
+```
+
+> **伪唤醒**：有时进程被唤醒并不是其等待的条件满足了，而是收到了其他事件被唤醒(比如被信号唤醒，或和其他进程处于同一个等待队列时被同步唤醒)，所以每次重新开始执行后需要再次判断条件。
+
+此处的 while 循环和判断条件实际只是为了防止伪唤醒，也就是条件实际并未达成就被唤醒，就继续进入唤醒状态。正常唤醒情况下，条件肯定是满足的，可以简化为：
+
 ```c
 DEFINE_WAIT(wait); // 将本进程打包为wait_queue_t项
-add_wait_queue(q, &wait); // 将该项加入等待队列q
-while (!condition) // 实际唤醒条件判断，每次被唤醒(伪唤醒)都判断一次
+// 假设仅会在条件满足时被wakeup()唤醒
+prepare_to_wait(&q, &wait, TASK_UNINTERRUPTIBLE);
+if(!condition)
+    // 非预期错误
+finish_wait(&q, &wait);
+```
+
+相关的函数：
+
+```c
+#define set_mb(var, value)	do { var = value; mb(); } while (0)
+#define set_current_state(state_value)		\
+	set_mb(current->state, (state_value))
+
+/*
+ * Note: we use "set_current_state()" _after_ the wait-queue add,
+ * because we need a memory barrier there on SMP, so that any
+ * wake-function that tests for the wait-queue being active
+ * will be guaranteed to see waitqueue addition _or_ subsequent
+ * tests in this thread will see the wakeup having taken place.
+ *
+ * The spin_unlock() itself is semi-permeable and only protects
+ * one way (it only protects stuff inside the critical region and
+ * stops them from bleeding out - it would still allow subsequent
+ * loads to move into the critical region).
+ */
+void
+prepare_to_wait(wait_queue_head_t *q, wait_queue_t *wait, int state)
 {
-    /* condition is the event that we are waiting for */
-    // 如果条件不成立就继续置为TASK_INTERRUPTIBLE状态
-    prepare_to_wait(&q, &wait, TASK_INTERRUPTIBLE);
-    if (signal_pending(current)) /* handle signal */
-        // 主动申请调度
-        schedule();
+	unsigned long flags;
+
+	wait->flags &= ~WQ_FLAG_EXCLUSIVE;
+	spin_lock_irqsave(&q->lock, flags); // 使用该接口使得其可在中断中使用
+	if (list_empty(&wait->task_list))
+		__add_wait_queue(q, wait);
+    // 若未保证原子性可能加入队列之后立即被唤醒(移出队列)，
+    // 然后这步状态却是置为休眠，导致错过唤醒，永远休眠了
+	set_current_state(state);   
+	spin_unlock_irqrestore(&q->lock, flags);
+}
+
+/*
+ * The core wakeup function. Non-exclusive wakeups (nr_exclusive == 0) just
+ * wake everything up. If it's an exclusive wakeup (nr_exclusive == small +ve
+ * number) then we wake all the non-exclusive tasks and one exclusive task.
+ *
+ * There are circumstances in which we can try to wake a task which has already
+ * started to run but is not in state TASK_RUNNING. try_to_wake_up() returns
+ * zero in this (rare) case, and we handle it by continuing to scan the queue.
+ */
+static void __wake_up_common(wait_queue_head_t *q, unsigned int mode,
+			int nr_exclusive, int wake_flags, void *key)
+{
+	wait_queue_t *curr, *next;
+
+	list_for_each_entry_safe(curr, next, &q->task_list, task_list) {
+		unsigned flags = curr->flags;
+
+		if (curr->func(curr, mode, wake_flags, key) &&
+				(flags & WQ_FLAG_EXCLUSIVE) && !--nr_exclusive)
+			break;
+	}
+}
+
+#define wake_up(x)			__wake_up(x, TASK_NORMAL, 1, NULL)
+
+/**
+ * __wake_up - wake up threads blocked on a waitqueue.
+ * @q: the waitqueue
+ * @mode: which threads
+ * @nr_exclusive: how many wake-one or wake-many threads to wake up
+ * @key: is directly passed to the wakeup function
+ *
+ * It may be assumed that this function implies a write memory barrier before
+ * changing the task state if and only if any tasks are woken up.
+ */
+void __wake_up(wait_queue_head_t *q, unsigned int mode,
+			int nr_exclusive, void *key)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&q->lock, flags);
+	__wake_up_common(q, mode, nr_exclusive, 0, key);
+	spin_unlock_irqrestore(&q->lock, flags);
+}
+
+/**
+ * try_to_wake_up - wake up a thread
+ * @p: the thread to be awakened
+ * @state: the mask of task states that can be woken
+ * @wake_flags: wake modifier flags (WF_*)
+ *
+ * Put it on the run-queue if it's not already there. The "current"
+ * thread is always on the run-queue (except when the actual
+ * re-schedule is in progress), and as such you're allowed to do
+ * the simpler "current->state = TASK_RUNNING" to mark yourself
+ * runnable without the overhead of this.
+ *
+ * Returns %true if @p was woken up, %false if it was already running
+ * or @state didn't match @p's state.
+ */
+static int
+try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
+{
+	unsigned long flags;
+	int cpu, success = 0;
+
+	/*
+	 * If we are going to wake up a thread waiting for CONDITION we
+	 * need to ensure that CONDITION=1 done by the caller can not be
+	 * reordered with p->state check below. This pairs with mb() in
+	 * set_current_state() the waiting thread does.
+	 */
+	smp_mb__before_spinlock(); // 先设置一个屏障保证之前的赋值操作完成
+	raw_spin_lock_irqsave(&p->pi_lock, flags);
+	if (!(p->state & state))
+		goto out;
+
+	success = 1; /* we're going to change ->state */
+	cpu = task_cpu(p);
+
+	/*
+	 * Ensure we load p->on_rq _after_ p->state, otherwise it would
+	 * be possible to, falsely, observe p->on_rq == 0 and get stuck
+	 * in smp_cond_load_acquire() below.
+	 *
+	 * sched_ttwu_pending()                 try_to_wake_up()
+	 *   [S] p->on_rq = 1;                  [L] P->state
+	 *       UNLOCK rq->lock  -----.
+	 *                              \
+	 *				 +---   RMB
+	 * schedule()                   /
+	 *       LOCK rq->lock    -----'
+	 *       UNLOCK rq->lock
+	 *
+	 * [task p]
+	 *   [S] p->state = UNINTERRUPTIBLE     [L] p->on_rq
+	 *
+	 * Pairs with the UNLOCK+LOCK on rq->lock from the
+	 * last wakeup of our task and the schedule that got our task
+	 * current.
+	 */
+	smp_rmb();
+	if (p->on_rq && ttwu_remote(p, wake_flags))
+		goto stat;
+    
+    // （以下省略）
 }
 ```
 
-**伪唤醒**：有时进程被唤醒并不是其等待的条件满足了，而是收到了其他信号被唤醒，所以每次重新开始执行后需要再次判断条件。
+其中竞争条件（condition 的赋值和 condition 的读取顺序）的处理使用屏障的方式：
 
-唤醒操作通过函数 wake_up()进行，它会唤醒指定的等待队列上的所有进程。它调用函数 [try_to_wake_up()](#唤醒抢占)，该函数负责将进程设置为 TASK_RUNNING 状态。如果是 CFS 队列进程，还会调用 enqueue_task() 将此进程放入红黑树中
+```plaintext
+CPU 1                           CPU 2
+===============================	===============================
+// prepare_to_wait 内部实现      STORE event_indicated
+set_current_state();            // wake_up 的实现
+    set_mb();                   wake_up();
+        // 进程进入休眠态            <write barrier> // 写屏障，保证event_indicated已经写成功
+        STORE current->state        STORE current->state // 进程进入就绪态
+        <general barrier>  // 读写屏障，保证 event_indicated 的读取在写 state 后(等唤醒后执行)
+LOAD event_indicated
+```
+
+通过 prepare_to_wait 内部(set_current_state)封装的一个读写屏障和 wake_up 内部封装的一个写屏障(可能和上面的内核代码不对应，但这是核心思想)，保证了 CPU2 对 event_indicated 的修改一定在唤醒进程(修改state)前，且 CPU1 对 event_indicated 的读取一定在休眠之后（这点主要还是为了防止伪唤醒）。
+
+唤醒操作可通过函数 wake_up()进行，它会唤醒指定的等待队列上的所有进程。它调用函数 [try_to_wake_up()](#唤醒抢占)，该函数负责将进程设置为 TASK_RUNNING 状态。如果是 CFS 队列进程，还会调用 enqueue_task() 将此进程放入红黑树中。
+
+内核代码实例：
+
+```c
+static ssize_t inotify_read(struct file *file, char __user *buf,
+			    size_t count, loff_t *pos)
+{
+	struct fsnotify_group *group;
+	struct fsnotify_event *kevent;
+	char __user *start;
+	int ret;
+	DEFINE_WAIT(wait);
+
+	start = buf;
+	group = file->private_data;
+
+	while (1) {
+		prepare_to_wait(&group->notification_waitq, &wait, TASK_INTERRUPTIBLE);
+		mutex_lock(&group->notification_mutex);
+		kevent = get_one_event(group, count);
+		mutex_unlock(&group->notification_mutex);
+
+		pr_debug("%s: group=%p kevent=%p\n", __func__, group, kevent);
+
+		if (kevent) {
+			ret = PTR_ERR(kevent);
+			if (IS_ERR(kevent))
+				break;
+			ret = copy_event_to_user(group, kevent, buf);
+			fsnotify_put_event(kevent);
+			if (ret < 0)
+				break;
+			buf += ret;
+			count -= ret;
+			continue;
+		}
+
+		ret = -EAGAIN;
+		if (file->f_flags & O_NONBLOCK)
+			break;
+		ret = -ERESTARTSYS;
+		if (signal_pending(current))
+			break;
+
+		if (start != buf)
+			break;
+
+		schedule();
+	}
+
+	finish_wait(&group->notification_waitq, &wait);
+	if (start != buf && ret != -EFAULT)
+		ret = buf - start;
+	return ret;
+}
+```
 
 ## 完全公平调度类
 

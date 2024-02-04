@@ -142,7 +142,7 @@ printk("%d\n",atomic_read(&v)); /* 转为int类型并打印*/
 
 具体实现中，`preempt_disable()` 函数会调用 `local_irq_disable()` 函数来禁用本地 CPU 的中断，并将当前进程的 `preempt_count` 值加 1。`preempt_count` 表示当前进程的**抢占计数器**，当该值大于 0 时，表示当前进程不可被抢占。当调用 `preempt_enable()` 函数时，会将 `preempt_count` 值减 1，当 preempt_count 值为 0 时，表示当前进程可以被抢占。
 
-根据原理可知以上接口可以嵌套使用，但 enable 和 disable 的数量要相同。
+根据原理可知以上接口可以嵌套使用（嵌套的意义在于编程时无需考虑父层是否已经调用了 disable 进入了临界区，使得临界区创建可以更加随意），但 enable 和 disable 要一一对应。
 
 ```c
 preempt_disable() ;
@@ -192,7 +192,7 @@ spin_lock(&mr_lock);
 spin_unlock(&mr_lock);
 ```
 
-`spin_lock()`会**关闭内核抢占**，也就是自旋等待以及处于临界区内时无法被调度，直到`spin_unlock()`，见[本文](/posts/linux-kernel-process/#内核抢占)。这是为了解决**伪并发**的问题。
+`spin_lock()`会**关闭内核抢占**，也就是自旋等待以及处于临界区内时无法被调度，直到`spin_unlock()`，见[本文](/posts/linux-kernel-process/#内核抢占)。这是为了解决**伪并发**的问题，但无法解决中断抢占。
 
 注意不要**嵌套**和**递归**使用自旋锁，已经持有锁的情况下请求同样的锁就会发生**死锁**。
 
@@ -387,11 +387,10 @@ _示例：_
 
 ```c
 static DECLARE_RWSEM(mr_rwsem);
-```
 
-读者：
 
-````c
+// 读者：
+
 /*试图获取信号量用于读...*/
 down_read(&mr_rwsem);
 
@@ -402,9 +401,9 @@ up_read(&mr_rwsem);
 
 /*...*/
 
-写者：
 
-```c
+// 写者：
+
 /*试图获取信号量用于写...*/
 down_write(&mr_rwsem);
 
@@ -690,10 +689,11 @@ _示例：_
 
 假设有两个核心 CPU-a 和 CPU-b，它们共享一个对象 obj，obj 有两个字段 data 和 ready。CPU-a 要给 obj 赋值，并把 ready 置为 1，表示 obj 已经准备好了。CPU-b 要检查 obj 是否准备好了，如果是就使用 obj 的 data 做一些事情。
 
+原始代码：
+
 ```c
 // CPU-a
 obj->data = xxx; // 给obj的data赋值
-wmb(); // 写内存屏障
 obj->ready = 1; // 把obj的ready置为1
 
 // CPU-b
@@ -701,7 +701,7 @@ if (obj->ready) // 检查obj是否准备好了
   do_something(obj->data); // 使用obj的data做一些事情
 ```
 
-这里的写内存屏障`wmb()`是为了保证 CPU-a 不会对代码进行重排序，从而使得 ready 标记置位的时候，**data 一定是有效的**。但是在 alpha 机器上， CPU-b 上的 do_something 可能使用旧的 data(实际执行 do_someting 还是在 ready 判断之后的，但因为 data 是在 CPU-a 上改的，可能 CPU-b 上的 cache 未及时更新，data 的 cache 还是旧值，所以本质就是 cache 刷新指令和 load 指令的乱序以及多个 CPU 拥有各自独立的 cache，不能做到及时更新)。
+增加写屏障：
 
 ```c
 // CPU-a
@@ -714,7 +714,13 @@ if (obj->ready) // 检查obj是否准备好了（先更新了ready）
   do_something(obj->data); // 使用obj的data做一些事情（但此时data还是旧值）
 ```
 
-所以需要添加读屏障 rmb()，让 cache 刷新操作必定在 data 被读取前执行。
+这里的写内存屏障`wmb()`是为了保证 CPU-a 不会对代码进行重排序，从而使得 ready 标记置位的时候，**data 一定是有效的**。
+
+但是在 alpha 机器上， CPU-b 上的 do_something 可能使用旧的 data(实际执行 do_someting 还是在 ready 判断之后的，但因为 data 是在 CPU-a 上改的，可能 CPU-b 上的 cache 未及时更新，data 的 cache 还是旧值，所以本质就是 cache 刷新指令和 load 指令的乱序以及多个 CPU 拥有各自独立的 cache，不能做到及时更新)。
+
+所以还需要添加读屏障 rmb()，让 cache 刷新操作必定在 data 被使用前执行，保证 data 的值必定是新的。
+
+增加读写屏障：
 
 ```c
 // CPU-a

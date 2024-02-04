@@ -7,7 +7,7 @@ categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
 ---
 
-*本文中文版翻译质量堪忧，有不少名词翻译不知所云，建议对照英文版阅读*
+_本文中文版翻译质量堪忧，有不少名词翻译不知所云，建议对照英文版阅读_
 
 ## 前言
 
@@ -58,7 +58,7 @@ tags: [Operating Systems, 操作系统导论]
 
 要执行系统调用，程序必须执行特殊的`陷阱`（trap）指令。该指令同时跳入内核并将特权级别提升到`内核模式`。一旦进入内核，系统就可以执行任何需要的`特权操作`（如果允许），从而为调用进程执行所需的工作。完成后，操作系统调用一个特殊的`从陷阱返回`（return-from-trap）指令，如你期望的那样，**该指令返回到发起调用的用户程序中，同时将特权级别降低，回到用户模式。**
 
-执行陷阱时，硬件需要小心，因为它必须确保存储足够的调用者寄存器，以便在操作系统发出从陷阱返回指令时能够`正确返回`。例如，在 x86 上，处理器会将程序计数器、标志和其他一些寄存器推送到`每个进程`的`内核栈`（kernel stack）上。从返回陷阱将从栈弹出这些值，并恢复执行用户模式程序（有关详细信息，请参阅英特尔系统手册）。其他硬件系统使用不同的约定，但基本概念在各个平台上是相似的。
+执行陷阱时，硬件需要小心，因为它必须确保存储足够的调用者寄存器，以便在操作系统发出从陷阱返回指令时能够`正确返回`。例如，在 x86 上，处理器会将程序计数器、标志和其他一些寄存器推送到`每个进程`的`内核栈`（kernel stack）上。从陷阱返回时将从栈弹出这些值，并恢复执行用户模式程序（有关详细信息，请参阅英特尔系统手册）。其他硬件系统使用不同的约定，但基本概念在各个平台上是相似的。
 
 > **补充：为什么系统调用看起来像过程调用**
 >
@@ -179,7 +179,9 @@ LDE 协议有两个阶段:
 
 **问题说明：**
 
-```c
+函数执行流：
+
+```plaintext
 wlm_do()->the_wlm_routine[the_wlm.status].func()->wlm_chk_baudrate()->
 atcmd(serfd(), "AT\r", E_OK, 500, NULL, 0)->memset(prbuf, 0, rbuf_len)
 ```
@@ -219,7 +221,7 @@ OS_CPU_PendSVHandler:
 
 此处仅保存了 r4-r7 寄存器，少了对 r8-r11 寄存器的保存
 
-查看官网更新说明[µC/OS-III v3.06.00 Changelog(已废弃)](https://www.micrium.com/ucos-iii-v3-06-00/)或[µC/OS-III Release Notes](https://micrium.atlassian.net/wiki/spaces/osiiidoc/pages/132259/C+OS-III+Release+Notes#id-%C2%B5C%2FOS-IIIReleaseNotes-Version3.06.00)，有如下信息：
+查看官网更新说明[~~µC/OS-III v3.06.00 Changelog~~(已废弃)](https://www.micrium.com/ucos-iii-v3-06-00/)或[µC/OS-III Release Notes](https://micrium.atlassian.net/wiki/spaces/osiiidoc/pages/132259/C+OS-III+Release+Notes#id-%C2%B5C%2FOS-IIIReleaseNotes-Version3.06.00)，有如下信息：
 
 ![changelog](/assets/img/2021-03-16-operating-systems-4/changelog.png)
 

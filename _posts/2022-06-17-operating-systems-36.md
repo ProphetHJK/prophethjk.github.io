@@ -3,6 +3,7 @@ title: "《Operating Systems: Three Easy Pieces》学习笔记(三十六) 数据
 author: Jinkai
 date: 2022-06-17 10:00:00 +0800
 published: true
+math: true
 categories: [学习笔记]
 tags: [Operating Systems, 操作系统导论]
 ---

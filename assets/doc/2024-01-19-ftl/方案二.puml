@@ -1,0 +1,30 @@
+@startuml
+!theme crt-green
+start
+:调用写入一页接口(冷数据);
+:读取该逻辑块的最新关联块;
+if (有关联块?) then(yes)
+    if(关联块是正在写入的块？) then(yes)
+    else(no)
+        :读取关联块的反向映射;
+        :找到其中所有关联到该逻辑块的页;
+        if(当前写入块剩余页数>需要搬移的页) then(yes)
+            :搬移这些页到当前写入块;
+        else(no)
+            :寻找一个空闲块;
+            if(需要搬移的页较多？) then(yes)
+            :交换该逻辑块与该空闲块;
+            :最新关联块指向空;
+            stop
+            else(no)
+            :空闲块转为待写数据块;
+            :搬移这些页到该最新写入块;
+            endif
+        endif
+    endif
+else(no)
+endif
+:写入页;
+:修改最新关联块;
+end
+@enduml
