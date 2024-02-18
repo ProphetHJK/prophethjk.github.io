@@ -18,7 +18,7 @@ tags: [SSL, 双向认证, goahead, HTTPS]
 
 `单向认证`流程中，服务器端保存着公钥证书和私钥两个文件，整个握手过程如下：
 
-![单向认证](/assets/img/2021-01-22-mutual-authentication/单向认证.png)
+![单向认证](/assets/img/2021-01-22-mutual-authentication/one-way-auth.png)
 
 1. 客户端发起建立 HTTPS 连接请求，将 SSL 协议版本的信息发送给服务器端；
 2. 服务器端将本机的公钥证书（server.crt）发送给客户端；
@@ -29,7 +29,7 @@ tags: [SSL, 双向认证, goahead, HTTPS]
 
 ### 双向认证流程(RSA)
 
-![双向认证](/assets/img/2021-01-22-mutual-authentication/双向认证.png)
+![双向认证](/assets/img/2021-01-22-mutual-authentication/mutual-auth.png)
 
 1. 客户端发起建立 HTTPS 连接请求，将 SSL 协议版本的信息发送给服务端；
 2. 服务器端将本机的公钥证书 (server.crt) 发送给客户端；
