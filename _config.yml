@@ -20,7 +20,7 @@ timezone: Asia/Shanghai
 
 title: 普通人 # the main title
 
-tagline: 潜龙勿用 # it will display as the sub-title
+tagline: 见龙在田，利见大人 # it will display as the sub-title
 
 description: >- # used by seo meta and the atom feed
   技术类博客，[计算机]、[嵌入式]、[互联网]、[Linux]...
@@ -103,10 +103,10 @@ comments:
     issue_term: # < url | pathname | title | ...>
   # Giscus options › https://giscus.app
   giscus:
-    repo: ProphetHJK/prophethjk.github.io # <gh-username>/<repo>
-    repo_id: MDEwOlJlcG9zaXRvcnkzMjk1MjU2NjI=
-    category: General
-    category_id: DIC_kwDOE6Qpns4CPYgF
+    repo: "ProphetHJK/prophethjk.github.io" # <gh-username>/<repo>
+    repo_id: "MDEwOlJlcG9zaXRvcnkzMjk1MjU2NjI="
+    category: "General"
+    category_id: "DIC_kwDOE6Qpns4CPYgF"
     mapping: # optional, default to 'pathname'
     input_position: # optional, default to 'bottom'
     lang: # optional, default to the value of `site.lang`
@@ -156,7 +156,7 @@ defaults:
       type: posts
     values:
       layout: post
-      comments: false # Enable comments in posts.
+      comments: true # Enable comments in posts.
       toc: true # Display TOC column in posts.
       # DO NOT modify the following parameter unless you are confident enough
       # to update the code of all other post links in this project.
