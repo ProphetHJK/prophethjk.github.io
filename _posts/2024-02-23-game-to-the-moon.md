@@ -74,6 +74,6 @@ John 将 River 葬在了 Anya 旁边，陪她一起看着 Anya。
 
 “**我要去月球**，就是……想去”，John 在临终之际只有这个愿望，但他不知道理由。
 
-![wanttogo](../assets/img/2024-02-23-game-to-the-moon/wanttogo.png)
+![wanttogo](/assets/img/2024-02-23-game-to-the-moon/wanttogo.png)
 
 此时游戏正式开始，游戏主角——两位医学博士帮助 John 在生命的最后一点一点回想起和 River 的约定并在梦中一起坐上前往月球的火箭，随着心电监护仪发出长滴——，游戏也进入尾声。
