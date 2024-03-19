@@ -230,7 +230,7 @@ Cgroup 作用：
 - devices - 这个子系统可允许或者拒绝 cgroup 中的任务访问设备。
 - freezer - 这个子系统挂起或者恢复 cgroup 中的任务。
 - memory - 这个子系统设定 cgroup 中任务使用的内存限制，并自动生成内存资源使用报告。
-- net_cls - 这个子系统使用等级识别符（classid）标记网络数据包，可允许 Linux 流量控制程序（tc）识别从具体 cgroup 中生。
+- net_cls - 这​​​个​​​子​​​系​​​统​​​使​​​用​​​等​​​级​​​识​​​别​​​符​​​（classid）标​​​记​​​网​​​络​​​数​​​据​​​包​​​，可​​​允​​​许​​​ Linux 流​​​量​​​控​​​制​​​程​​​序​​​（tc）识​​​别​​​从​​​具​​​体​​​ cgroup 中​​​生​​​成​​​的​​​数​​​据​​​包​​​。
 - net_prio - 这个子系统用来设计网络流量的优先级
 - hugetlb - 这个子系统主要针对于 HugeTLB 系统进行限制，这是一个大页文件系统。
 
@@ -244,7 +244,7 @@ Cgroup 作用：
 
 LXC，其名称来自 Linux 软件容器（Linux Containers）的缩写，一种操作系统层虚拟化（Operating system–level virtualization）技术，为 Linux 内核容器功能的一个用户空间接口。它将应用软件系统打包成一个软件容器（Container），内含应用软件本身的代码，以及所需要的操作系统核心和库。透过统一的名字空间和共享 API 来分配不同软件容器的可用硬件资源，创造出应用程序的独立沙箱运行环境，使得 Linux 用户可以容易的创建和管理系统或应用容器。
 
-在 Linux 内核中，提供了 cgroups 功能，来达成资源的区隔化。它同时也提供了名称空间区隔化的功能，使应用程序看到的操作系统环境被区隔成独立区间，包括行程树，网络，用户 id，以及挂载的文件系统。但是 cgroups 并不一定需要引导任何虚拟机。
+在 Linux 内核中，提供了 cgroups 功能，来达成资源的区隔化。同时 Linux 内核也提供了 namespace 区隔化的功能，使应用程序看到的操作系统环境被区隔成独立区间，包括行程树，网络，用户 id，以及挂载的文件系统。但是 cgroups 并不一定需要引导任何虚拟机。
 
 LXC 利用 cgroups 与 namespace 的功能，提供应用软件一个独立的操作系统环境。LXC 不需要 Hypervisor 这个软件层，软件容器（Container）本身极为轻量化，提升了创建虚拟机的速度。
 
@@ -310,6 +310,23 @@ runC 是 Docker 公司按照 OCI 标准规范编写的一个操作容器的命�
 所以真正启动容器是通过  containerd-shim  去调用  runc  来启动容器的，runc  启动完容器后本身会直接退出，containerd-shim  则会成为容器进程的父进程, 负责收集容器进程的状态, 上报给 containerd, 并在容器中 pid 为 1 的进程退出后接管容器中的子进程进行清理, 确保不会出现僵尸进程。
 
 ## 容器管理
+
+### Docker Desktop
+
+Docker Desktop 是带有**图形化界面**的 Docker 管理程序，除了 Linux 外，它还支持了 Windows、Mac 系统。
+
+Windows 版本的 Docker Desktop 有两个模式：
+
+- Linux 容器模式：利用 WSL2 实现运行 Linux 容器
+- Windows 容器模式：利用 Hyper-V 或原生支持运行 Windows 容器(里面跑的就是 Windows 系统)
+
+这两个模式不能同时使用，必须选择其一，并需要切换。
+
+由于 Linux 容器生态更为庞大，一般会选用 Linux 容器模式。Windows 容器模式一般用于需要运行只能在 Windows 环境执行的程序的情况。
+
+#### 运行 Windows 容器
+
+[入门：运行你的第一个 Windows 容器](https://learn.microsoft.com/zh-cn/virtualization/windowscontainers/quick-start/run-your-first-container)
 
 ### Kubernetes
 

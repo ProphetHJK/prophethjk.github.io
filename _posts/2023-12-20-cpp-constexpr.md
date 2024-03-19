@@ -26,7 +26,7 @@ constexpr 修饰符是在 C++ 11 标准中引入的，官方规定的含义为 s
 其与 C 语言中的宏的区别在于其可以理解部分高级语法，比如从 C++14 开始其可以在编译时完成对 if 等条件语句的判断并返回对应分支的结果。可以将 constexpr 理解为加强版的宏，在 C++ 编程中应该尽可能多的使用 constexpr 而不是宏。
 
 ```cpp
-#define MAX_HEIGHT 720 // 宏变量无法指定类型，默认为 int 类型
+#define MAX_HEIGHT 720 // 宏常量无法指定类型，默认为 int 类型
 constexpr unsigned int max_height = 720;
 ```
 
