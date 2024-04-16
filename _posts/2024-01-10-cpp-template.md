@@ -203,7 +203,7 @@ private:
 
 ## 模板分类
 
-模块可分为**函数模板**和**类模板**两类。
+模块可分为**函数模板**和**类模板**、**变量模板**(C++14)三类。
 
 ### 函数模板（Function Templates）
 
@@ -270,6 +270,55 @@ template <typename T> T const &Stack<T>::top() const {
   return elems.back(); // return copy of last element
 }
 ```
+
+### 变量模板
+
+变量模板是 C++14 引入的一个功能，允许开发者为变量定义模板化的版本。
+
+基本语法：
+
+```cpp
+template<typename T>
+T myVariable = T();
+```
+
+定义数组：
+
+```cpp
+#include <iostream>
+
+// 定义一个变量模板，用于创建具有指定大小的数组
+template<typename T, std::size_t N>
+T arrayTemplate[N] = {};
+
+int main() {
+    // 实例化一个 int 类型、大小为 5 的数组模板
+    arrayTemplate<int, 5>[0] = 10;
+    arrayTemplate<int, 5>[1] = 20;
+    arrayTemplate<int, 5>[2] = 30;
+    arrayTemplate<int, 5>[3] = 40;
+    arrayTemplate<int, 5>[4] = 50;
+
+    // 打印数组
+    for (int i = 0; i < 5; i++) {
+        std::cout << "arrayTemplate<int, 5>[" << i << "] = " << arrayTemplate<int, 5>[i] << std::endl;
+    }
+
+    // 实例化一个 double 类型、大小为 3 的数组模板
+    arrayTemplate<double, 3>[0] = 3.14;
+    arrayTemplate<double, 3>[1] = 1.59;
+    arrayTemplate<double, 3>[2] = 2.65;
+
+    // 打印数组
+    for (int i = 0; i < 3; i++) {
+        std::cout << "arrayTemplate<double, 3>[" << i << "] = " << arrayTemplate<double, 3>[i] << std::endl;
+    }
+
+    return 0;
+}
+```
+
+注意：此时 `arrayTemplate<int, 5>` 、`arrayTemplate<double, 3>` 就是实例化后的变量的名称，所以相同模板参数的实例只能存在一个。
 
 ## 非类型模板参数
 
