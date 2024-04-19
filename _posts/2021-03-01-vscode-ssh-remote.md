@@ -65,7 +65,7 @@ Windows自带openSSH版本较老，与Linux中的版本不兼容
 重新查看版本号,如显示版本为新版，则设置成功
 
 ```console
-C:\Users\huangjinkai>ssh -V
+C:\Users\kai>ssh -V
 OpenSSH_8.3p1, OpenSSL 1.1.1g  21 Apr 2020
 ```
 
