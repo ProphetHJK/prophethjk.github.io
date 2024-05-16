@@ -1,6 +1,5 @@
 ---
 title: "使用PlantUML绘制类图"
-author: Jinkai
 date: 2021-08-04 09:00:00 +0800
 published: true
 categories: [技术]
@@ -335,7 +334,7 @@ A2 <-right- B2
 
 ## 总结
 
-画类图，只是 PlantUML 的功能之一，还可以使用它画[时序图](https://plantuml.com/zh/sequence-diagram)、[用例图](https://plantuml.com/zh/use-case-diagram)、`活动图`等。更多用法，请关注后续博客或[访问官网](http://plantuml.com/)。
+画类图，只是 PlantUML 的功能之一，还可以使用它画[时序图](https://plantuml.com/zh/sequence-diagram)、[用例图](https://plantuml.com/zh/use-case-diagram)、`活动图`等。更多用法，请关注后续博客或[访问官网](https://plantuml.com/)。
 
 ## 参考
 

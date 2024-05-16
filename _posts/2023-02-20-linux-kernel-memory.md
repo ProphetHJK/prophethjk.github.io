@@ -1,6 +1,5 @@
 ---
 title: "Linux内核学习笔记之内存管理"
-author: Jinkai
 date: 2023-02-20 09:00:00 +0800
 published: true
 categories: [学习笔记]
@@ -1105,7 +1104,7 @@ ffffffffff600000      4K --x--   [ anon ]
 
 stack 栈段只有 rw 读写权限，无需可执行权限。
 
-vvar，vdso，vsyscall 段见[本文](http://readm.tech/2016/09/23/syscall/)
+vvar，vdso，vsyscall 段见[本文](https://readm.tech/2016/09/23/syscall/)
 
 可以看到 `libc.so.6` 链接库占用了很大的地址空间，其实这部分是文件映射，并没有占用物理内存。
 
@@ -1594,6 +1593,6 @@ flusher 线程的实现代码在文件`<mm/page-writeback.c>`和`<mm/backing-dev
 
 - [Linux 内核设计与实现（第三版）第十二、十五、十六章](https://www.amazon.com/Linux-Kernel-Development-Robert-Love/dp/0672329468/ref=as_li_ss_tl?ie=UTF8&tag=roblov-20)
 - [Robert Love](https://rlove.org/)
-- [Linux 的虚拟系统调用加速](http://readm.tech/2016/09/23/syscall/)
+- [Linux 的虚拟系统调用加速](https://readm.tech/2016/09/23/syscall/)
 - [How The Kernel Manages Your Memory](https://manybutfinite.com/post/how-the-kernel-manages-your-memory/)
 - [页面置换算法之 Clock 算法](https://www.cnblogs.com/wingsless/p/12295246.html)

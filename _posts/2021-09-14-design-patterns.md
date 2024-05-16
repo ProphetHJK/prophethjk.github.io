@@ -1,6 +1,5 @@
 ---
 title: "软件设计模式(C++)"
-author: Jinkai
 date: 2021-09-14 09:00:00 +0800
 published: false
 categories: [技术]
@@ -25,7 +24,7 @@ tags: [design patterns, c++]
 
 - 部分**转载**的原文链接
 
-  - [**软件设计模式概述**](http://c.biancheng.net/view/1317.html)
+  - [**软件设计模式概述**](https://c.biancheng.net/view/1317.html)
   - [CS-Notes **设计模式**](<[https://github.com/CyC2018/CS-Notes/blob/master/docs/notes/设计模式.md](https://github.com/CyC2018/CS-Notes/blob/master/docs/notes/设计模式.md)>)
 
 - 本文**示例代码**
@@ -149,7 +148,7 @@ tags: [design patterns, c++]
 
 ## [](#23种设计模式)23种设计模式
 
-> [设计模式](http://c.biancheng.net/design_pattern/)有两种分类方法，即根据模式的目的来分和根据模式的作用的范围来分。
+> [设计模式](https://c.biancheng.net/design_pattern/)有两种分类方法，即根据模式的目的来分和根据模式的作用的范围来分。
 
 - **根据目的来分**
 

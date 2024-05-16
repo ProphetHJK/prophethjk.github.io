@@ -1,6 +1,5 @@
 ---
 title: "《Operating Systems: Three Easy Pieces》学习笔记(三十一) 插叙：文件和目录"
-author: Jinkai
 date: 2022-06-16 11:03:00 +0800
 published: true
 categories: [学习笔记]
@@ -402,4 +401,4 @@ ext3（标准的基于磁盘的文件系统）、proc 文件系统（用于访�
 - [Operating Systems: Three Easy Pieces 中文版](https://pages.cs.wisc.edu/~remzi/OSTEP/Chinese/39.pdf)
 - [behaviour of fseek and SEEK_END](https://stackoverflow.com/questions/27549718/behaviour-of-fseek-and-seek-end)
 - [Does fsync of a parent directory guarantee synchronization of meta data of all recursive sub directories?](https://stackoverflow.com/questions/17616485/does-fsync-of-a-parent-directory-guarantee-synchronization-of-meta-data-of-all-r)
-- [Linux IO 同步函数:sync、fsync、fdatasync](http://byteliu.com/2019/03/09/Linux-IO%E5%90%8C%E6%AD%A5%E5%87%BD%E6%95%B0-sync%E3%80%81fsync%E3%80%81fdatasync/)
+- [Linux IO 同步函数:sync、fsync、fdatasync](https://byteliu.com/2019/03/09/Linux-IO%E5%90%8C%E6%AD%A5%E5%87%BD%E6%95%B0-sync%E3%80%81fsync%E3%80%81fdatasync/)

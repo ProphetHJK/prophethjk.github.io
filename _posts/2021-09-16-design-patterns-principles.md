@@ -1,6 +1,5 @@
 ---
 title: "软件设计模式——七大设计原则"
-author: Jinkai
 date: 2021-09-16 09:00:00 +0800
 published: true
 categories: [技术]
@@ -158,5 +157,5 @@ tags: [design patterns, design principles]
 ## 参考
 
 - [23 种经典设计模式(附 c++实现代码) \| 王竹兴\| Blob](<https://zhulao.gitee.io/blog/2019/03/31/23%E7%A7%8D%E7%BB%8F%E5%85%B8%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F(%E9%99%84c++%E5%AE%9E%E7%8E%B0%E4%BB%A3%E7%A0%81)/index.html>)
-- [软件设计模式概述](http://c.biancheng.net/view/1317.html)
+- [软件设计模式概述](https://c.biancheng.net/view/1317.html)
 - [CS-Notes 设计模式](https://github.com/CyC2018/CS-Notes/blob/master/docs/notes/设计模式.md)

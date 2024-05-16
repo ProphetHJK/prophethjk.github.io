@@ -1,6 +1,5 @@
 ---
 title: SOAP,WSDL,DSMR详解
-author: Jinkai
 date: 2021-02-23 10:00:00 +0800
 published: true
 categories: [技术]
@@ -66,7 +65,7 @@ SOAP消息的`根元素`，可把XML文档定义为SOAP消息
 
 xmlns：SOAP命名空间,固定不变。
 
->在WSDL中，SOAP命名空间为<http://www.w3.org/2003/05/soap-envelope>
+>在WSDL中，SOAP命名空间为<https://www.w3.org/2003/05/soap-envelope>
 
 SOAP在默认命名空间中定义了3个属性：`actor`，`mustUnderstand`，`encodingStyle`。这些被定义在SOAP头部的属性**可定义容器如何对SOAP消息进行处理**。
 
@@ -121,8 +120,8 @@ TODO
 
 **`WSDL`(Web Services Description Language)网络服务描述语言**，WSDL 是一种使用 XML 编写的文档。这种文档可描述某个 Web Service。文档的后缀名为一般为wsdl
 
-- 官网：<http://schemas.xmlsoap.org/wsdl/>
-- WS-RT的WSDL描述：<http://schemas.xmlsoap.org/ws/2006/08/resourceTransfer/wsrt.wsdl>
+- 官网：<https://schemas.xmlsoap.org/wsdl/>
+- WS-RT的WSDL描述：<https://schemas.xmlsoap.org/ws/2006/08/resourceTransfer/wsrt.wsdl>
 
 ### 基本结构
 
@@ -150,7 +149,7 @@ TODO
 
 ### 实例
 
-以盛付通的一个接口为例，介绍一下整个wsdl描述文件，网址如下<http://cardpay.shengpay.com/api-acquire-channel/services/receiveOrderService?wsdl>
+以盛付通的一个接口为例，介绍一下整个wsdl描述文件，网址如下<https://cardpay.shengpay.com/api-acquire-channel/services/receiveOrderService?wsdl>
 
 ### Definitions
 
@@ -351,7 +350,7 @@ This specification defines `extensions` to `WS-Transfer` primarily to provide `f
 WS-RT是WS-Transfer的扩展，主要用于基于片段的资源的访问
 
 - 官网：<https://www.w3.org/TR/2010/NOTE-ws-resource-transfer-20100713/>
-- 协议：<http://schemas.xmlsoap.org/ws/2006/08/resourceTransfer/>
+- 协议：<https://schemas.xmlsoap.org/ws/2006/08/resourceTransfer/>
 
 ### 介绍
 
@@ -370,7 +369,7 @@ This document constitutes WS-ResourceTransfer, hereafter referred to as WS-RT.
 --------
 
 - 官网：<https://www.w3.org/Submission/WS-Transfer/>
-- 协议：<http://schemas.xmlsoap.org/ws/2004/09/transfer/>
+- 协议：<https://schemas.xmlsoap.org/ws/2004/09/transfer/>
 
 ### 介绍
 

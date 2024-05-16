@@ -1,6 +1,5 @@
 ---
 title: "容器,边缘计算与云原生"
-author: Jinkai
 date: 2021-11-02 09:00:00 +0800
 published: true
 categories: [技术]
@@ -391,7 +390,7 @@ KubeEdge 是一个开源的系统，可将本机容器化应用编排和管理�
 ## 参考
 
 - [虚拟机和容器有什么不同-ThinkWon 的博客-CSDN 博客](https://blog.csdn.net/thinkwon/article/details/107476886)
-- [容器技术概览 - DockOne.io](http://dockone.io/article/2442)
+- [容器技术概览 - DockOne.io](https://dockone.io/article/2442)
 - [操作系统容器与应用程序容器 - 技术记录栈 (xieyonghui.com)](https://cs.xieyonghui.com/container/os-container-and-app-container_172.html)
 - [操作系统层虚拟化 - 维基百科，自由的百科全书 (wikipedia.org)](https://zh.wikipedia.org/wiki/%E4%BD%9C%E6%A5%AD%E7%B3%BB%E7%B5%B1%E5%B1%A4%E8%99%9B%E6%93%AC%E5%8C%96)
 - [什么是容器化？ (redhat.com)](https://www.redhat.com/zh/topics/cloud-native-apps/what-is-containerization)
@@ -402,5 +401,5 @@ KubeEdge 是一个开源的系统，可将本机容器化应用编排和管理�
 - [Linux 的 Namespace 与 Cgroups 介绍](https://www.cnblogs.com/wjoyxt/p/9935098.html)
 - [Linux 资源管理之 cgroups 简介-美团技术团队](https://tech.meituan.com/2015/03/31/cgroups.html)
 - [Docker 架构中的几个核心概念](https://www.jianshu.com/p/de3184ad0800)
-- [Docker 实现原理/容器原理（LXC,Cgroups，Docker）](http://www.voycn.com/article/dockershixianyuanlirongqiyuanlilxccgroupsdocker)
+- [Docker 实现原理/容器原理（LXC,Cgroups，Docker）](https://www.voycn.com/article/dockershixianyuanlirongqiyuanlilxccgroupsdocker)
 - [云原生在物联网中的应用【拜托了，物联网！】](https://bbs.huaweicloud.com/blogs/301069)

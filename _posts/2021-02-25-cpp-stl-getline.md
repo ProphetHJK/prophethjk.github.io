@@ -1,6 +1,5 @@
 ---
 title: STL getline读入\r问题
-author: Jinkai
 date: 2021-02-25 09:00:00 +0800
 published: true
 categories: [技术]
@@ -61,4 +60,4 @@ Additionally, in any of these cases, if the appropriate flag has been set with i
 
 ## 参考
 
-- [getline (string) - C++ Reference](<http://www.cplusplus.com/reference/string/string/getline/>)
+- [getline (string) - C++ Reference](<https://www.cplusplus.com/reference/string/string/getline/>)

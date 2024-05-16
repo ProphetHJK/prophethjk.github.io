@@ -1,6 +1,5 @@
 ---
 title: "《UML 状态图的实用 C/C++设计》(QP状态机)学习笔记"
-author: Jinkai
 date: 2022-07-27 09:00:00 +0800
 published: true
 math: true
@@ -2804,7 +2803,7 @@ QF 框架的代码实现详解，对上一章的补充
 
 - 可移植性
 
-  所以 QF 源代码使用可移植的 ANSI-C ，或者[`嵌入式 C++子集`](http://www.caravan.net/ec2plus/)（wiki 上说这个项目从 2002 年开始就停止了，而且 C++之父也不看好）编写，所有处理器相关的，编译器相关的，或操作系统相关的代码被抽象成一个清楚定义的平台抽象层 PAL（ platform abstraction layer）。
+  所以 QF 源代码使用可移植的 ANSI-C ，或者[`嵌入式 C++子集`](https://www.caravan.net/ec2plus/)（wiki 上说这个项目从 2002 年开始就停止了，而且 C++之父也不看好）编写，所有处理器相关的，编译器相关的，或操作系统相关的代码被抽象成一个清楚定义的平台抽象层 PAL（ platform abstraction layer）。
 
 - 可伸缩性
 

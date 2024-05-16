@@ -1,6 +1,5 @@
 ---
 title: "Linux内核学习笔记之中断和中断处理"
-author: Jinkai
 date: 2023-02-13 09:00:00 +0800
 published: true
 categories: [学习笔记]
@@ -75,7 +74,7 @@ typedef irqreturn_t (*irq_handler_t) (int, void *);
 
 中断处理程序标志，位掩码
 
-- **IRQF_DISABLED**: ~~处理该中断时`关中断`(关所有中断，如果未置位，只关闭当前中断线的中断)~~，无需关注，新 Linux 内核[已移除](http://lists.infradead.org/pipermail/linux-mtd/2015-March/058135.html)
+- **IRQF_DISABLED**: ~~处理该中断时`关中断`(关所有中断，如果未置位，只关闭当前中断线的中断)~~，无需关注，新 Linux 内核[已移除](https://lists.infradead.org/pipermail/linux-mtd/2015-March/058135.html)
 
   旧的内核（2.6.35 版本之前）认为有两种 interrupt handler：`slow handler` 和 `fast handle`（注意**不是**上一节提到的**上下部分**）。在 request irq 的时候，对于 fast handler，需要传递 IRQF_DISABLED 的参数，确保其中断处理过程中是关闭本地 CPU 的中断的(禁止中断嵌套)，因为是 fast handler，执行很快，即便是关闭 CPU 中断不会影响系统的性能。但是，并不是每一种外设中断的 handler 都是那么快（例如磁盘），因此就有 slow handler 的概念，说明其在中断处理过程中会耗时比较长。对于这种情况，在执行 interrupt handler 的时候不能关闭 CPU 中断，否则对系统的 performance 会有影响。
 
@@ -1181,4 +1180,4 @@ void local_bh_enable(void)
 
 - [Linux 内核设计与实现（第三版）第七、八章](https://www.amazon.com/Linux-Kernel-Development-Robert-Love/dp/0672329468/ref=as_li_ss_tl?ie=UTF8&tag=roblov-20)
 - [Robert Love](https://rlove.org/)
-- [Linux kernel 中断子系统之（五）：驱动申请中断 API](http://www.wowotech.net/linux_kenrel/request_threaded_irq.html)
+- [Linux kernel 中断子系统之（五）：驱动申请中断 API](https://www.wowotech.net/linux_kenrel/request_threaded_irq.html)
