@@ -153,9 +153,13 @@ Linux 内核提供了几项特性（chroot、Namespace、Cgroups）用于虚拟�
 
 chroot 是在 Unix 和 Linux 系统的一个操作，针对正在运行的进程和它的子进程，改变它外显的根目录，让进程以为该目录即为根目录。一个运行在这个环境下，经由 chroot 设置根目录的程序，它不能够对这个指定根目录之外的文件进行访问动作，不能读取，也不能更改它的内容。
 
+![chroot](/assets/img/2021-11-02-containers-edge-cloudnative/chroot.png)
+
 ### Namespace
 
 Linux Namespace 是 kernel 的一个功能，它可以隔离一系列系统的资源，比如 PID(Process ID)，User ID, Network 等等。一般看到这里，很多人会想到一个命令 chroot，就像 chroot 允许把当前目录变成根目录一样(被隔离开来的)，Namesapce 也可以在一些资源上，将进程隔离起来，这些资源包括进程树，网络接口，挂载点等等。
+
+![namespace](/assets/img/2021-11-02-containers-edge-cloudnative/namespace.jpg)
 
 在同一个 namespace 下的进程可以感知彼此的变化，而对外界的进程一无所知。这样就可以让容器中的进程产生错觉，认为自己置身于一个独立的系统中，从而达到隔离的目的。也就是说 linux 内核提供的 namespace 技术为 docker 等容器技术的出现和发展提供了基础条件。
 
@@ -207,6 +211,8 @@ Linux Namespaces 功能参数和内核要求:
 ### Cgroups(Control Groups)
 
 Cgroups(Control Groups) 是 Linux 内核提供的一种可以限制、记录、隔离进程组（process groups）所使用的物理资源（如：cpu,memory,IO 等等）的机制。可以对一组进程及将来的子进程的资源的限制、控制和统计的能力，这些资源包括 CPU，内存，存储，网络等。通过 Cgroups，可以方便的限制某个进程的资源占用，并且可以实时的监控进程的监控和统计信息。最初由 google 的工程师提出，后来被整合进 Linux 内核。Cgroups 也是 LXC 为实现虚拟化所使用的资源管理手段，可以说没有 Cgroups 就没有 LXC (Linux Container)。
+
+![cgroup](/assets/img/2021-11-02-containers-edge-cloudnative/cgroup.png)
 
 Cgroup 作用：
 
@@ -261,18 +267,22 @@ LXC 依赖于 Linux 内核提供的 cgroup，chroot，namespace 特性
 
 ### Docker 组件
 
-#### docker
+#### docker(docker client)
 
 docker 的命令行工具，是给用户和 docker daemon 建立通信的客户端。
+
+![dockerclient](/assets/img/2021-11-02-containers-edge-cloudnative/dockerclient.jpg)
 
 #### dockerd
 
 dockerd 是 docker 架构中一个常驻在后台的系统进程，称为 docker daemon，dockerd 实际调用的还是 containerd 的 api 接口（rpc 方式实现）,docker daemon 的作用主要有以下两方面：
 
-- 接收并处理 docker client 发送的请求
+- 接收并处理 docker client 发送的命令并翻译到 Containerd 的 API 上
 - 管理所有的 docker 容器
 
 有了 containerd 之后，dockerd 可以独立升级，以此避免之前 dockerd 升级会导致所有容器不可用的问题。
+
+![dockerdaemon](/assets/img/2021-11-02-containers-edge-cloudnative/dockerdaemon.jpg)
 
 #### containerd
 
@@ -296,7 +306,7 @@ containerd-shim 是一个真实运行容器的载体，每启动一个容器都�
 
 #### runC
 
-runC 是 Docker 公司按照 OCI 标准规范编写的一个操作容器的命令行工具，其前身是 libcontainer 项目演化而来，runC 实际上就是 libcontainer 配上了一个轻型的客户端，是一个命令行工具端，根据 OCI（开放容器组织）的标准来创建和运行容器，实现了容器启停、资源隔离等功能。
+runC 是 Docker 公司按照 OCI 标准(Open Container Initiative,开放容器标准--运行时与镜像)规范编写的一个操作容器的命令行工具，其前身是 libcontainer 项目演化而来，runC 实际上就是 libcontainer 配上了一个轻型的客户端，是一个命令行工具端，根据 OCI（开放容器组织）的标准来创建和运行容器，实现了容器启停、资源隔离等功能。
 
 ### Docker 启动过程
 
