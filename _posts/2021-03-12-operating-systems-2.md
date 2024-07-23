@@ -153,38 +153,38 @@ struct proc
 
 ```shell
     $ ./process-run.py -l 3:0,5:100,5:100,5:100 -S SWITCH_ON_IO -I IO_RUN_LATER -c -p
-Time        PID: 0        PID: 1        PID: 2        PID: 3           CPU           IOs
-  1         RUN:io         READY         READY         READY             1
-  2        WAITING       RUN:cpu         READY         READY             1             1
-  3        WAITING       RUN:cpu         READY         READY             1             1
-  4        WAITING       RUN:cpu         READY         READY             1             1
-  5        WAITING       RUN:cpu         READY         READY             1             1
-  6        WAITING       RUN:cpu         READY         READY             1             1
-  7*         READY          DONE       RUN:cpu         READY             1
-  8          READY          DONE       RUN:cpu         READY             1
-  9          READY          DONE       RUN:cpu         READY             1
- 10          READY          DONE       RUN:cpu         READY             1
- 11          READY          DONE       RUN:cpu         READY             1
- 12          READY          DONE          DONE       RUN:cpu             1
- 13          READY          DONE          DONE       RUN:cpu             1
- 14          READY          DONE          DONE       RUN:cpu             1
- 15          READY          DONE          DONE       RUN:cpu             1
- 16          READY          DONE          DONE       RUN:cpu             1
- 17    RUN:io_done          DONE          DONE          DONE             1
- 18         RUN:io          DONE          DONE          DONE             1
- 19        WAITING          DONE          DONE          DONE                           1
- 20        WAITING          DONE          DONE          DONE                           1
- 21        WAITING          DONE          DONE          DONE                           1
- 22        WAITING          DONE          DONE          DONE                           1
- 23        WAITING          DONE          DONE          DONE                           1
- 24*   RUN:io_done          DONE          DONE          DONE             1
- 25         RUN:io          DONE          DONE          DONE             1
- 26        WAITING          DONE          DONE          DONE                           1
- 27        WAITING          DONE          DONE          DONE                           1
- 28        WAITING          DONE          DONE          DONE                           1
- 29        WAITING          DONE          DONE          DONE                           1
- 30        WAITING          DONE          DONE          DONE                           1
- 31*   RUN:io_done          DONE          DONE          DONE             1
+Time        PID: 0        PID: 1        PID: 2        PID: 3
+  1         RUN:io         READY         READY         READY
+  2        WAITING       RUN:cpu         READY         READY
+  3        WAITING       RUN:cpu         READY         READY
+  4        WAITING       RUN:cpu         READY         READY
+  5        WAITING       RUN:cpu         READY         READY
+  6        WAITING       RUN:cpu         READY         READY
+  7*         READY          DONE       RUN:cpu         READY
+  8          READY          DONE       RUN:cpu         READY
+  9          READY          DONE       RUN:cpu         READY
+ 10          READY          DONE       RUN:cpu         READY
+ 11          READY          DONE       RUN:cpu         READY
+ 12          READY          DONE          DONE       RUN:cpu
+ 13          READY          DONE          DONE       RUN:cpu
+ 14          READY          DONE          DONE       RUN:cpu
+ 15          READY          DONE          DONE       RUN:cpu
+ 16          READY          DONE          DONE       RUN:cpu
+ 17    RUN:io_done          DONE          DONE          DONE
+ 18         RUN:io          DONE          DONE          DONE
+ 19        WAITING          DONE          DONE          DONE
+ 20        WAITING          DONE          DONE          DONE
+ 21        WAITING          DONE          DONE          DONE
+ 22        WAITING          DONE          DONE          DONE
+ 23        WAITING          DONE          DONE          DONE
+ 24*   RUN:io_done          DONE          DONE          DONE
+ 25         RUN:io          DONE          DONE          DONE
+ 26        WAITING          DONE          DONE          DONE
+ 27        WAITING          DONE          DONE          DONE
+ 28        WAITING          DONE          DONE          DONE
+ 29        WAITING          DONE          DONE          DONE
+ 30        WAITING          DONE          DONE          DONE
+ 31*   RUN:io_done          DONE          DONE          DONE
 
 Stats: Total Time 31
 Stats: CPU Busy 21 (67.74%)
