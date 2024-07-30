@@ -7,6 +7,10 @@ categories: [教程]
 tags: [constexpr, cpp]
 ---
 
+## 查看预处理后代码的工具
+
+<https://cppinsights.io/>
+
 ## template 的初衷
 
 模板被设计之初的用法是用于实现**泛型**。在加入模板之前，常常使用**宏**来实现泛型：
@@ -53,11 +57,712 @@ int main()
 }
 ```
 
+主要目的就是为了减少代码的重复书写（由编译器自动生成），降低错误率。
+
+## 函数模板初探
+
+### 定义模板
+
+```cpp
+template<typename T>
+T max (T a, T b)
+{
+  // 如果 b < a, 返回 a，否则返回 b
+  return b < a ? a : b;
+}
+```
+
+### 使用模板
+
+```cpp
+#include "max1.hpp"
+#include <iostream>
+#include <string>
+int main()
+{
+  int i = 42;
+  std::cout << "max(7,i): " << ::max(7,i) << '\n';
+  double f1 = 3.4;
+  double f2 = -6.7;
+  std::cout << "max(f1,f2): " << ::max(f1,f2) << '\n';
+  std::string s1 = "mathematics";
+  std::string s2 = "math";
+  std::cout << "max(s1,s2): " << ::max(s1,s2) << '\n';
+}
+
+// output:
+// max(7,i): 42
+// max(f1,f2): 3.4
+// max(s1,s2): mathematics
+```
+
+> 注意在调用 `max()` 模板的时候使用了作用域限制符`::`。这样程序将会在**全局作用域**中查找 `max()` 模板(不会在自定义的命名空间或者 std 命名空间中查找)。如果不使用，在某些情况下标准库中的 `std::max()` 模板将会被调用，就会与预期不符。不过经过实测，即使不加`::`也不会优先调用`std::max()`，就算强制指定 `using namespace std;` ，也会报模板冲突错误：
+
+```cpp
+#include "max1.hpp"
+#include <iostream>
+#include <string>
+using namespace std;
+int main() {
+  int i = 42;
+  std::cout << "max(7,i): " << max(7,i) << '\n';
+}
+// main.cpp:14:35: error: call of overloaded ‘max(int, int&)' is ambiguous
+// 14 |   std::cout << "max(7,i): " << max(7,i) << '\n';
+```
+
+在编译阶段，模板并不是被编译成一个可以支持多种类型的实体。而是对每一个用于该模板的类型都会产生一个独立的实体。因此在本例中，`max()`会被编译出**三个实体**，因为它被用于三种类型。这个过程就是模板的实例化，就像分别定义了三个函数，这个过程是自动的，无需程序员干涉。
+
+### 两阶段编译检查(Two-Phase Translation)
+
+- 在模板定义阶段，模板的检查并不包含类型参数的检查。只包含下面几个方面：
+  - 语法检查。比如少了分号。
+  - 使用了未定义的不依赖于模板参数的名称（类型名，函数名，......）。
+  - 未使用模板参数的 static assertions。
+- 在模板实例化阶段，为确保所有代码都是有效的，模板会再次被检查，尤其是那些依赖于类型参数的部分
+
+```cpp
+template<typename T>
+void foo(T t)
+{
+  undeclared(); // 如果 undeclared()未定义，第一阶段就会报错，因为与模板参数无关
+  undeclared(t); //如果 undeclared(t)未定义，第二阶段会报错，因为与模板参数有关
+  static_assert(sizeof(int) > 10,"int too small"); // 与模板参数无关，总是报错
+  static_assert(sizeof(T) > 10, "T too small"); //与模板参数有关，只会在第二阶段报错
+}
+```
+
+### 模板参数推断
+
+> 在使用模板函数时，编译器会根据实参的类型推断模板函数的模板类型，并自动实例化出对应参数类型的函数，不过这个推断是有条件的，最重要的条件就是不允许类型转换（除了 decay），特别是一个模板类型对应两个参数时：
+
+```cpp
+template<typename T>
+T max (T a, T b);
+max(4, 7.2); // ERROR：编译器可以选择将T推断为int,这样 7.2 这个实参就必须转为int类型来匹配模板，这是不允许的。同理推断为 double 也不行。
+```
+
+在**类型推断的过程**中自动的类型转换是受限制的：
+
+- 如果调用参数是按引用传递的，任何类型转换都不被允许。通过模板类型参数 T 定义的两个参数，它们实参的类型必须完全一样。
+
+  ```cpp
+  template<typename T>
+  auto max (T& a, T& b);
+  ```
+
+- 如果调用参数是按值传递的，那么只有退化（decay）这一类简单转换是被允许的：
+
+  - const 和 volatile 限制符会被忽略，
+  - 引用被转换成被引用的类型(此时这个引用退化为被其引用的那个变量)
+  - raw array 和函数被转换为相应的指针类型。
+
+  通过模板类型参数 T 定义的两个参数，它们实参的类型在退化（decay）后必须一样。
+
+```cpp
+template<typename T>
+T max (T a, T b);
+
+int const c = 42;
+int i = 1;
+max(i, c); // OK: T 被推断为 int，c 中的 const 被 decay 掉
+max(c, c); // OK: T 被推断为 int
+int& ir = i;
+max(i, ir); // OK: T 被推断为 int， ir 中的引用被 decay 掉
+int arr[4];
+foo(&i, arr); // OK: T 被推断为 int*
+
+// 但是像下面这样是错误的：
+max(4, 7.2); // ERROR: 不确定 T 该被推断为 int 还是 double
+std::string s;
+foo("hello", s); //ERROR: 不确定 T 该被推断为 const[6] 还是 std::string
+```
+
+对于错误的情况有三种解决办法：
+
+- 对参数做类型转换
+
+  ```cpp
+  max(static_cast<double>(4), 7.2); // OK
+  ```
+
+- 显式地指出类型参数 T 的类型，这样编译器就不再会去做类型推导。
+
+  ```cpp
+  max<double>(4, 7.2); // OK
+  ```
+
+- 指明调用参数可能有不同的类型（多个模板参数）。
+
+  ```cpp
+  template<typename T,typename T2>
+  T max (T a, T2 b);
+  ```
+
+#### 对默认调用参数的类型推断
+
+需要注意的是，类型推断并不适用于默认调用参数。例如：
+
+```cpp
+template<typename T>
+void f(T = "");
+...
+f(1); // OK: T 被推断为 int, 调用 f<int> (1)
+f(); // ERROR: 无法推断 T 的类型
+```
+
+为应对这一情况，你需要给模板类型参数也声明一个默认参数：
+
+```cpp
+template<typename T = std::string>
+void f(T = "");
+...
+f(); // OK
+```
+
+### 函数模板的优先级和重载
+
+```cpp
+// maximum of two int values:
+int max (int a, int b)
+{
+  return b < a ? a : b;
+}
+// maximum of two values of any type:
+template<typename T>
+T max (T a, T b)
+{
+  return b < a ? a : b;
+}
+
+int main()
+{
+  ::max(7, 42); // calls the nontemplate for two ints，直接使用非模板的max，模板max<int>不会被使用
+  ::max(7.0, 42.0); // calls max<double> (by argument deduction)，当模板实例化后的函数比非模板更接近要求时，优先使用模板实例化后的函数
+  ::max('a', 'b'); // calls max<char> (by argument deduction)，同上
+  ::max<>(7, 42); // calls max<int> (by argumentdeduction)，强制使用模板，且模板被推断为max<int>
+  ::max<double>(7, 42); // calls max<double> (no argumentdeduction)，强制使用模板max<double>
+  ::max('a', 42.7); // calls the nontemplate for two ints，模板无法满足要求，因为类型推断过程不允许除了decay外的类型转换，编译器无法实例化该模板，只能使用非模板的max，然后这两个实参都被隐式转换为int。
+}
+```
+
+一个非模板函数可以和一个与其同名的函数模板共存，并且这个同名的函数模板可以被实例化为与非模板函数具有相同类型的调用参数。在所有其它因素都相同的情况下，模板解析过程将优先选择**非模板函数**，而不是从模板实例化出来的函数。
+
+编程时必须注意到这种优先选择性，选择的函数的不同会影响程序结果：
+
+```cpp
+#include <cstring>
+// maximum of two values of any type (call-by-reference)
+template <typename T> T const &max(T const &a, T const &b) {
+  return b < a ? a : b;
+}
+// maximum of two C-strings (call-by-value)
+char const *max(char const *a, char const *b) {
+  return std::strcmp(b, a) < 0 ? a : b;
+}
+// maximum of three values of any type (call-by-reference)
+template <typename T> T const &max(T const &a, T const &b, T const &c) {
+  return max(max(a, b), c); // error if max(a,b) uses call-by-value
+}
+int main() {
+  auto m1 = ::max(7, 42, 68); // OK
+  char const *s1 = "frederic";
+  char const *s2 = "anica";
+  char const *s3 = "lucas";
+  auto m2 = ::max(s1, s2, s3); // run-time ERROR
+}
+```
+
+上面的例子中，`max(max(a, b), c);`将会优先选用非模板函数。需要注意的是将一个局部变量(作用域在函数块内)通过引用传递出去会导致悬空引用问题，因为当函数返回时该变量就被销毁了，返回值引用将失败，造成运行时错误，见[按引用返回的问题](posts/cpp-plus/#按引用返回的问题)。这里 `max(max(a, b), c);`语句的返回值是一个临时变量（声明周期和局部变量相同），而 return 时又是按引用返回，就有这个问题。当 `max(max(a, b), c);` 使用的是上面的函数模板生成的函数时，其返回值也是引用，其生命周期就不归属于这个 max()函数(三个参数的这个)，就不会有该问题。
+
+## 类模板
+
+```cpp
+#include <cassert>
+#include <vector>
+    template <typename T>
+    class Stack {
+private:
+  std::vector<T> elems; // elements
+public:
+  void push(T const &elem); // push element
+  void pop();               // pop element
+  T const &top() const;     // return top element
+  bool empty() const {      // return whether the stack is empty
+    return elems.empty();
+  }
+  static int sa;
+};
+template <typename T> void Stack<T>::push(T const &elem) {
+  elems.push_back(elem); // append copy of passed elem
+}
+template <typename T> void Stack<T>::pop() {
+  assert(!elems.empty());
+  elems.pop_back(); // remove last element
+}
+template <typename T> T const &Stack<T>::top() const {
+  assert(!elems.empty());
+  return elems.back(); // return copy of last element
+}
+
+template <typename T>
+int Stack<T>::sa = 0; // 静态成员必须在外部定义
+```
+
+### 类模板的特例化
+
+我们知道通过类模板生成出来的所有实例化的类都是符合类模板的格式的，因为这是编译器自动替换模板参数的过程。但有时候我们希望对于部分特定的模板参数(类型)，实例化的类是自定义的一套实现，这就要用到模板的特例化。
+
+> 特例化后的模板还是模板，而不是实例，只不过是原模板的一种特殊化的表示形式，依然需要实例化后才能使用(无论隐式还是显式)
+
+```cpp
+Stack<std::string> obj; // 使用的是默认的类模板实例
+```
+
+我们希望对于 std::string 类型，类模板的实例是自定义的，而不是通过默认的类模板生成的。通过添加一个`template<>`即可实现特例化：
+
+```cpp
+template<>
+class Stack<std::string> {
+};
+
+Stack<std::string> obj; // 优先使用的是自定义的类模板实例，这就是特例化
+```
+
+#### 多模板参数的部分特例化
+
+```cpp
+template<typename T1, typename T2>
+class MyClass {
+};
+```
+
+所谓部分特例化，就是依然保留部分模板参数，而不是直接使用`template<>`的方式：
+
+```cpp
+// 依然使用了一个模板参数，原模板T1和T2都是使用这个模板参数
+template<typename T>
+class MyClass<T,T> {
+};
+
+// 依然使用了一个模板参数，原模板T1是使用这个模板参数，T2直接特例化为int
+template<typename T>
+class MyClass<T,int> {
+};
+
+// 模板参数数量还是两个，不过现在变成了指针类型，对于指针类型的模板参数，现在会优先使用本特例化的模板，而不是原模板
+template<typename T3, typename T4>
+class MyClass<T3*,T4*> {
+};
+// 和上面的模板等价，特例化模板的模板参数名称也可以随便取，和原模板相同也可以
+template<typename T1, typename T1>
+class MyClass<T1*,T2*> {
+};
+```
+
+特例化后的模板会被优先使用：
+
+```cpp
+MyClass< int, float> mif; // uses MyClass<T1,T2>
+MyClass< float, float> mff; // uses MyClass<T,T>
+MyClass< float, int> mfi; // uses MyClass<T,int>
+MyClass< int*, float*> mp; // uses MyClass<T1*,T2*>
+```
+
+存在歧义的情况：
+
+```cpp
+MyClass< int, int> m; // ERROR: matches MyClass<T,T> // and MyClass<T,int>
+MyClass< int*, int*> m; // ERROR: matches MyClass<T,T> // and MyClass<T1*,T2*>
+
+// 为了消除歧义，需要使用下面的特例化
+template<typename T>
+class MyClass<T*,T*> {
+};
+```
+
+### 默认类模板参数
+
+```cpp
+template<typename T1, typename T2 = int>
+class MyClass {
+};
+```
+
+### 别名模板
+
+```cpp
+template<typename T>
+using DequeStack = Stack<T, std::deque<T>>
+
+// 下面两者等价
+DequeStack<int> obj;
+Stack<int, std::deque<int>> obj;
+```
+
+### 类模板的类型推导
+
+#### 类模板对字符串常量参数的类型推断（Class Template Arguments Deduction with String Literals ）
+
+```cpp
+template<typename T>
+class Stack {
+private:
+  std::vector<T> elems; // elements
+public:
+  Stack () = default;
+  Stack (T const& elem) // initialize stack with one element
+  : elems({elem}) {
+  }
+};
+
+Stack stringStack = "bottom"; // Stack<char const[7]> deduced since C++17
+```
+
+当参数是按照 T 的**引用**传递的时候（上面例子中接受一个参数的构造函数，是按照引用传递的），参数类型不会被 decay（按值传递才会decay），也就是说一个裸的数组类型不会被转换成裸指针:
+
+```cpp
+Stack< char const[7]> // 按引用传递参数时，推断为数组类型
+Stack< char const*> // 而不是裸指针
+```
+
+在这个场景下，stack是作为数据容器来保存一组相同类型的数据的（底层使用了std::vector），如果类型推断为 `char const[7]` 就不能保存其他的长度为8或者其他长度的字符串了，这不是我们想要的。
+
+所以我们将构造函数改为按值传递参数，让参数类型 decay 为指针类型：
+
+```cpp
+Stack (T elem) // initialize stack with one element by value
+: elems({elem}) { // to decay on class tmpl arg deduction
+}
+```
+
+#### 推断指引（Deduction Guides）
+
+C++17 引入了自动类型推断，如果情况较为复杂导致编译器难以进行自动推断，可以通过提供“推断指引”来提供额外的模板参数推断规则，或者修正已有的模板参数推断规则。
+
+```cpp
+Stack(char const*) -> Stack<std::string>;
+```
+
+该语句表示，当类模板参数类型为 `char const *` 时，将其推断为 `std::string` 类型。这个指引语句必须出现在和模板类的定义相同的作用域或者命名空间内。通常它紧跟着模板类的定义。`->`后面的类型被称为推断指引的”guided type”。
+
+此时下面表达式可以正常推断：
+
+```cpp
+Stack stringStack1{"bottom"}; // TODO：直接列表初始化不是不允许隐式的char const[7]转到string吗
+Stack stringStack2("bottom");
+```
+
+## 非类型模板参数
+
+示例在之前的 Stack 类模板的基础上添加了一个非类型的模板参数，用于表示用户指定的栈列表：
+
+```cpp
+template<typename T, std::size_t Maxsize>
+class Stack {}
+```
+
+### 非类型模板参数的限制
+
+非类型模板参数只能是
+
+- `整形常量`（包含枚举）
+- 指向 objects/functions/members 的指针
+- objects 或者 functions 的左值引用
+- std::nullptr_t（类型是 nullptr）。
+
+> 比如 const char \* 就不行。需要使用 const char[]。
+
+```cpp
+template <typename T, std::string name> // 错误，不能直接使用objects
+class Stack {}
+
+template <typename T, std::string& name> // 正确
+class Stack {}
+
+
+std::string myname{"hello"}; // 保证模板实参必须是编译时可访问到的，不然无法在编译阶段实例化。
+int main()
+{
+  // std::string myname{"hello"}; // ERROR:不能放在此处。
+  Stack<int,myname> obj;
+}
+```
+
+### 用 auto 作为非模板类型参数的类型
+
+```cpp
+template<typename T, auto Maxsize>
+class Stack {}
+
+Stack<int,20u> int20Stack; // stack of up to 20 ints，type 为 unsigned int
+Stack<std::string,40> stringStack; // stack of up to 40 strings，type 为 int
+```
+
+使用 decltype(auto) 定义引用类型的 type:
+
+```cpp
+template<decltype(auto) N>
+class C {}
+int i;
+C<(i)> x; // N is int&。加了括号后`(i)`就成了一个左值表达式而不是一个变量，对它decltype后type为左值引用`int&`而不是i本身的类型int
+C<i> x1; // N is int。
+```
+
+- `template<decltype(auto) N>`
+
+C++14 引入：decltype(auto) 是 C++14 引入的一种类型推导方式，它基于表达式的结果类型进行推导。
+类型推导：decltype(auto) 可以推导出包括**引用**在内的精确类型。如果传递的是引用，decltype(auto) 会保留引用类型。
+复杂表达式：可以处理更复杂的表达式，并推导出表达式的类型。
+
+- `template<auto N>`
+
+C++17 引入：auto 作为模板非类型参数是 C++17 引入的特性。
+类型推导：auto 进行类型推导时，会根据传递的**值**进行推导，但不会保留引用的性质。它只推导出值的类型。
+简单表达式：通常用于推导基本的值类型，如整数、浮点数、指针等。
+
+## 变参模板（variadic template）
+
+可以将模板参数定义成能够接受任意多个模板参数的情况。这一类模板被称为变参模板（variadic template）
+
+可以通过调用下面代码中的 print()函数来打印一组数量和类型都不确定的参数：
+
+```cpp
+#include <iostream>
+void print ()
+{}
+template<typename T, typename... Types>
+void print (T firstArg, Types... args)
+{
+  std::cout << firstArg << '\n'; // print first argument
+  print(args...); // call print() for remaining arguments
+}
+```
+
+一般我们会将模板第一个参数单独声明(`typename T`)，然后将剩余的参数打包为 `typename... Types` 称为模板参数包（templete parameter pack）。将 `Types... args` 成为函数参数包（function parameter pack）。
+
+可以注意到一般变参模板会和**递归**一起使用。
+
+```cpp
+std::string s("world");
+print(7.5, "hello", s);
+
+// 首先其被扩展为
+print<double, char const*, std::string> (7.5, "hello", s);
+
+// 打印第一个double后，print扩展为
+print<char const*, std::string> ("hello", s);
+
+// 打印完第二个 "hello" 后，print扩展为：
+print<std::string> (s); // 此时 args 就是空了
+
+// 最后调用手动重载的空参数的 print，这里是一个空实现，然后退出递归
+```
+
+上述过程一共产生了 3 个函数模板实例。
+
+关于重载：
+
+```cpp
+template<typename T>
+void print (T arg)
+{
+  std::cout << arg << '\n'; //print passed argument
+}
+// 引入一个非变参函数模板后，此时上述例子中的 print<std::string> (s); 优先使用本模板。
+```
+
+### sizeof... 运算符
+
+运算符 `sizeof...` 用于计算参数包的大小，既可以用于模板参数包，也可以用于函数参数包。
+
+```cpp
+template<typename T, typename... Types>
+void print(T firstArg, Types... args)
+{
+  std::cout << firstArg << '\n'; //print first argument
+  std::cout << sizeof...(Types) << '\n'; //print number of remaining types
+  std::cout << sizeof...(args) << '\n'; //print number of remaining args...
+}
+```
+
+### 折叠表达式(Fold expression)
+
+变参模板使用的核心就是如何展开参数包，我们之间介绍了递归方式展开，此外还有简单的变参表达式展开(缺点是无法建立各个参数间的关联，下一节会讲到)。
+
+从 C++17 开始，提供了一种可以用来计算参数包（可以有初始值）中所有参数运算结果的二元运算符。这样就不用通过**提取参数包第一个参数外加递归**的方式来实现部分计算。
+
+```cpp
+template<typename... T>
+auto foldSum (T... s) {
+  return (... + s); // ((s1 + s2) + s3) ...
+}
+```
+
+C++17 支持的折叠表达式
+
+|     Fold Expression     |                   Evaluation                   |
+| :---------------------: | :--------------------------------------------: |
+|     ( ... op pack )     | ((( pack1 op pack2 ) op pack3 ) ... op packN ) |
+|     ( pack op ... )     |    ( pack1 op ( ... ( packN-1 op packN )))     |
+| ( init op ... op pack ) | ((( init op pack1 ) op pack2 ) ... op packN )  |
+| ( pack op ... op init ) |      ( pack1 op ( ... ( packN op init )))      |
+
+> op 就是运算符(operator)的意思，这里应该特指二元运算符
+
+```cpp
+#include <iostream>
+template<typename... Types>
+void print (Types const&... args)
+{
+    (std::cout << ... << args) << '\n';
+}
+int main()
+{
+    print(1, 2.5, "Hello", 'c');
+}
+```
+
+(std::cout << ... << args)展开使用( init op ... op pack ) 规则，展开后如下：
+
+```cpp
+std::cout << 1 << 2.5 << "Hello" << 'c';
+```
+
+但缺点是不能给每个输出后添加空格或换行。我们可以将这些基本类型封装来解决问题:
+
+```cpp
+template<typename T>
+class AddSpace
+{
+private:
+  T const& ref; // refer to argument passed in constructor
+public:
+  AddSpace(T const& r): ref(r) {
+  }
+  // 重载默认的<<实现
+  friend std::ostream& operator<< (std::ostream& os, AddSpace<T> s) {
+    return os << s.ref <<' '; // output passed argument and a space
+  }
+};
+template<typename... Args>
+void print (Args... args) {
+  ( std::cout << ... << AddSpace<Args>(args) ) << '\n';
+}
+```
+
+通过将原有的类型封装成自定义的 AddSpace 类型并重载 << 运算符，实现折叠表达式的功能扩展。
+
+其实还有更简单的办法，我们利用逗号表达式的特性，逗号表达式表示执行逗号前语句，但整个表达式的值为逗号后变量：
+
+```cpp
+template<typename... Args>
+void print (Args... args) {
+  // std::cout<<args被执行，且(std::cout<<args,' ')表达式的值为' '(一个空格)，
+  ( std::cout << ... << (std::cout<<args,' ')) << '\n';
+}
+```
+
+二叉树例子：
+
+```cpp
+// define binary tree structure and traverse helpers:
+struct Node {
+  int value;
+  Node *left;
+  Node *right;
+  Node(int i = 0) : value(i), left(nullptr), right(nullptr) {}
+};
+auto left = &Node::left; // 定义一个指向类成员变量的指针
+auto right = &Node::right;
+// traverse tree, using fold expression:
+template <typename T, typename... TP> Node *traverse(T np, TP... paths) {
+  // TP的类型是指向类成员变量的指针，而不是Node或Node*类型
+  return (np->*...->*paths); // np ->* paths1 ->* paths2 ...
+}
+int main() {
+  // init binary tree structure:
+  Node *root = new Node{0};
+  root->left = new Node{1};
+  root->left->right = new Node{2};
+  // traverse binary tree:
+  Node *node = traverse(root, left, right); // 查找root的左节点的右节点，这里的left是上面定义的指向类成员变量的指针
+}
+```
+
+> `auto leftptr = &Node::left;`，定义一个指向类成员变量的指针，这种类型的指针并不包含实际成员变量的内存地址，仅保存了其在类中的相对位置信息，也就是说需要结合一个实际的对象实例才能定位到真正的内存中的位置。需要使用`.*`或`->*`运算符，比如`Node *root = new Node{0};Node* leftNode = root->*leftptr;`等效于`Node* leftNode = root->left;`，优势在于不需要知道 Node 类内的成员变量的名称，且可以单和对象信息分开传递，就像上面的例子中，traverse传递的后续参数只要这类指针就行，而无需对象信息(或者是实际的成员变量的内存地址)。
+
+### 变参表达式
+
+在 C++17 之前，有简单的变参展开方式，可以对每个参数进行一定的计算(使用一个表达式)，比如 `(args + 1)...` 就是对每个参数都加1，展开后的结果依然是逗号分隔的参数列表(arg1+1,arg2+1,arg3+1)。
+
+```cpp
+template<typename... T>
+void printDoubled (T const&... args)
+{
+  print((args + args)...);
+  // print((args + 1)...); // 每个参数都加1
+}
+```
+
+上述例子中表达式`((args + args)...)`将每个参数都加上自身
+
+```cpp
+printDoubled(7.5, std::string("hello"), std::complex<float>(4,2));
+// 展开后
+print(7.5 + 7.5, std::string("hello") + std::string("hello"), std::complex<float>(4,2) + std::complex<float>(4,2));
+```
+
+变参下标（Variadic Indices）：
+
+```cpp
+template<typename C, typename... Idx>
+void printElems (C const& coll, Idx... idx)
+{
+  print (coll[idx]...);
+}
+
+std::vector<std::string> coll = {"good", "times", "say", "bye"};
+printElems(coll,2,0,3);
+
+// 展开后
+print (coll[2], coll[0], coll[3]);
+```
+
+上面的例子使用了类型模板，也可以将非类型模板参数(size_t)的方式：
+
+```cpp
+template<std::size_t... Idx, typename C>
+void printIdx (C const& coll)
+{
+  print(coll[Idx]...);
+}
+std::vector<std::string> coll = {"good", "times", "say", "bye"};
+printIdx<2,0,3>(coll); // 非类型模板参数不能推断，必须显式指定
+```
+
+### 变参类模板
+
+tuple:
+
+```cpp
+template<typename... Elements>class Tuple;
+Tuple<int, std::string, char> t; // t can hold integer, string, and character
+```
+
+variant:
+
+```cpp
+template<typename... Types>
+class Variant;
+Variant<int, std::string, char> v; // v can hold integer, string, or character
+```
+
 ## 基本概念
 
 ### typename 用法
 
-关键字 typename 在 C++ 标准化过程中被引入进来，用来澄清模板内部的一个标识符代表的是某种类型，而不是数据成员。
+关键字 `typename` 在 C++ 标准化过程中被引入进来，用来澄清模板内部的一个标识符代表的是某种类型，而不是数据成员。(也可以使用等效的 class 关键字 `template<class T>`，但为了避免歧义，还是尽量用 typename)
 
 ```cpp
 template<typename T>
@@ -452,28 +1157,9 @@ void print (T firstArg, Types... args)
    foo("hi"); // 空包
    ```
 
-## 推断指引（Deduction Guides）
-
-C++17 引入了自动类型推断，如果情况较为复杂导致编译器难以进行自动推断，可以通过提供“推断指引”来提供额外的模板参数推断规则，或者修正已有的模板参数推断规则。
-
-```cpp
-Stack(char const*) -> Stack<std::string>;
-```
-
-该语句表示，当类模板参数类型为 `char const *` 时，将其推断为 `std::string` 类型。
-
-其实推断指引相当于为该类模板实例化了一个 string 类型的类实例并重载了一个简单的构造函数，构造函数参数为 `char const *`(默认构造函数的参数为 string)。
-
-```cpp
-Stack stack("hello");
-// 等价于
-Stack<std::string> stack("hello");
-```
-
 ### 变参推断指引
 
-推断指引也可以是变参的。比如在 C++标准库中，为 std::array 定义了如下推
-断指引：
+推断指引也可以是变参的。比如在 C++标准库中，为 std::array 定义了如下推断指引：
 
 ```cpp
 namespace std {
@@ -499,85 +1185,6 @@ is_same_v<T, U1> && is_same_v<T, U2> && is_same_v<T, U3> ...
 ```
 
 如果结果是 false（也就是说 array 中元素不是同一种类型），推断指引会被弃用，总的类型推断失败。这样标准库就可以确保在推断指引成功的情况下，所有元素都是同一种类型。
-
-## 按值传递还是按引用传递？
-
-C++ 提供了按值传递（call-by-value）和按引用传递（call-by-reference）两种参数传递方式
-
-### 按值传递
-
-当按值传递参数时，原则上所有的参数都会被拷贝。因此每一个参数都会是被传递实参的一份拷贝（深拷贝）。对于 class 的对象，参数会通过 class 的拷贝构造函数来做初始化。
-
-调用拷贝构造函数的成本可能很高。但是有多种方法可以避免按值传递的高昂成本：事实上编译器可以通过**移动语义**（move semantics）来优化掉对象的拷贝，这样即使是对复杂类型的拷贝，其成本也不会很高。
-
-```cpp
-std::string returnString();
-std::string s = "hi";
-printV(s); // 参数为左值，会调用构造函数
-printV(std::string("hi")); // 参数为右值，使用移动语义
-printV(returnString()); // 参数为右值，使用移动语义
-printV(std::move(s)); // 参数为右值，无需重新构造
-```
-
-不过由于编译器的优化能力较强，可以有效避免传递成本，还是建议在函数模板中应该优先使用**按值传递**，除非遇到以下情况：
-
-- 对象不允许被 copy。
-- 参数被用于返回数据。
-- 参数以及其所有属性需要被模板转发到别的地方。
-- 可以获得明显的性能提升
-
-另外按值传递会导致**类型退化**（decay），也就是裸数组类型会退化为指针，const 和 volatile 等限制符会被删除，这是从 C 语言中继承下来的特性:
-
-```cpp
-template <typename T> void printV(T arg) {
-  // ...
-}
-std::string const c = "hi";
-printV(c);    // 退化，const被删除
-printV("hi"); // 退化为指针，T 被推断为char const*，而不是string
-int arr[4];
-printV(arr);  // 退化为指针，丢失数组大小信息
-```
-
-### 按引用传递
-
-C++11 引入了移动语义（move semantics）后，共有三种**按引用传递**方式：
-
-1. X const &（const 左值引用）
-   参数引用了被传递的对象，并且参数不能被更改。
-2. X &（非 const 左值引用）
-   参数引用了被传递的对象，并且参数可以被更改。
-3. X &&（右值引用）
-   参数通过移动语义引用了被传递的对象，并且参数值可以被更改或者被“窃取”。一般不会为右值引用增加 const 修饰符，因为右值引用的用途就是为了修改
-
-以下模板永远不会拷贝被传递对象（不管拷贝成本是高还是低）：
-
-```cpp
-template <typename T> void printR(T const &arg) {
-  // ...
-}
-
-std::string returnString();
-std::string s = "hi";
-printR(s);                 // no copy
-printR(std::string("hi")); // no copy
-printR(returnString());    // no copy
-printR(std::move(s));      // no copy
-```
-
-按引用传递参数时，其类型不会退化（decay）。也就是说不会把裸数组转换为指针，也不会移除 const 和 volatile 等限制符。而且由于调用参数被声明为 T const &，被推断出来的模板参数 T 的类型将不包含 const。比如：
-
-```cpp
-template<typename T>
-void printR (T const& arg) {
-  ...
-}
-std::string const c = "hi";
-printR(c); // T deduced as std::string, arg is std::string const&
-printR("hi"); // T deduced as char[3], arg is char const(&)[3]
-int arr[4];
-printR(arr); // T deduced as int[4], arg
-```
 
 ### 使用 std::ref()和 std::cref()
 
@@ -615,7 +1222,7 @@ void foo(T (&arg1)[L1], T (&arg2)[L2])
 
 常规的代码结构存在问题：
 
-```c
+```cpp
 /* myfirst.hpp */
 #ifndef MYFIRST_HPP
 #define MYFIRST_HPP
@@ -632,7 +1239,7 @@ void printTypeof (T const&);
 template<typename T>
 void printTypeof (T const& x)
 {
-  std::cout << typeid(x).name() << ’\n’;
+  std::cout << typeid(x).name() << '\n';
 }
 
 /* main.cpp */
@@ -649,7 +1256,7 @@ int main()
 
 因此，要将模板的定义放在和声明相同的文件中：
 
-```c
+```cpp
 /* myfirst.hpp */
 #ifndef MYFIRST_HPP
 #define MYFIRST_HPP
@@ -662,7 +1269,7 @@ void printTypeof (T const&);
 template<typename T>
 void printTypeof (T const& x)
 {
-  std::cout << typeid(x).name() << ’\n’;
+  std::cout << typeid(x).name() << '\n';
 }
 #endif //MYFIRST_HPP
 ```
@@ -677,21 +1284,43 @@ void printTypeof (T const& x)
 
 ### 声明和定义
 
-对于声明，如果其细节已知，或者是需要申请相关变量的存储空间，那么声明就变成了定义。
+“声明”是一个 C++概念，它将一个名称**引入**或者再次引入到一个 C++作用域内:
 
-```c
-/* 声明 */
+```cpp
 class C; // a declaration of C as a class
 void f(int p); // a declaration of f() as a function and p as a named parameter
-extern int v; // a declaration of v as a variabl
+extern int v; // a declaration of v as a variable
+```
 
-/* 定义 */
+注意，在 C++中虽然宏和 goto 标签也都有名字，但是它们并不是声明。
+
+对于声明，如果其细节已知，或者是需要申请相关变量的存储空间，那么声明就变成了定义。对于 class 类型的定义和函数定义，意味着需要提供一个包含在{}中的主体，或者是对函数使用了=default/=delete。对于变量，如果进行了**初始化**或者**没有使用 extern**，那么声明也会变成定义:
+
+```cpp
 class C {}; // definition (and declaration) of class C
 void f(int p) { //definition (and declaration) of function f()
   std::cout << p << '\n';
 }
 extern int v = 1; // an initializer makes this a definition for v
 int w; // global variable declarations not preceded by extern are also definitions
+```
+
+> 正如 `int w;` 这样没有 extern 修饰的声明也被视为定义，其会分配空间。而如果有 extern 修饰，则允许其不分配空间仅作为声明使用。
+
+作为扩展，**如果一个类模板或者函数模板有包含在`{}`中的主体的话，那么声明也会变成定义。**
+
+声明：
+
+```cpp
+template<typename T>
+void func (T);
+```
+
+定义：
+
+```cpp
+template<typename T>
+class S {}
 ```
 
 #### 完整类型和非完整类型（complete versus incomplete types）
@@ -703,31 +1332,86 @@ int w; // global variable declarations not preceded by extern are also definitio
 - 一个存储非完整类型的数组。
 - Void 类型。
 - 一个底层类型未定义或者枚举值未定义的枚举类型。
-- 任何一个被 const 或者 volatile 修饰的以上某种类型。其它所有类型都是完整类型。
+- 任何一个被 const 或者 volatile 修饰的以上某种类型。
 
 比如：
 
-```c
+```cpp
 class C; // C is an incomplete type
-extern int arr[]; // arr has an incomplete type…c
-extern C elems[10]; // elems has an incomplete type
+extern int arr[]; // arr has an incomplete type...c
+extern C elems[10]; // elems has an incomplete type,因为C没有定义，整体的空间分配还不能确定
 C const* cp; // cp is a pointer to an incomplete type
-class C { }; // C now is a complete type (and therefore elems数组
-// no longer refer to an incomplete type)
+class C { }; // C now is a complete type (and therefore elems no longer refer to an incomplete type)
 int arr[10]; // arr now has a complete type
+C elems[10]; // 注意：如果要正确使用elems，需要在此处真正定义，也就是分配空间
 ```
+
+其它所有类型都是完整类型。
 
 ### 替换，实例化，和特例化
 
-在处理模板相关的代码时，C++编译器必须经常去用模板实参**替换**模板参数。
+在处理模板相关的代码时，C++编译器会尝试去用模板实参**替换**模板参数。
 
-用实际参数替换模板参数，以从一个模板创建一个常规类、类型别名、函数、成员函数或者变量的过程，被称为“**模板实例化**”。
+用实际参数替换模板参数，以从一个模板创建一个常规类、类型别名、函数、成员函数或者变量的过程，被称为模板的**实例化**。实例化可以由编译器自动完成，也可以由程序员显式完成。
 
-通过实例化或者不完全实例化产生的实体通常被称为**特例化**（specialization）
+隐式实例化（编译器自动完成）：
 
-- 显式特例化
+```cpp
+template <typename T>
+class MyClass {
+public:
+    void display(T a);
+};
 
-  ```c
+template <typename T>
+void MyClass<T>::display(T a){
+    return;
+}
+
+// template class MyClass<int>; // 无需显式进行模板实例化
+MyClass<int> obj; // 在首次使用该模板时编译器会自动进行模板实例化
+
+int main(){obj.display(3);}
+```
+
+显式实例化（当类模板声明和定义放在不同位置时，需要程序员显式完成实例化）：
+
+```cpp
+// MyClass.h
+#pragma once
+template <typename T>
+class MyClass {
+public:
+    void display(T a);
+};
+
+// MyClass.cpp
+#include "MyClass.h"
+#include <iostream>
+template <typename T> void MyClass<T>::display(T a){
+    std::cout<<a<<std::endl;
+    return;
+}
+
+template class MyClass<int>; // 此句不能省略，因为MyClass.cpp和main.cpp并没有关联关系，省略后此处不知道如何对display进行实例化。
+
+// main.cpp
+#include "MyClass.h"
+MyClass<int> obj;
+int main(){
+  obj.display(3);
+}
+```
+
+上面说的都是生成完整的定义的情况，如果生成的是一个声明而不是定义，那么我们可以称其为模板的**不完全实例化**（incomplete instantiation）
+
+#### 特例化
+
+通过实例化或者**不完全实例化**产生的实体，或是由程序员显式进行特殊替换完后的实体通常被称为**特例化**（specialization）
+
+- 显式特例化（程序员显式进行特殊替换，使用`templete<>`方式）
+
+  ```cpp
   template<typename T1, typename T2> // 主模板
   class MyClass {
   };
@@ -738,16 +1422,26 @@ int arr[10]; // arr now has a complete type
 
 - 部分特例化
 
-  ```c
-  template<typename T> // 主模板
+  ```cpp
+  template<typename T1, typename T2> // 主模板
+  class MyClass {
+  };
+  template<typename T> // 部分特例化1
   class MyClass<T,T> {
   };
-  template<typename T> // 还有未特例化部分
+  template<typename T> // 部分特例化2
   class MyClass<bool,T> {
   };
   ```
 
-特例化之前的模板成为**主模板**
+  该情况下，匹配将会按照"最特殊化匹配"，也就是匹配最接近的、特例化程度最高的模板：
+
+  ```cpp
+  MyClass<int> obj; // 匹配部分特例化1
+  MyClass<bool> obj2; // 匹配部分特例化2？
+  ```
+
+特例化之前的模板称为**主模板**
 
 ### 唯一定义法则
 
@@ -762,7 +1456,7 @@ C++语言中对实体的重复定义做了限制。这一限制就是“唯一�
 
 元组的一种用途是可以作为返回值从而实现类似 python 中的多返回值（使用此方法无需定义一个结构体，比较简单）：
 
-```c
+```cpp
 #include <tuple>
 #include <string>
 
@@ -787,3 +1481,4 @@ int main()
 
 - [雾里看花：真正意义上的理解 C++ 模板(Template) - 知乎](https://zhuanlan.zhihu.com/p/655902377)
 - [CPP-Templates-2nd--](https://github.com/Walton1128/CPP-Templates-2nd--)
+- [C++可变参数模板的展开方式](https://blog.csdn.net/albertsh/article/details/123978539)
