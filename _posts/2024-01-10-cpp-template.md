@@ -273,7 +273,7 @@ int main() {
 }
 ```
 
-上面的例子中，`max(max(a, b), c);`将会优先选用非模板函数。需要注意的是将一个局部变量(作用域在函数块内)通过引用传递出去会导致悬空引用问题，因为当函数返回时该变量就被销毁了，返回值引用将失败，造成运行时错误，见[按引用返回的问题](posts/cpp-plus/#按引用返回的问题)。这里 `max(max(a, b), c);`语句的返回值是一个临时变量（声明周期和局部变量相同），而 return 时又是按引用返回，就有这个问题。当 `max(max(a, b), c);` 使用的是上面的函数模板生成的函数时，其返回值也是引用，其生命周期就不归属于这个 max()函数(三个参数的这个)，就不会有该问题。
+上面的例子中，`max(max(a, b), c);`将会优先选用非模板函数。需要注意的是将一个局部变量(作用域在函数块内)通过引用传递出去会导致悬空引用问题，因为当函数返回时该变量就被销毁了，返回值引用将失败，造成运行时错误，见[按引用返回的问题](/posts/cpp-plus/#按引用返回的问题)。这里 `max(max(a, b), c);`语句的返回值是一个临时变量（声明周期和局部变量相同），而 return 时又是按引用返回，就有这个问题。当 `max(max(a, b), c);` 使用的是上面的函数模板生成的函数时，其返回值也是引用，其生命周期就不归属于这个 max()函数(三个参数的这个)，就不会有该问题。
 
 ## 类模板
 
@@ -419,14 +419,14 @@ public:
 Stack stringStack = "bottom"; // Stack<char const[7]> deduced since C++17
 ```
 
-当参数是按照 T 的**引用**传递的时候（上面例子中接受一个参数的构造函数，是按照引用传递的），参数类型不会被 decay（按值传递才会decay），也就是说一个裸的数组类型不会被转换成裸指针:
+当参数是按照 T 的**引用**传递的时候（上面例子中接受一个参数的构造函数，是按照引用传递的），参数类型不会被 decay（按值传递才会 decay），也就是说一个裸的数组类型不会被转换成裸指针:
 
 ```cpp
 Stack< char const[7]> // 按引用传递参数时，推断为数组类型
 Stack< char const*> // 而不是裸指针
 ```
 
-在这个场景下，stack是作为数据容器来保存一组相同类型的数据的（底层使用了std::vector），如果类型推断为 `char const[7]` 就不能保存其他的长度为8或者其他长度的字符串了，这不是我们想要的。
+在这个场景下，stack 是作为数据容器来保存一组相同类型的数据的（底层使用了 std::vector），如果类型推断为 `char const[7]` 就不能保存其他的长度为 8 或者其他长度的字符串了，这不是我们想要的。
 
 所以我们将构造函数改为按值传递参数，让参数类型 decay 为指针类型：
 
@@ -451,6 +451,41 @@ Stack(char const*) -> Stack<std::string>;
 ```cpp
 Stack stringStack1{"bottom"}; // TODO：直接列表初始化不是不允许隐式的char const[7]转到string吗
 Stack stringStack2("bottom");
+```
+
+实例化后的类如下：
+
+```cpp
+class Stack {
+private:
+  std::vector<std::string> elems; // elements
+public:
+  Stack (std::string const& elem) // initialize stack with one element
+  : elems({elem}) {
+}
+};
+```
+
+重要问题：但对于下面的表达式，无法编译通过：
+
+```cpp
+Stack stringStack = "bottom"; // Stack<std::string> deduced, but still not valid
+```
+
+其实这个方式的初始化称为[复制初始化 Copy initialization](/posts/cpp-plus/#初始化)，其会调用拷贝构造函数进行初始化，此时需要等号右边**隐式的**生成一个临时的 Stack 对象作为拷贝构造函数的参数。生成临时对象的过程可见[转换构造函数](/posts/cpp-plus/#转换构造函数converting-constructors):
+
+```cpp
+// 设想的经过隐式的构造后的stringStack构造方式
+Stack stringStack(Stack("bottom"));
+```
+
+根据编译器的报错：`不存在从 "const char [7]" 转换到 "Stack<std::string>" 的适当构造函数`，发现这个临时对象无法正常构造，问题就出在 C++ 的一个特性：在使用这种隐式的构造函数(转换构造函数)时不允许发生参数类型的隐式转换，也就是参数类型必须是 std::string，而不是 const char[7]。
+
+为了验证这个结论，我们直接使用显式的方式调用临时对象的构造函数，发现就可以正常执行：
+
+```cpp
+Stack stringStack(Stack("bottom"));
+Stack stringStack = Stack("bottom");
 ```
 
 ## 非类型模板参数
@@ -540,6 +575,8 @@ void print (T firstArg, Types... args)
 ```
 
 一般我们会将模板第一个参数单独声明(`typename T`)，然后将剩余的参数打包为 `typename... Types` 称为模板参数包（templete parameter pack）。将 `Types... args` 成为函数参数包（function parameter pack）。
+
+> 参数包的展开：像上例中`print(args...);`使用了最简单的展开方式，即使用`...`展开前面的表达式，`args...`展开后即为`arg1,arg2,arg3`(假设就这 3 个)，对应到 `print` 中就是 `print(arg1,arg2,arg3)`。`...`前面的也可以是个稍复杂的表达式，比如`(args+1)...`，表达式就是 `args+1`，那么展开后就是`print(arg1+1,arg2+1,arg3+1)`。后面还会提到 C++17 引入的折叠表达式，展开就会相对复杂些。
 
 可以注意到一般变参模板会和**递归**一起使用。
 
@@ -690,11 +727,11 @@ int main() {
 }
 ```
 
-> `auto leftptr = &Node::left;`，定义一个指向类成员变量的指针，这种类型的指针并不包含实际成员变量的内存地址，仅保存了其在类中的相对位置信息，也就是说需要结合一个实际的对象实例才能定位到真正的内存中的位置。需要使用`.*`或`->*`运算符，比如`Node *root = new Node{0};Node* leftNode = root->*leftptr;`等效于`Node* leftNode = root->left;`，优势在于不需要知道 Node 类内的成员变量的名称，且可以单和对象信息分开传递，就像上面的例子中，traverse传递的后续参数只要这类指针就行，而无需对象信息(或者是实际的成员变量的内存地址)。
+> `auto leftptr = &Node::left;`，定义一个指向类成员变量的指针，这种类型的指针并不包含实际成员变量的内存地址，仅保存了其在类中的相对位置信息，也就是说需要结合一个实际的对象实例才能定位到真正的内存中的位置。需要使用`.*`或`->*`运算符，比如`Node *root = new Node{0};Node* leftNode = root->*leftptr;`等效于`Node* leftNode = root->left;`，优势在于不需要知道 Node 类内的成员变量的名称，且可以单和对象信息分开传递，就像上面的例子中，traverse 传递的后续参数只要这类指针就行，而无需对象信息(或者是实际的成员变量的内存地址)。
 
 ### 变参表达式
 
-在 C++17 之前，有简单的变参展开方式，可以对每个参数进行一定的计算(使用一个表达式)，比如 `(args + 1)...` 就是对每个参数都加1，展开后的结果依然是逗号分隔的参数列表(arg1+1,arg2+1,arg3+1)。
+在 C++17 之前，有简单的变参展开方式，可以对每个参数进行一定的计算(使用一个表达式)，比如 `(args + 1)...` 就是对每个参数都加 1，展开后的结果依然是逗号分隔的参数列表(arg1+1,arg2+1,arg3+1)。
 
 ```cpp
 template<typename... T>
@@ -758,49 +795,168 @@ class Variant;
 Variant<int, std::string, char> v; // v can hold integer, string, or character
 ```
 
-## 基本概念
+### 变参推断指引
+
+推断指引也可以是变参的。比如在 C++标准库中，为 std::array 定义了如下推断指引：
+
+```cpp
+template<typename _Tp, std::size_t _Nm>
+  struct array {}
+
+namespace std {
+  template<typename T, typename... U>
+    array(T, U...)
+      -> array<enable_if_t<(is_same_v<T, U> && ...), T>, (1 + sizeof...(U))>;
+}
+```
+
+推断过程：
+
+```cpp
+std::array a{42,45,77};
+// 推断为
+std::array<int, 3> a{42,45,77};
+```
+
+其中对 array 的第一个参数的操作 `std::enable_if<>` 内有一个折叠表达式，展开后如下：
+
+```cpp
+is_same_v<T, U> && ...
+// 展开后为
+is_same_v<T, U1> && is_same_v<T, U2> && is_same_v<T, U3>
+```
+
+如果结果是 false（也就是说 array 中元素不是同一种类型），推断指引会被弃用，总的类型推断失败。这样标准库就可以确保在推断指引成功的情况下，所有元素都是同一种类型。
+
+### 变参基类及其使用
+
+在进行多继承时，基类列表也可以是变参的。
+
+阅读下面几个材料来理解下面的例子：
+
+- 关于[仿函数](/posts/cpp-plus/#仿函数functor)
+- 关于[隐藏继承的函数](/posts/cpp-plus/#隐藏继承的函数)
+- unordered_set 需要 4 个模板参数，其中后面三个有默认的实现：
+  - Key: 存储元素的类型。
+  - Hash: 哈希函数对象类型，默认是 `std::hash<Key>`。
+  - Pred: 相等比较函数对象类型，默认是 `std::equal_to<Key>`。
+  - Alloc: 分配器对象类型，默认是 `std::allocator<Key>`。
+
+```cpp
+#include <string>
+#include <unordered_set>
+class Customer {
+private:
+  std::string name;
+
+public:
+  Customer(std::string const &n) : name(n) {}
+  std::string getName() const { return name; }
+};
+// 仿函数，unordered_set需要这样一个相等比较函数对象类型
+struct CustomerEq {
+  bool operator()(Customer const &c1, Customer const &c2) const {
+    return c1.getName() == c2.getName();
+  }
+};
+// 仿函数，unordered_set需要这样一个哈希函数对象类型
+struct CustomerHash {
+  std::size_t operator()(Customer const &c) const {
+    return std::hash<std::string>()(c.getName());
+  }
+};
+// 这里的意图是从多个基类中继承括号运算符重载函数，整合到这一个类中，通过参数数量不同进行重载
+template <typename... Bases>
+struct Overloader : Bases... { // sturct继承时如果不指定权限，默认使用public继承
+  using Bases::operator()...; // OK since C++17，这里using的用法是引入基类的成员函数,防止被隐藏
+};
+int main() {
+  // combine hasher and equality for customers in one type:
+  using CustomerOP = Overloader<CustomerHash, CustomerEq>;
+  std::unordered_set<Customer, CustomerHash, CustomerEq> coll1;
+  // 这个整合后的Overloader类型同时包含了两个仿函数，直接传给unordered_set，其内部会自动做选择
+  std::unordered_set<Customer, CustomerOP, CustomerOP> coll2;
+}
+```
+
+### 扩展：C++ 实现可变参数的三个方法
+
+1. C 方法：va_list
+
+   ```cpp
+   #include <stdarg.h>
+   int f(int n,...) {
+      va_list myarg;
+      va_start(myarg, 10);
+
+      int ans(0);
+      for (int i(0);i<n;i++) ans += va_arg(myarg, int); //仅支持int
+      va_end(myarg);
+      return ans;
+   }
+   ```
+
+2. C++方法：使用 initializer_list
+
+   ```cpp
+   #include <initializer_list>
+
+   int max(std::initializer_list<int> li) {
+      int ans = 1 << 31;
+      for (auto x: li) ans = ans>x ? ans : x;
+      return ans;
+   }
+
+   main() {
+     printf("%d\n", max({1, 2, 3})); //加上大括号，作为整体调用
+   }
+   ```
+
+3. C++方法：使用可变参数模板
+
+   ```cpp
+   template<typename T, typename... Types> // Args：“模板参数包”
+   void foo(const T &t, const Types&... args); // args：“函数参数包（含有0或多个参数）”
+
+   foo(i, s, 42, d); // 包中有三个参数
+   foo(s, 42, "hi"); // 包中有两个参数
+   foo(d, s); // 包中有一个参数
+   foo("hi"); // 空包
+   ```
+
+## 基础技巧
 
 ### typename 用法
 
 关键字 `typename` 在 C++ 标准化过程中被引入进来，用来澄清模板内部的一个标识符代表的是某种类型，而不是数据成员。(也可以使用等效的 class 关键字 `template<class T>`，但为了避免歧义，还是尽量用 typename)
 
 ```cpp
+// class MyClass2 {
+//   public:
+//     using SubType = int;
+// }
+
 template<typename T>
 class MyClass {
   public:
     // ...
     void foo() {
-    // 此处的typename表示SubType是一个类型，
-    // 且ptr是一个SubType类型指针。
     typename T::SubType* ptr;
   }
 };
 ```
 
-因为 T 是类型(type)而不是类(class)，所以也不能将 SubType 理解为 T 类中的一个 static 变量，这样这个表达式就变成了 T::SubType 和 ptr 的乘法：
+上例中`typename T::SubType* ptr;` 中的 typename 用于澄清 SubType 是定义在 class T 内的一个**类型**(而不是成员)，且 ptr 是一个 SubType 类型指针。
+
+如果没有 typename 的话，SubType 会被假设成一个非类型成员（比如 static 成员或者一个枚举常量，亦或者是内部嵌套类或者 using 声明的 public 别名）。这样这个表达式可能就理解为了 T::SubType(static 成员) 和 ptr 变量 的乘法：
 
 ```cpp
 T::SubType * ptr;
 ```
 
-正确使用方法需要配合 typedef 或 using 在 T 类中定义一个 SubType 类：
-
-```cpp
-class MyClass2 {
-  public:
-    using SubType = int;
-}
-
-int main()
-{
-  MyClass<MyClass2> obj;
-  obj.foo();
-}
-```
-
 ### 零初始化
 
-对于**基础类型**，比如 int，double 以及指针类型，由于它们没有默认构造函数，因此它们不会被默认初始化成一个有意义的值。比如任何未被初始化的局部变量的值都是未定义的：
+对于**基础类型**，比如 int，double 以及指针类型，由于它们没有默认构造函数，因此它们不会被默认初始化成一个有意义的值。比如任何未被初始化的局部变量的值都是未定义的(直接初始化不适用于基础类型)：
 
 ```cpp
 template<typename T>
@@ -810,16 +966,57 @@ void foo()
 }
 ```
 
-一种初始化的方法被称为“**值初始化**（value initialization）”，它要么调用一个对象已有的构造函数，要么就用零来初始化这个对象。通过下面你的写法就可以保证即使是内置类型也可以得到适当的初始化（内置类型被初始化为 0）：
+为了在使用模板时让基础类型和自定义 class 都能得到正确初始化，有如下两种办法：
+
+方式一：一种初始化的方法被称为“**值初始化**（value initialization）”，它要么调用一个对象已有的构造函数，要么就用零来初始化这个对象。通过下面你的写法就可以保证即使是内置类型也可以得到适当的初始化（基础类型因为没有构造函数，会被初始化为 0）：
 
 ```cpp
+template<typename T>
 void foo()
 {
   T x{}; // x is zero (or false) if T is a built-in type
 }
 ```
 
-对于自定义类模板，需要在默认构造函数初始化成员(值初始化)：
+方式二：另一种方式是显式的初始化，也能达到将基础类型初始化为 0 的效果：
+
+```cpp
+template<typename T>
+void foo()
+{
+  T x = T(); // x is zero (or false) if T is a built-in type
+}
+```
+
+值得注意的是在 C++17 之前，如果某个类的拷贝初始化对应的构造函数被声明为 explicit，则 `T x = T();` 这种初始化方式将无法使用，因为声明了 explicit 后，该拷贝构造函数只能被显式调用，不能被隐式调用（这里通过把等号的形式转为拷贝构造的方式也算是隐式调用了）。：
+
+```cpp
+class MyClass{
+  private:
+  int a;
+  public:
+  MyClass()=default;
+  explicit MyClass(MyClass& obj){
+    a = obj.a;
+  }
+};
+
+int main()
+{
+  MyClass x = MyClass(); // error before C++17: no matching function for call to ‘MyClass::MyClass(MyClass)’
+}
+```
+
+C++17 引入了强制性复制省略（Mandatory Copy Elision）特性，指编译器在某些情况下必须省略对对象的复制或移动操作，从而直接构造对象到其最终位置。所以在 C++17 下编译上述代码时，x 会直接窃取右边的临时对象，根本不会去调用拷贝构造函数，所以即使其被声明为 explicit 也不会编译错误。
+
+> 强制性复制省略（Mandatory Copy Elision）至少包括以下两项内容：
+>
+> 1. 返回值优化（RVO）：即通过将返回值所占空间的分配地点从被调用端转移至调用端的手段来避免拷贝操作。返回值优化包括具名返回值优化（NRVO）与无名返回值优化（URVO），两者的区别在于返回值是具名的局部变量还是无名的临时对象。
+> 2. 右值拷贝优化：当某一个类类型的临时对象被拷贝赋予同一类型的另一个对象时，通过直接利用该临时对象的方法来避免拷贝操作。
+
+所以还是尽可能使用方式一，无论什么 C++ 版本都能使用。
+
+为了满足上面的两种初始化方式，对于自定义类模板，需要在默认构造函数初始化成员(值初始化)：
 
 ```cpp
 template <typename T> class MyClass {
@@ -840,6 +1037,48 @@ private:
   T x{}; // zero-initialize x unless otherwise specified
 };
 ```
+
+注意不可以对函数的默认参数使用这一方式，比如：
+
+```cpp
+template<typename T>
+void foo(T p{}) { //ERROR
+}
+```
+
+正确方式：
+
+```cpp
+template<typename T>
+void foo(T p = T{}) { //OK (must use T() before C++11)
+}
+```
+
+### 使用 this->
+
+对于类模板，如果它的基类也是依赖于模板参数的，对被继承的基类的成员的访问应该使用 `this->` 或 `Base<T>::` 的方式，不要直接使用成员名称，因为这两者不一定等效(尽管不使用类模板时这两者就是等效的)：
+
+```cpp
+template<typename T>
+class Base {
+public:
+  void bar();
+};
+template<typename T>
+class Derived : Base<T> {
+public:
+  void foo() {
+    bar(); // calls external bar() or error
+    // Option 1: Use 'this->' to explicitly specify that bar() is a member of the base class
+    // this->bar();
+
+    // Option 2: Use 'Base<T>::' to explicitly specify that bar() is from the base class
+    // Base<T>::bar();
+  }
+};
+```
+
+上面例子中对 bar() 的调用永远不会使用基类中的 bar()，而是会去找其他外部的 bar 定义。这和编译器策略有关，编译器在解析模板类时使用[两阶段编译检查](#两阶段编译检查two-phase-translation)，第一阶段时所有模板都未实例化，所以如果不显式指定 `this->` 或 `Base<T>::`，编译器不会自动假定 bar 函数是基类里的函数，也无法去基类里查找(因为还没有实例化)。
 
 ## 类型萃取
 
@@ -1092,99 +1331,6 @@ using size_type = decltype(Maxsize);
 // 或使用C风格的typedef
 typedef decltype(Maxsize) size_type;
 ```
-
-## 变参模板
-
-从 C++11 开始，模板可以接受一组数量可变的参数。这样就可以在参数数量和参数类型都不确定的情况下使用模板。
-
-一般需要用递归方式使用这些参数：
-
-```cpp
-#include <iostream>
-void print (){}
-template<typename T, typename... Types>
-void print (T firstArg, Types... args)
-{
-  std::cout << firstArg << '\n'; //print first argument
-  std::cout << sizeof...(Types) << '\n'; // 可用sizeof获取类型数量
-  std::cout << sizeof...(args) << '\n'; //可用sizeof获取参数数量
-  print(args...); // call print() for remaining arguments
-}
-```
-
-### 扩展：C++ 实现可变参数的三个方法
-
-1. C 方法：va_list
-
-   ```cpp
-   #include <stdarg.h>
-   int f(int n,...) {
-      va_list myarg;
-      va_start(myarg, 10);
-
-      int ans(0);
-      for (int i(0);i<n;i++) ans += va_arg(myarg, int); //仅支持int
-      va_end(myarg);
-      return ans;
-   }
-   ```
-
-2. C++方法：使用 initializer_list
-
-   ```cpp
-   #include <initializer_list>
-
-   int max(std::initializer_list<int> li) {
-      int ans = 1 << 31;
-      for (auto x: li) ans = ans>x ? ans : x;
-      return ans;
-   }
-
-   main() {
-     printf("%d\n", max({1, 2, 3})); //加上大括号，作为整体调用
-   }
-   ```
-
-3. C++方法：使用可变参数模板
-
-   ```cpp
-   template<typename T, typename... Types> // Args：“模板参数包”
-   void foo(const T &t, const Types&... args); // args：“一个参数包（含有0或多个参数）”
-
-   foo(i, s, 42, d); // 包中有三个参数
-   foo(s, 42, "hi"); // 包中有两个参数
-   foo(d, s); // 包中有一个参数
-   foo("hi"); // 空包
-   ```
-
-### 变参推断指引
-
-推断指引也可以是变参的。比如在 C++标准库中，为 std::array 定义了如下推断指引：
-
-```cpp
-namespace std {
-  template<typename T, typename... U> array(T, U...)
-    -> array<enable_if_t<(is_same_v<T, U> && ...), T>, (1 + sizeof...(U))>;
-}
-```
-
-推断过程：
-
-```cpp
-std::array a{42,45,77};
-// 推断为
-std::array<int, 3> a{42,45,77};
-```
-
-其中的折叠表达式：
-
-```cpp
-is_same_v<T, U> && ...
-// 展开后为
-is_same_v<T, U1> && is_same_v<T, U2> && is_same_v<T, U3> ...
-```
-
-如果结果是 false（也就是说 array 中元素不是同一种类型），推断指引会被弃用，总的类型推断失败。这样标准库就可以确保在推断指引成功的情况下，所有元素都是同一种类型。
 
 ### 使用 std::ref()和 std::cref()
 
