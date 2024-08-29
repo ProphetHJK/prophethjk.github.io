@@ -190,10 +190,6 @@ defaults:
       layout: page
       permalink: /:title/
   - scope:
-      path: assets/js/dist
-    values:
-      swcache: true
-  - scope:
       path: "assets/**/*.pdf" # see https://github.com/jekyll/jekyll-sitemap#exclusions
     values:
       sitemap: false
