@@ -857,6 +857,113 @@ class Variant;
 Variant<int, std::string, char> v; // v can hold integer, string, or character
 ```
 
+实例(使用变参类模板实现类列表的保存)：
+
+> 使用 c++20 及以上进行编译
+
+```cpp
+#include <cassert>
+#include <iostream>
+#include <tuple>
+
+// 基类Type
+class Type {
+public:
+  virtual void info() const = 0; // 运行时多态
+};
+
+// 示例类型
+class IntType : public Type {
+public:
+  consteval IntType() { x = 1; }
+  void info() const override { std::cout << "IntType" << std::endl; }
+  // 不同的返回值，不能使用运行时多态
+  consteval int getValue() const { return x; };
+
+private:
+  int x;
+};
+
+class DoubleType : public Type {
+public:
+  consteval DoubleType() { x = 2.1; }
+  void info() const override { std::cout << "DoubleType" << std::endl; }
+  // 不同的返回值，不能使用运行时多态
+  consteval double getValue() const { return x; };
+
+private:
+  double x;
+};
+
+// 用于编译时多态的 ObjectType 类
+template <size_t N>
+class ObjectType {
+public:
+  // 仅构造函数使用变参模板，构造完成后子类信息丢失
+  template <typename... Types>
+  consteval ObjectType(Types... args)
+      : size(sizeof...(Types)), type_list{args...} {
+    static_assert(sizeof...(Types) == N, "Number of types must match N");
+  }
+
+  // 获取指定索引的类型(运行时)
+  const Type *getType(int8_t index) const {
+    assert(index >= 0 && index < N); // 确保索引合法
+    return type_list[index];
+  }
+
+protected:
+  size_t size;
+  const Type *type_list[N]; // 保存传入的 Type 指针数组
+};
+
+// 推断指引，通过构造函数的参数数量推断{变量模板}参数N
+template <typename... Types>
+ObjectType(Types... args) -> ObjectType<sizeof...(args)>;
+
+// 用于编译时多态的 ObjectTypeConst 类，通过使用<typename... Types>可以在编译时保存子类的信息
+template <typename... Types>
+class ObjectTypeConst : public ObjectType<sizeof...(Types)> {
+public:
+  consteval ObjectTypeConst(Types... args)
+      : ObjectType<sizeof...(Types)>(args...) {}
+
+  template <size_t index>
+  using TypeAt = typename std::tuple_element<index, std::tuple<Types...>>::type;
+
+  // 获取指定索引的类型(编译时)
+  template <size_t index>
+  consteval auto getType() const {
+    static_assert(index < sizeof...(Types), "Index out of bounds");
+    return static_cast<TypeAt<index>>(this->type_list[index]);
+  }
+};
+
+constexpr IntType intType;
+constexpr DoubleType doubleType;
+
+// 使用示例
+int main() {
+  // 初始化ObjectType对象，传入具体的Type指针
+  constexpr ObjectType obj1(&intType, &doubleType);
+  constexpr ObjectTypeConst obj2(&intType, &doubleType);
+
+  // 测试运行时多态(虚函数)
+  obj1.getType(0)->info(); // 输出 "IntType"
+  obj1.getType(1)->info(); // 输出 "DoubleType"
+
+  // 测试编译时多态(模板)
+  auto value1 = obj2.getType<0>()->getValue();
+  auto value2 = obj2.getType<1>()->getValue();
+
+  std::cout << "value1:" << value1 << "\nvalue2:" << value2 << std::endl;
+
+  return 0;
+}
+```
+
+上述示例还给出了模板的另一个重要用途：编译时多态。
+
 ### 变参推断指引
 
 推断指引也可以是变参的。比如在 C++标准库中，为 std::array 定义了如下推断指引：
