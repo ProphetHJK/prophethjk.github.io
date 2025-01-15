@@ -352,7 +352,9 @@ class Stack<std::string> {
 Stack<std::string> obj; // 优先使用的是自定义的类模板实例，这就是特例化
 ```
 
-#### 多模板参数的部分特例化
+#### 多模板参数的部分特例化(偏特例化)
+
+上面的例子属于完全特例化，特例化后的模板已经不带有任何模板参数了，下面介绍偏特例化。
 
 ```cpp
 template<typename T1, typename T2>
@@ -403,6 +405,35 @@ template<typename T>
 class MyClass<T*,T*> {
 };
 ```
+
+下面代码对一个主模板分化出两种特例化(偏特例化)，其中主模板仅用于声明：
+
+```cpp
+// primary helper template:
+template<int SZ, bool = isPrime(SZ)>
+struct Helper;
+
+// implementation if SZ is not a prime number:
+template<int SZ>
+struct Helper<SZ, false>
+{
+  // ...
+};
+
+// implementation if SZ is a prime number:
+template<int SZ>
+struct Helper<SZ, true>
+{
+  // ...
+};
+
+int main(){
+  Helper<5> helper; // isPrime表示是否为质数
+  // 因为5为质数，所以调用的实际是struct Helper<SZ, true>的实例化
+}
+```
+
+> 函数模板不支持偏特例化，为了避免与重载冲突。但支持完全特例化。
 
 ### 默认类模板参数
 
@@ -2512,6 +2543,177 @@ int main()
     << std::get<1>(person) << ", Name: " << std::get<2>(person) << std::endl;
 }
 ```
+
+## 编译期编程
+
+### SFINAE
+
+SFINAE(Substitution Failure Is Not An Error, 替换失败不是错误)是使用模板编程时经常需要利用到的一个重要特性。
+
+在引入了模板后，我们可以将编译过程分为三步：
+
+- 检查模板合法性和匹配度
+
+  将模板实参带入模板中检查有效性和匹配度，如果发现该模板无效，可能是这个模板并不是为了这个用途，也可能是这个模板就是写错了，此时由于 SFINAE 特性，该模板被忽略，不会报错。
+
+  ```cpp
+  // number of elements in a raw array:
+  template<typename T, unsigned N>
+  std::size_t len (T(&)[N])
+  {
+    return N;
+  }
+  // number of elements for a type having size_type:
+  template<typename T>
+  typename T::size_type len (T const& t)
+  {
+    return t.size();
+  }
+
+  int main()
+  {
+    int a[10]; // a是个裸数组
+    /*
+     * 当使用len模板函数时，发现有两个模板函数都叫len,符合要求。
+     * 然后代入模板实参类型，发现使用第二个模板时T没有size_type内置类型，
+     * 所以第二个模板不合法，该模板被忽略。此时最匹配的模板就是第一个了
+     */
+    std::cout << len(a); // OK: 匹配第一个模板
+    std::cout << len("tmp"); //OK: 匹配第一个模板
+
+    int* p;
+    // 如过参数是裸指针，不符合第一个模板函数的参数类型，而且该类型也没有size_type内置类型，
+    // 所以两个都不匹配。
+    std::cout << len(p); // ERROR: no matching len() function found
+  }
+  ```
+
+- 找到合法且最匹配的模板后，进行实例化，也就是生成相应代码。如果上一步没有找到匹配的模板，则不会实例化任何的模板。
+- 进行编译。如果第一步没有找到合适的模板，第二步也不会生成任何代码，则会在此时报错：无法找到相应的 len 函数。
+
+SFINAE 的初衷应该是一个模板可能会用于特定的用途，如果编译器尝试使用该模板时发现不合法，可能仅仅是因为用途不匹配，而不是该模板有错误，所以不应该报错。
+
+后来人们开始利用这个特性来实现一些其他功能，比如故意添加限制条件来让一个模板在某一个用途下产生错误，而无法生成，在该情况下编译器只能使用其他的重载。
+
+显然这并不是 SFINAE 的初衷，所以 C++ 提出了`std:enable_if<>`的概念，专门用于所谓的`条件实例化`：
+
+```cpp
+namespace std {
+  class thread {
+  public:
+    template<typename F, typename... Args>
+    explicit thread(F&& f, Args&&... args);
+  };
+}
+```
+
+在上面例子中，我们希望当 F 的类型为 `std::thread`(也就是自身)时 SFINAE 掉这个构造函数，强制其使用 copy 或 move 构造函数。此时如果利用 SFINAE，我们会想到在 thread 的实现中故意让 F 为 `std::thread` 时产生错误，让该模板在阶段一就无效。
+
+如果使用 `std:enable_if<>`，就会简单得多：
+
+```cpp
+namespace std {
+  class thread {
+  public:
+    template<typename F, typename... Args,
+             typename =
+             std::enable_if_t<!std::is_same_v<std::decay_t<F>,thread>>>
+    explicit thread(F&& f, Args&&... args);
+  };
+}
+```
+
+上面例子中使用了一个`typename = std::enable_if_t<!std::is_same_v<std::decay_t<F>,thread>>`的模板参数，当 is_same_v 为正确时，通过取反的操作，enable_if_t 内的判断条件为错误，此时该模板就无效。虽然其本质也是利用了 SFINAE，但就不需要用户专门想办法让 F 为 thread 时怎么让该模板无效了。
+
+### 编译期 if
+
+另一种实现选择性的实例化的方式就是使用 `constexpr if`，只有符合条件的分支才会被实例化：
+
+```cpp
+template <typename Iterator, typename Distance>
+void advanceIter(Iterator &x, Distance n) {
+  if constexpr (IsRandomAccessIterator<Iterator>) {
+    // implementation for random access iterators:
+    x += n; // constant time
+  } else if constexpr (IsBidirectionalIterator<Iterator>) {
+    // implementation for bidirectional iterators:
+    if (n > 0) {
+      for (; n > 0; ++x, --n) { // linear time for positive n
+      }
+    } else {
+      for (; n < 0; --x, ++n) { // linear time for negative n
+      }
+    }
+  } else {
+    // implementation for all other iterators that are at least input iterators:
+    if (n < 0) {
+      throw "advanceIter(): invalid iterator category for negative n";
+    }
+    while (n > 0) { // linear time for positive n only
+      ++x;
+      --n;
+    }
+  }
+}
+```
+
+### 扩展：模板类成员函数的不完全实例化
+
+如果一个类模板的成员函数从未被使用过，那么它甚至不会被实例化--编译器根本不会查看它，也许只是进行**语法检查(syntax checking)**而已。
+
+```cpp
+#include <iostream>
+
+class Array {
+public:
+  int at(int index) { return 1; }
+};
+
+class Structure {
+public:
+};
+
+template <typename T>
+class Entity {
+private:
+  T type;
+
+public:
+  Entity(T &type) : type(type) {}
+  int element(int index) { return type.at(index); }
+};
+
+class EntityStructure {
+private:
+  Structure type;
+
+public:
+  EntityStructure(Structure &type) : type(type) {}
+  // int element(int index) { return type.at(index); } // error
+};
+
+int main() {
+  Array arr;
+  Entity<Array> entity_array(arr);
+  std::cout << entity_array.element(1) << std::endl;
+
+  Structure stru;
+  Entity<Structure> entity_struct(stru);
+  //   std::cout << entity_struct.element(1) << std::endl; // error
+}
+```
+
+在上面的代码中，有个类模板 `Entity`，当其模板参数为 Structure 时，因为 Structure 并没有 at()函数，所以 element 函数在实例化的语义检查时就会出现错误：找不到 type 的 at()函数。就如同 `EntityStructure` 的情况。
+
+但是由于不完全实例化这个特性，在进行语义检查前，因为 `element()` 函数没有被使用，编译器就会直接跳过该函数的语义检查，也不会去实例化它。最终生成的类模板实例不会有这个函数。
+
+当然语法检查可能会发生，如果 element() 内出现语法错误，还是有可能会报错的。
+
+> 可见《Morden C++ Design》 1.8 Optional Functionality Through Incomplete Instantiation
+>
+> It gets even better. C++ contributes to the power of policies by providing an interesting feature. If a member function of a class template is never used, it is not even instantiated—the compiler does not look at it at all, except perhaps for syntax checking.
+>
+> According to the C++ standard, the degree of syntax checking for unused template functions is up to the implementation. The compiler does not do any semantic checking—for example, symbols are not looked up.
 
 ## 引用
 

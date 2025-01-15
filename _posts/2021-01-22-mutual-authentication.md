@@ -169,6 +169,39 @@ ca.key  ca.crt  client.crt  client.key  client.pfx  server.key  server.crt
 
 windows客户端安装完客户端证书后访问服务端，此时浏览器会提示选择客户端证书，选择证书后能正常访问，如证书错误或未提供证书则访问失败，即测试通过
 
+## 证书链
+
+有时 root CA 不支持签发用户证书，而是只会签发 sub CA 证书，相当于委托 sub CA 去签发用户证书:
+
+```bash
+# 生成子CA的私钥
+openssl ecparam -genkey -name prime256v1 -out subCA.key
+
+# 创建一个 CSR（证书签名请求）用于子CA
+openssl req -new -key subCA.key -out subCA.csr \
+    -subj "/C=US/ST=State/L=Location/O=Organization/OU=SubCA/CN=Sub CA"
+
+# 使用根CA签发子CA证书（basicConstraints=CA:TRUE用于表示该证书是CA证书，可以用于签发其他证书。pathlen表示子CA深度，为0表示已经是最后一层，无法用该证书再次签发sub CA证书）
+openssl x509 -req -in subCA.csr -CA rootCA.crt -CAkey rootCA.key \
+    -CAcreateserial -out subCA.crt -days 500 -sha256 -extfile <(printf "basicConstraints=CA:TRUE,pathlen:0")
+```
+
+此时验证流程会有些不同：
+
+- 使用 root CA 证书验证 sub CA 证书有效性
+- 使用 sub CA 证书验证用户证书的有效性
+
+openssl 校验命令：
+
+```bash
+# untrusted 用于指定非根CA,也就是需要根CA验证的CA证书，
+openssl verify -CAfile rootCA.crt -untrusted subCA.crt mycert.crt
+```
+
+上面的这个过程就像链一般，所以称为证书链，sub CA 还可以签发 sub sub CA，以此类推。
+
+假设我们为服务端签发的一份证书，但是此时双方的**受信任证书区**都只有 root CA 证书，不知道 sub CA 的存在，且没有 sub CA 证书，因为有些设备的受信任证书区是只读的，无法添加新 CA 证书，所以不能通过更新方式添加 sub CA 证书。sub CA 证书在签发用户证书时会同时带下来，此时用户需要将其保存下来，当客户端请求服务端证书用于验证身份时，服务端需要同时提供服务端证书和 sub CA 证书。
+
 ## 参考
 
 - [巧用 Nginx 快速实现 HTTPS 双向认证](<https://blog.csdn.net/easylife206/article/details/107776854>)
