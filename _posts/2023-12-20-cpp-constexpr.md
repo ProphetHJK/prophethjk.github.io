@@ -78,6 +78,10 @@ int main() {
 
 ## 实例代码
 
+本实例共定义了三个类，分别是Person、Student和SpecStudent，构成了继承关系，展示了C++20新增的允许在constexpr对象中使用虚函数并实现多态的特性。
+
+我们定义了一个全局的SpecStudent 数组，并为其添加 constexpr，这样这个数组内的所有对象都会在编译时构造并存放在ROM中。
+
 ```cpp
 #include <iostream>
 using namespace std;
@@ -227,7 +231,7 @@ map 文件：
  .rodata.cst8   0x00000000004023a0       0x10 /tmp/ccZwN7EM.o
 ```
 
-可以看到打印出的 stuList 的首地址为 0x402040，处于 rodata 段中。
+可以看到打印出的 stuList 的首地址为 0x402040，处于 rodata 段中。一方面节省了 RAM 空间；另一方面避免了程序启动时的构造对象操作，提高了性能。
 
 ## 引用
 
