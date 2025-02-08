@@ -51,19 +51,25 @@ decoder 相比于 Encoder 增加了一个 Masked Multi-Head Attention 层，该�
 
 在上面的模型图中， 下面的两个 Attention 层有三个输入，也就是 query、key、value，不过这三个参数其实是原始输入序列的三份相同的复制。此时对于 query 中的一项，也就是原始序列的一个词，计算注意力函数时它和 key 中相同位置的自身相似度肯定最高，权重也最高，然后如果序列中还有其他相似度较高的词，也会被考虑进来(较高权重)，最后得到输出。这就是 self-attention (自注意力)机制。自注意力机制实现了为 序列中的每一个词 附加同一个序列中其他它感兴趣的部分的信息。
 
-上面的 Attention 层，它的 key ,value 来自于 Encoder 层，query 来自于下面的 Masked Multi-Head Attention 层。Encoder 和 Decoder 沟通的桥梁就是这个层。
+公式如下：
+
+$$Attention(Q,K,V)=softmax({QK^T\over \sqrt{d_k}})V$$
+
+权重指的其实就是“correlation(相关性)”，Attention 计算权重的方式就是点乘，也就是将 query 和 key 矩阵做点乘($QK^T$)。从本质上来说点乘是计算两个矩阵 correlation 的一种方式，还有其他很多方式，只不过 Transformer 综合考虑选择了点乘。
+
+架构图中上面的 Attention 层，它的 key ,value 来自于 Encoder 层，query 来自于下面的 Masked Multi-Head Attention 层。Encoder 和 Decoder 沟通的桥梁就是这个层。
 
 ### Multi-Head Attention
 
 将 query 、key 和 value 都投影到各自的 h 个低维空间中，再进行 Attention 操作，可以增加可学习的参数数量(增加了 3\*h)。投影的概念就是降低维度，比如三维物体的三视图就是降低一个维度的投影，通过 3 个二维图来展现三维物体。
 
-通过在不同的维度分别计算 Attention 后再进行组合，有什么好处？首先以三视图举例子，在三维物体中的一个点，投影到三个平面上，会出现3个点，原来我们是去三维空间找两点(query 和 key)的距离信息(attention计算value的权重)，现在是在三个平面上分别去找这6个点的距离信息($query_x$和$key_x$,$query_y$和$key_y$,$query_z$和$key_z$)，而且我们会为每个平面分配权重，这样假设 y 平面上的两个点($query_y$和$key_y$)距离很远，而在其他平面上距离较近，但因为我们并不关心 y 平面也就是权重较小，那么这样计算出来的两个点间的最终距离就会很小，符合我们的预期。换个说法就是分成多个通道去找特征。
+通过在不同的维度分别计算 Attention 后再进行组合，有什么好处？首先以三视图举例子，在三维物体中的一个点，投影到三个平面上，会出现 3 个点，原来我们是去三维空间找两点(query 和 key)的距离信息(attention 计算 value 的权重)，现在是在三个平面上分别去找这 6 个点的距离信息($query_x$和$key_x$,$query_y$和$key_y$,$query_z$和$key_z$)，而且我们会为每个平面分配权重，这样假设 y 平面上的两个点($query_y$和$key_y$)距离很远，而在其他平面上距离较近，但因为我们并不关心 y 平面也就是权重较小，那么这样计算出来的两个点间的最终距离就会很小，符合我们的预期。换个说法就是分成多个通道去找特征。
 
 ## Position-wise Feed-Forward Networks
 
 Feed-Forward 层实际就是一个 MLP,它对输入序列的每个词单独进行 MLP 的计算。因为其输入是 attention 层的输出，而通过 attention 层的处理，每个词都已经被附加了整个原始序列中它感兴趣的部分(与之相关的部分)，所以不需要像 RNN 一样把前一个词的 MLP 计算结果作为输入，只要每个词单独输入就行，没有任何依赖。
 
-## Embeddings and SOftmax
+## Embeddings and Softmax
 
 Embedding 就是将输入数据映射成计算机可以进行计算的向量，这里固定每个词映射成 512 长度的向量。
 
@@ -72,3 +78,7 @@ Embedding 就是将输入数据映射成计算机可以进行计算的向量，�
 attention 机制带来的一个问题是其注意力信息是位置无关的，因为权重信息中没有位置信息，这也导致在翻译过程中将输入的词任意打乱，其注意力信息也是相同的，即使语义已经发生了很大的变化。
 
 此时该模型在输入中加入了位置信息来解决该问题。
+
+## 参考
+
+- [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
