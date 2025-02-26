@@ -4,7 +4,7 @@ date: 2025-02-02 08:00:00 +0800
 published: true
 mermaid: true
 math: true
-categories: [技术]
+categories: [学习笔记]
 tags: [AI, transformer]
 ---
 
