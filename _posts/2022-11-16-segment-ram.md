@@ -190,6 +190,148 @@ a.1933:
 
 a 为`局部静态变量`，离开函数不释放，所以并不在栈中，汇编代码中显示其位置与全局变量相同，不过名称被改为了 `a.1933`，为了防止`命名冲突`
 
+## ld 文件解析
+
+### ENTRY
+
+指定程序进入点
+
+```ld
+ENTRY(Reset_Handler)
+```
+
+括号内填 symbol，可以不为 main 函数
+
+### MEMORY
+
+MEMORY 地址的分区
+
+```ld
+MEMORY
+{
+	FLASH(rx) : ORIGIN = 0x00000000, LENGTH = 512k
+	RAM(xrw) : ORIGIN = 0x10000000, LENGTH = 46k
+}
+```
+
+括号前的表示分区名，比如第一个分区的分区名叫 “FLASH”，名字可以自己指定，比如还可以叫“ROM”
+
+括号内`(rx)`是操作权限，`ORIGIN`表示起始地址，`LENGTH`表示本段长度
+
+这里表示的是从 `0x00000000` 地址一共 512k 字节数据都是只读的 MEMORY(`0x00000000`-`0x00080000`)，比如 nor flash 芯片的映射地址(使用了 XIP 技术)
+
+然后是名为 “RAM” 的分区，权限为 xrw(执行|读取|写入)，地址为 `0x10000000`，长度为 46KB。芯片设计的时候已经保证两个段是不会重叠的。对应的物理设备一般就是 DDR 芯片，可以高速随机擦写，但需要维持通电才能保存数据。
+
+### SECTIONS
+
+定义段信息，包括每个段放置的分区位置
+
+冒号前表示输出的段名，如 `.text`，`.data`。冒号后的 `ALIGN(4)` 表示 4 字节对齐。
+
+冒号后的花括号内的内容是对该段的描述，`*(.text .text.*);` 的意思是匹配所有输入文件(`.o`文件)中处于名为 `.text` 或 `.text.*`(*为通配符，比如 `.text.fflush`) 的段。
+
+花括号后的 `>FLASH` 或 `>RAM` 表示指定该输出段所处的分区位置，一般我们把 text 和 rodata 段放在只读的持久存储区内，也就是 ROM。其中 `.data` 输出段后的 `AT >FLASH` 表示 data 段的用于 load 的初始化数据保存在 FLASH 分区中，所以 FLASH 分区中不仅包含 `.text` 和 `.rodata`，也包含了 `.data` 的初始化数据。
+
+位置计数器 `.` 表示当前位置，只能在 SECTIONS 中使用，可以通过赋给一个变量保存下来。比如下面的 `_sdata = .;` 就表示 `_sdata` 保存了 `.data` 输出段的开始位置，后面放置的 `*(.data .data.*);` 了一些输入段，导致 `.` 表示的位置发生移动，接下来 `_edata = .;` 就表示 `.data` 输出段的开始位置的结束位置。
+
+```ld
+SECTIONS
+{
+
+  /* The vector table goes at the start of flash. */
+  .vector_table :
+  {
+    /* first entry: the initial Stack Pointer (SP) value */
+    LONG(_estack);
+
+    /* the next 15 entries are exception vectors */
+    /* keyword `KEEP` means that it is kept even if no other item refers to it. */
+    KEEP(*(.vector_table.exceptions));
+  } >FLASH
+
+  /* The 'text' section contains the main program code. */
+  .text : ALIGN(4)
+  {
+    *(.text .text.*);
+  } > FLASH
+
+  /* The 'rodata' section contains read-only data,
+   * constants, strings, information that won't change.
+   */
+  .rodata : ALIGN(4)
+  {
+    *(.rodata .rodata.*);
+  } > FLASH
+
+  /* The 'data' section is space set aside in RAM for
+   * things like variables, which can change.
+   *
+   * set the Load Memory Address (LMA) of the `.data` section by
+   * `AT(...)` at header line or `AT > FLASH` at footer line
+   */
+  .data : ALIGN(4) /* AT(ADDR(.rodata) + SIZEOF(.rodata)) */
+  {
+    _sdata = .;
+    *(.data .data.*);
+    _edata = .;
+  } >RAM AT >FLASH
+
+  /**
+   * get the LMA of the section `.data`
+   * - 3.1 Basic Linker Script Concepts
+   *   https://sourceware.org/binutils/docs/ld/Basic-Script-Concepts.html
+   * - 3.6.8.2 Output Section LMA
+   *   https://sourceware.org/binutils/docs/ld/Output-Section-LMA.html
+   * - LOADADDR(section)
+   *   https://sourceware.org/binutils/docs/ld/Builtin-Functions.html#index-LOADADDR_0028section_0029
+   */
+  /* LMA of .data */
+  _sidata = LOADADDR(.data);
+
+  /* The 'bss' section is similar to the 'data' section,
+   * but its space is initialized to all 0s at the
+   * start of the program. */
+  .bss : ALIGN(4)
+  {
+    _sbss = .;
+    *(.bss .bss.*);
+    _ebss = .;
+  } >RAM
+
+  . = ALIGN(4);
+  _heap_start = .;
+
+  /* Discarded sections */
+  /DISCARD/ :
+  {
+    *(.ARM.exidx .ARM.exidx.* .ARM.extab.*);
+  }
+}
+```
+
+### 位置变量
+
+ld 文件内部可以定义用于表示位置信息的“变量”，它们不会占用空间，可以在 C 程序中对它们取地址：
+
+```c
+#include <stdio.h>
+
+// 声明外部变量（通常是 `uintptr_t` 或 `char` 指针）.
+extern char _start;
+extern char _end;
+extern char _data_start;
+extern char _data_end;
+
+int main() {
+    printf("Text segment start: %p\n", &_start);
+    printf("Text segment end: %p\n", &_end);
+    printf("Data segment start: %p\n", &_data_start);
+    printf("Data segment end: %p\n", &_data_end);
+
+    return 0;
+}
+```
+
 ## map 文件解析
 
 附录中是一个 map 文件，map 文件就是通过编译器编译之后，生成的程序、数据及 IO 空间信息的一种映射文件，里面包含函数大小，入口地址等一些重要信息。
