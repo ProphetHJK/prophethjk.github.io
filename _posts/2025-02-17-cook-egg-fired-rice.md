@@ -5,7 +5,7 @@ published: true
 hidden: true
 categories: [卫宫家今天的饭]
 tags: [炒饭]
-image: img/cook/IMG_20250308_114706.jpg
+image: /assets/img/cook/IMG_20250308_114706.jpg
 ---
 
 ## 材料
