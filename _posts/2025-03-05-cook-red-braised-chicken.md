@@ -5,6 +5,7 @@ published: true
 hidden: true
 categories: [卫宫家今天的饭]
 tags: [鸡]
+image: /assets/img/cook/IMG_20250308_112311.png
 ---
 
 ## 材料

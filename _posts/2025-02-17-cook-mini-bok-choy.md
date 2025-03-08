@@ -5,6 +5,7 @@ published: true
 hidden: true
 categories: [卫宫家今天的饭]
 tags: [娃娃菜]
+image: /assets/img/cook/IMG_20250308_114201.jpg
 ---
 
 ## 材料
@@ -19,8 +20,16 @@ tags: [娃娃菜]
 - 蒜切末，小葱切段
 - 调料：碗中加入陈醋、生抽、蚝油、水淀粉、盐、胡椒粉，混合均匀
 
+![SAVE_20250308_114133](/assets/img/cook/SAVE_20250308_114133.jpg)
+
+![SAVE_20250308_114118](/assets/img/cook/SAVE_20250308_114118.jpg)
+
+![SAVE_20250308_114107](/assets/img/cook/SAVE_20250308_114107.jpg)
+
 ## 步骤
 
 1. 烧油，油热加蒜末爆香
 2. 加入菜茎段，炒到部分发黄，加入菜叶段
 3. 菜叶瘪后，下调料，干辣椒剪开加入，继续翻炒几下就能出锅
+
+![SAVE_20250308_114103](/assets/img/cook/SAVE_20250308_114103.jpg)
