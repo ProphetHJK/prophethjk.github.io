@@ -5,6 +5,7 @@ published: true
 hidden: true
 categories: [卫宫家今天的饭]
 tags: [鸡]
+image: /assets/img/cook/IMG_20250308_113828.jpg
 ---
 
 ## 材料
@@ -37,3 +38,5 @@ tags: [鸡]
 1. 烧油，油要多些，油热加入大部分的沙姜末和蒜末炒香
 2. 将油和末趁热倒入碗里剩下的未炒的末中
 3. 倒入酱油
+
+![SAVE_20250308_113951](/assets/img/cook/SAVE_20250308_113951.jpg)

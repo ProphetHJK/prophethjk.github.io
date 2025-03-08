@@ -5,6 +5,7 @@ published: true
 hidden: true
 categories: [卫宫家今天的饭]
 tags: [鱼]
+image: /assets/img/cook/IMG_20250308_113326.jpg
 ---
 
 ## 介绍
@@ -25,7 +26,13 @@ tags: [鱼]
 - 鱼解冻，去除内脏，并改刀(不要太多太深，一面两三刀即可，太多容易断裂)
 - 姜切片，蒜切片
 
+![SAVE_20250308_113146](/assets/img/cook/SAVE_20250308_113146.jpg)
+
+![SAVE_20250308_113151](/assets/img/cook/SAVE_20250308_113151.jpg)
+
 ## 步骤
 
 1. 油热下鱼，加入姜和蒜，煎至两面金黄
 2. 倒入料酒，倒入雪菜，加水煮 5 分钟
+
+![IMG_20250308_113452](/assets/img/cook/IMG_20250308_113452.jpg)

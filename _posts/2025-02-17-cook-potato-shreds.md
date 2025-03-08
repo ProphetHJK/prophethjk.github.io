@@ -5,6 +5,7 @@ published: true
 hidden: true
 categories: [卫宫家今天的饭]
 tags: [土豆]
+image: /assets/img/cook/SAVE_20250308_113705.jpg
 ---
 
 ## 材料
@@ -17,6 +18,8 @@ tags: [土豆]
 
 - 土豆切丝，洗去表面淀粉，多洗几次，直到水清
 - 蒜切末
+
+![SAVE_20250308_113609](/assets/img/cook/SAVE_20250308_113609.jpg)
 
 ## 步骤
 

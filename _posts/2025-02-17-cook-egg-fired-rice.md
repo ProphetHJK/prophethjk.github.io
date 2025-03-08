@@ -5,6 +5,7 @@ published: true
 hidden: true
 categories: [卫宫家今天的饭]
 tags: [炒饭]
+image: img/cook/IMG_20250308_114706.jpg
 ---
 
 ## 材料
@@ -28,3 +29,5 @@ tags: [炒饭]
 2. 加入冷饭，用锅勺完全砸散(借助锅的余温)
 3. 开火，加入配菜粒，炒匀
 4. 加入生抽、盐，继续翻炒，炒出锅气后即可出锅
+
+![SAVE_20250308_114612](/assets/img/cook/SAVE_20250308_114612.jpg)
