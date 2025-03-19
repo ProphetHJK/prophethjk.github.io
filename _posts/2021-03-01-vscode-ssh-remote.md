@@ -9,8 +9,6 @@ tags: [vscode, ssh]
 
 ## 安装Remote-SSH
 
--------
-
 在商店搜索Remote-SSH，并安装
 
 如需要连接windows自带的wsl虚拟机，可以使用Remote-WSL插件
@@ -18,8 +16,6 @@ tags: [vscode, ssh]
 ![remote-ssh](/assets/img/2021-03-01-vscode-ssh-remote/vscode-remote-ssh.png)
 
 ## 修改配置文件
-
--------
 
 1. 打开`远程资源管理器`标签
 2. 选择`设置`图标
@@ -31,8 +27,6 @@ tags: [vscode, ssh]
 
 ## 使用私钥登录
 
--------
-
 使用`ssh-keygen`生成公私钥对:
 
 - 私钥`id_rsa`放置在Windows(SSH客户端)的用户`.ssh`目录下
@@ -41,8 +35,6 @@ tags: [vscode, ssh]
 完成后可直接登录，无需输入密码
 
 ## SSH频繁断开问题
-
--------
 
 连接成功后会发现SSH频繁断开，且速度很慢
 
@@ -73,8 +65,6 @@ OpenSSH_8.3p1, OpenSSL 1.1.1g  21 Apr 2020
 
 ## 使用代理连接
 
--------
-
 可以使用socks5或http代理连接Remote SSH,从而绕开防火墙限制
 
 打开配置文件，为要添加代理的配置添加一行`ProxyCommand`
@@ -90,6 +80,18 @@ Host myhost
 ```
 
 这里使用了Git自带的mingw64工具箱中的connect工具，-S表示socks代理，当然也可以使用自己特定的代理工具
+
+比如还可以使用 ncat：
+
+```conf
+Host myhost
+    HostName 192.168.1.1
+    Port 22
+    User dev
+    IdentityFile "C:\Users\admin\Documents\dev_ecdsa"
+    TCPKeepAlive yes
+    ProxyCommand ncat --proxy-type socks5 --proxy 127.0.0.1:10808 %h %p
+```
 
 ## 参考
 
