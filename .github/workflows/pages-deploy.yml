@@ -82,4 +82,4 @@ jobs:
         env:
           # Zone is required by both authentication methods
           CLOUDFLARE_ZONE: c82c766a5a9c390658bbcc0f04a4134a
-          CLOUDFLARE_TOKEN: 84BjnjW-9cYypcnv5sLYXVilBQT9MLNmAK-hDs0D
+          CLOUDFLARE_TOKEN: mvn12cmWog0k30hpRJagObARe1CBw_CDFRHyWkLu
