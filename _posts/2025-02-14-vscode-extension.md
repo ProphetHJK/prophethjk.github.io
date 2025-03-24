@@ -47,7 +47,7 @@ npm install @types/react @types/react-dom @rjsf/core @rjsf/validator-ajv8 bootst
 
 我们需要在 package.json 中注册 extension 支持的命令：
 
-```json
+```json-doc
 // package.json
 {
   // ...
@@ -358,7 +358,7 @@ module.exports = [
 
 编辑 `tsconfig.json`，针对当前项目配置合适的编译选项，静态检查和编译都会利用这些选项:
 
-```json
+```json-doc
 {
 	"compilerOptions": {
 		"module": "Node16",
