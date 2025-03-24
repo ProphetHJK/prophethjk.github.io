@@ -19,9 +19,9 @@ image: /assets/img/cook/IMG_20250310-203225.jpg
 - 杏鲍菇切成小条，焯水一分钟，过冷水，沥干水分
 - 切点蒜末
 
-![IMG_20250310-201400](../assets/img/cook/IMG_20250310-201400.jpg)
+![IMG_20250310-201400](/assets/img/cook/IMG_20250310-201400.jpg)
 
-![IMG_20250310-201911](../assets/img/cook/IMG_20250310-201911.jpg)
+![IMG_20250310-201911](/assets/img/cook/IMG_20250310-201911.jpg)
 
 ## 步骤
 
@@ -29,4 +29,4 @@ image: /assets/img/cook/IMG_20250310-203225.jpg
 2. 起锅烧油，加蒜末干辣椒爆香
 3. 倒入杏鲍菇，加入酱油，蚝油，盐，烧烤料，翻炒几下即可出锅
 
-![IMG_20250310-202647](../assets/img/cook/IMG_20250310-202647.jpg)
+![IMG_20250310-202647](/assets/img/cook/IMG_20250310-202647.jpg)
