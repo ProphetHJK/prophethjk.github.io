@@ -10,19 +10,28 @@ platforms:
     icon: "fab fa-facebook-square"
     link: "https://www.facebook.com/sharer/sharer.php?title=TITLE&u=URL"
 
-  - type: Telegram
-    icon: "fab fa-telegram"
-    link: "https://t.me/share/url?url=URL&text=TITLE"
+  # - type: Telegram
+  #   icon: "fab fa-telegram"
+  #   link: "https://t.me/share/url?url=URL&text=TITLE"
 
   # Uncomment below if you need to.
 
-  - type: Linkedin
-    icon: "fab fa-linkedin"
-    link: "https://www.linkedin.com/sharing/share-offsite/?url=URL"
+  # - type: Linkedin
+  #   icon: "fab fa-linkedin"
+  #   link: "https://www.linkedin.com/sharing/share-offsite/?url=URL"
 
   - type: Weibo
     icon: "fab fa-weibo"
     link: "https://service.weibo.com/share/share.php?title=TITLE&url=URL"
+
+  - type: QQ
+    icon: "fa-brands fa-qq"
+    link: "https://connect.qq.com/widget/shareqq/index.html?url=URL&title=TITLE"
+
+  - type: WeChat
+    icon: "fa-brands fa-weixin"
+    link: "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=URL"
+
   #
   # - type: Mastodon
   #   icon: "fa-brands fa-mastodon"
