@@ -26,7 +26,7 @@ tags: [AI,AMD,ComfyUI]
 
 可以修改 `comfyui.bat` ，监听 0.0.0.0 将 webui 暴露到公网，也可以用 nginx 等反代。
 
-TODO：使用反代后无法在 webui 显示进度
+~~TODO：使用反代后无法在 webui 显示进度~~(已解决：<https://github.com/comfyanonymous/ComfyUI/issues/3384#issuecomment-2233791739>)
 
 ### 切换语言
 
