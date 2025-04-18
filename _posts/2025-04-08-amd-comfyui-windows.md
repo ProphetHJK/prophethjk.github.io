@@ -24,9 +24,27 @@ tags: [AI,AMD,ComfyUI]
 
 该项目自带了 [ComfyUI-Manager](https://github.com/Comfy-Org/ComfyUI-Manager)，可以很方便的下载第三方节点依赖
 
+### nginx 反代
+
 可以修改 `comfyui.bat` ，监听 0.0.0.0 将 webui 暴露到公网，也可以用 nginx 等反代。
 
 ~~TODO：使用反代后无法在 webui 显示进度~~(已解决：<https://github.com/comfyanonymous/ComfyUI/issues/3384#issuecomment-2233791739>)
+
+```plaintext
+location /ws {
+    proxy_pass http://localhost:8188/ws;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "Upgrade";
+    proxy_set_header Host $host;
+}
+location / {
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header Host $http_host;
+    proxy_redirect off;
+    proxy_pass http://localhost:8188;
+}
+```
 
 ### 切换语言
 
@@ -79,7 +97,7 @@ tags: [AI,AMD,ComfyUI]
     ![alt text](/assets/img/2025-04-08-amd-comfyui-windows/image-12.png)
 
     ![alt text](/assets/img/2025-04-08-amd-comfyui-windows/image-17.png)
-4. 在 **KSampler** 节点配置合适的轮次，一般来说轮次越多效果越好(但有时也可能效果越来越差)，在我的 RX9070 上是大概 10 秒一轮，也就是说运行 10 轮大概 2 分钟，20 轮就要 4 分钟。
+4. 在 **KSampler** 节点配置合适的轮次，一般来说轮次越多效果越好(但有时也可能效果越来越差)，在我的 RX9070 上是大概 10 秒一轮，也就是说运行 10 轮大概 2 分钟，20 轮就要 4 分钟，见[已知问题](#已知问题)。
 
     ![alt text](/assets/img/2025-04-08-amd-comfyui-windows/image-14.png)
 5. 再次点击 **Run** 开始正式推理，根据设定的轮次，运行时间也会不同，等待运行完成即可（显卡风扇会开始狂转，请坐和放宽）
@@ -90,6 +108,15 @@ tags: [AI,AMD,ComfyUI]
    ![alt text](/assets/img/2025-04-08-amd-comfyui-windows/image-16.png)
 
    ![alt text](/assets/img/2025-04-08-amd-comfyui-windows/image-18.png)
+
+## 已知问题
+
+- windows 最新的 6.2.4 版本的 ROCm 速度非常慢，相比于 Linux 上的 6.4 版本差距能达到 10 倍
+
+    Linux ROCm 6.4 版本:
+
+    ![alt text](/assets/img/2025-04-08-amd-comfyui-windows/image.png)
+- Linux 版本显存消耗较高，注意使用 `--cpu-vam` 参数把 VAM 过程放到 CPU 上运行，并不会显著降低速度
 
 ## 参考
 
