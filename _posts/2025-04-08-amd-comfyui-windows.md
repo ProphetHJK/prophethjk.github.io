@@ -116,7 +116,7 @@ location / {
     Linux ROCm 6.4 版本:
 
     ![alt text](/assets/img/2025-04-08-amd-comfyui-windows/image.png)
-- Linux 版本显存消耗较高，注意使用 `--cpu-vam` 参数把 VAM 过程放到 CPU 上运行，并不会显著降低速度
+- Linux 版本显存消耗较高，16GB 显存下 VAM 会出现 OOM 错误，注意使用 `--cpu-vam` 参数把 VAM 过程放到 CPU 上运行，并不会显著降低速度
 
 ## 参考
 

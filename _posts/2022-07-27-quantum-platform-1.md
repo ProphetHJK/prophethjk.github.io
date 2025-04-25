@@ -103,6 +103,7 @@ tags: [quantum platform, QP状态机]
   - [时间管理](#时间管理-1)
     - [时间事件结构和接口](#时间事件结构和接口)
     - [系统时钟节拍和 QF\_tick() 函数](#系统时钟节拍和-qf_tick-函数)
+    - [QTicker](#qticker)
     - [arming 和 disarm 一个时间事件](#arming-和-disarm-一个时间事件)
   - [原生 QF 事件队列](#原生-qf-事件队列)
     - [QEQueue 结构](#qequeue-结构)
@@ -3577,11 +3578,139 @@ void QF_tick(void)
 }
 ```
 
+#### QTicker
+
 对于新版本的 QP，可选择不将定时器的管理放在 TICK ISR 中，而是一个专用的主动对象(QTicker)中，从而将定时器链表的的扫描操作从**中断级**降到**线程级**，降低了中断处理的负荷。
 
 **QTicker** 是一个高效的活动对象，专门用于以指定的 tick 速率 `[0...#QF_MAX_TICK_RATE]` 处理 QF 系统时钟 tick。 将系统时钟滴答处理置于活动对象中，可以将非确定性 QTIMEEVT_TICK_X() 处理从中断级移除，并将其移入线程级，在线程级中可以根据需要降低优先级。
 
 **QTIMEEVT_TICK_X()** 宏用于管理用户生成的周期性或非周期性定时器事件，每次执行时会扫描链表中是否有到期的定时器，并发送相应定时器事件。 将该操作放在线程级而非中断中能提高中断处理的性能。很像 Linux 内核中的中断下半部中的[工作队列](/posts/linux-kernel-interrupt/#工作队列)。
+
+定义：
+
+```cpp
+class QTicker : public QP::QActive {
+  // 拥有两个成员变量，保存在其他地方
+public:
+    //! constructor
+    explicit QTicker(std::uint_fast8_t const tickRate) noexcept;
+    void init(
+        void const * const e,
+        std::uint_fast8_t const qs_id) override;
+    void init(std::uint_fast8_t const qs_id) override;
+    // 重写了dispatch事件处理方法
+    void dispatch(
+        QEvt const * const e,
+        std::uint_fast8_t const qs_id) override;
+    // 重写了post_接收事件方法
+    bool post_(
+        QEvt const * const e,
+        std::uint_fast16_t const margin,
+        void const * const sender) noexcept override;
+}; // class QTicker
+```
+
+构造函数：
+
+```cpp
+// QTicker无需使用事件队列，事件队列相关参数m_head和m_tail都不会用到，
+// 成员变量tickRate使用事件队列相关参数m_head保存
+QTicker::QTicker(std::uint_fast8_t const tickRate) noexcept
+: QActive(nullptr)
+{
+    // reuse m_head for tick-rate
+    m_eQueue.m_head = static_cast<QEQueueCtr>(tickRate);
+}
+```
+
+初始化：
+
+```cpp
+void QTicker::init(
+    void const * const e,
+    std::uint_fast8_t const qs_id)
+{
+    Q_UNUSED_PAR(e);
+    Q_UNUSED_PAR(qs_id);
+    // QTicker无需使用事件队列，用于表示事件计数的成员变量用事件队列相关参数m_tail保存
+    m_eQueue.m_tail = 0U;
+}
+```
+
+重写接收事件方法：
+
+```cpp
+bool QTicker::post_(
+    QEvt const * const e,
+    std::uint_fast16_t const margin,
+    void const * const sender) noexcept
+{
+    Q_UNUSED_PAR(e);
+    Q_UNUSED_PAR(margin);
+    Q_UNUSED_PAR(sender); // when Q_SPY not defined
+
+    QF_CRIT_STAT_
+    QF_CRIT_E_();
+    // 如果事件队列里没有事件
+    if (m_eQueue.m_frontEvt == nullptr) {
+
+    #ifdef Q_EVT_CTOR
+        static QEvt const tickEvt(0U, 0U);
+    #else
+        static QEvt const tickEvt = { 0U, 0U, 0U };
+    #endif // Q_EVT_CTOR
+        // 如果事件队列里没有事件，则添加一个tick事件
+        m_eQueue.m_frontEvt = &tickEvt; // deliver event directly
+        m_eQueue.m_nFree = (m_eQueue.m_nFree - 1U); // one less free event
+
+        QACTIVE_EQUEUE_SIGNAL_(this); // signal the event queue
+    }
+
+    // 如果事件队列里有事件，则什么也不做，不会不停向事件队列塞事件，这个事件只是为了让QF框架能去调用dispatch，所以只要有一个就行。
+
+    // account for one more tick event
+    // 取代事件队列的就是这个事件计数器(用m_tail保存)，每次触发tick事件就加1，如果事件来不及处理，这里就会堆积，但绝不会丢失，除非超过m_tail(uint8_t类型)上限。
+    m_eQueue.m_tail = (m_eQueue.m_tail + 1U);
+
+    QS_BEGIN_NOCRIT_PRE_(QS_QF_ACTIVE_POST, m_prio)
+        QS_TIME_PRE_();      // timestamp
+        QS_OBJ_PRE_(sender); // the sender object
+        QS_SIG_PRE_(0U);     // the signal of the event
+        QS_OBJ_PRE_(this);   // this active object
+        QS_2U8_PRE_(0U, 0U); // pool-Id & ref-ctr
+        QS_EQC_PRE_(0U);     // number of free entries
+        QS_EQC_PRE_(0U);     // min number of free entries
+    QS_END_NOCRIT_PRE_()
+
+    QF_CRIT_X_();
+
+    return true; // the event is always posted correctly
+}
+```
+
+重写 QActive 的事件处理函数：
+
+```cpp
+void QTicker::dispatch(
+    QEvt const * const e,
+    std::uint_fast8_t const qs_id)
+{
+    Q_UNUSED_PAR(e);
+    Q_UNUSED_PAR(qs_id);
+
+    QF_CRIT_STAT_
+    QF_CRIT_E_();
+    QEQueueCtr nTicks = m_eQueue.m_tail; // # ticks since the last call
+    m_eQueue.m_tail = 0U; // clear the # ticks
+    QF_CRIT_X_();
+    // 成员变量tickRate(用m_head保存)表示每多少tick(tick中断)执行一次检查，和TICK_X的参数同义
+    // 当本AO被执行时处理所有堆积的事件。
+    for (; nTicks > 0U; --nTicks) {
+        QTimeEvt::TICK_X(static_cast<std::uint_fast8_t>(m_eQueue.m_head),
+                         this);
+    }
+}
+```
 
 #### arming 和 disarm 一个时间事件
 
