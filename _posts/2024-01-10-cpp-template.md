@@ -18,10 +18,7 @@ tags: [template, cpp]
 ```cpp
 #define add(T) _ADD_IMPL_##T
 
-#define ADD_IMPL(T) \
-T _ADD_IMPL_##T (T a, T b) { \
-    return a + b; \
-}
+#define ADD_IMPL(T) T _ADD_IMPL_##T(T a, T b) { return a + b; }
 
 ADD_IMPL(int); // 必须显式实例化
 ADD_IMPL(float);
