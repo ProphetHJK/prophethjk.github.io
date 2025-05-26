@@ -268,3 +268,48 @@
 		transform: translate(0, 0) rotate(0);
 	}
 }
+
+@media screen and (max-width: 768px) {
+	#waifu-toggle {
+		width: 40px;
+		height: 40px;
+		padding: 3px;
+		margin-left: -80px;
+	}
+
+	#waifu-toggle.waifu-toggle-active {
+		margin-left: -40px;
+	}
+
+	#waifu-toggle.waifu-toggle-active:hover {
+		margin-left: -20px;
+	}
+
+	#waifu-toggle svg {
+		height: 18px;
+	}
+
+	#live2d {
+		width: 150px;
+		height: 150px;
+	}
+
+	#waifu-tips {
+		width: 180px;
+		font-size: 12px;
+		line-height: 18px;
+		padding: 4px 8px;
+		min-height: 50px;
+		margin: -20px 10px;
+	}
+
+	#waifu-tool {
+		top: 40px;
+		right: -5px;
+		gap: 3px;
+	}
+
+	#waifu-tool svg {
+		height: 18px;
+	}
+}
