@@ -124,4 +124,4 @@ location / {
 - [【高级教程】太变态了,FLUX实现超自然换衣服换物品](https://dfldata.cc/forum.php?mod=viewthread&tid=19910&highlight=%E9%AB%98%E7%BA%A7%E6%95%99%E7%A8%8B%E3%80%91%E5%A4%AA%E5%8F%98%E6%80%81%E4%BA%86%2CFLUX%E5%AE%9E%E7%8E%B0%E8%B6%85%E8%87%AA%E7%84%B6%E6%8D%A2%E8%A1%A3%E6%9C%8D%E6%8D%A2%E7%89%A9%E5%93%81)
 - [FLUX.1-Fill-dev](https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev)
 
-<script src="/autoload.js"></script>
+<script src="/assets/js/autoload.js"></script>
