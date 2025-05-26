@@ -48,6 +48,7 @@ function loadExternalResource(url, type) {
     tools: ['hitokoto', 'asteroids', 'switch-model', 'switch-texture', 'photo', 'info', 'quit'],
     logLevel: 'warn',
     drag: false,
+    modelId: 3,
   });
 })();
 
