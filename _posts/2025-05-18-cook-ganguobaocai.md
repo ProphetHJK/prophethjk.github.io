@@ -39,3 +39,7 @@ image: /assets/img/cook/IMG_20250518-184638.jpg
 4. 等到包菜烧的瘪了，就可以出锅了
 
 ![IMG_20250518-184227](/assets/img/cook/IMG_20250518-184227.jpg)
+
+![IMG_20250527_200410](/assets/img/cook/IMG_20250527_200410.jpg)
+
+![IMG_20250527_200454](/assets/img/cook/IMG_20250527_200454.jpg)
