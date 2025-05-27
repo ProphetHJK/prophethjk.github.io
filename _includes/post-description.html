@@ -22,4 +22,4 @@
 {%- endif -%}
 {%- endcapture -%}
 
-{{- description | strip | truncate: max_length | escape | jsonify | slice: 1, -2 -}}
+{{- description | strip | truncate: max_length | escape | jsonify | strip | escape -}}
