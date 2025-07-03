@@ -46,7 +46,7 @@ abort.c:(.text.abort+0x10): undefined reference to `_exit'
 arm-none-eabi-g++ -g -c test.cpp
 ```
 
-使用 nm 工具查找目录下引用了该函数的 `.o` 文件(假设是个大型项目，有很多文件)：
+使用 nm 工具(列出符号表)查找目录下引用了该函数的 `.o` 文件(假设是个大型项目，有很多文件)：
 
 ```cpp
 find . -name '*.o' -exec sh -c 'nm -C {} | grep " U.* abort" >/dev/null && echo {}' \;
