@@ -8,6 +8,12 @@ tags: [AI,AMD,ComfyUI]
 
 ## 环境搭建
 
+> 注意：ROCm 6.4.1 更新后，已经完美支持 wsl 下的 ComfyUI，可跳过本节，可以参考：
+>
+> - [Install Radeon software for WSL with ROCm](https://rocm.docs.amd.com/projects/radeon/en/latest/docs/install/wsl/install-radeon.html)
+> - [Install PyTorch for ROCm](https://rocm.docs.amd.com/projects/radeon/en/latest/docs/install/wsl/install-pytorch.html)
+{: .prompt-warning }
+
 主要依赖于该项目：<https://github.com/patientx/ComfyUI-Zluda>
 
 1. clone 该仓库: <https://github.com/patientx/ComfyUI-Zluda>
