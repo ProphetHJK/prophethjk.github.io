@@ -5,7 +5,7 @@ published: true
 hidden: true
 categories: [卫宫家今天的饭]
 tags: [猪肉]
-image: /assets/img/cook/IMG_20250605-203808.jpg
+image: /assets/img/cook/MVIMG_20250610_211640.jpg
 ---
 
 ## 材料
