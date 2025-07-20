@@ -542,7 +542,7 @@ Stack(char const*) -> Stack<std::string>;
 此时下面表达式可以正常推断：
 
 ```cpp
-Stack stringStack1{"bottom"}; // TODO：直接列表初始化不是不允许隐式的char const[7]转到string吗
+Stack stringStack1{"bottom"};
 Stack stringStack2("bottom");
 ```
 
@@ -568,17 +568,26 @@ Stack stringStack = "bottom"; // Stack<std::string> deduced, but still not valid
 其实这个方式的初始化称为[复制初始化 Copy initialization](/posts/cpp-plus/#初始化)，其会调用拷贝构造函数进行初始化，此时需要等号右边**隐式的**生成一个临时的 Stack 对象作为拷贝构造函数的参数。生成临时对象的过程可见[转换构造函数](/posts/cpp-plus/#转换构造函数converting-constructors):
 
 ```cpp
-// 设想的经过隐式的构造后的stringStack构造方式
-Stack stringStack(Stack("bottom"));
+// 设想的经过隐式的构造后的stringStack构造方式（第一次隐式转换）
+Stack stringStack = Stack("bottom");
+
+// 因为Stack要求std::string类型参数，还需要一次转换（第二次隐式转换）
+Stack stringStack = Stack(std::string("bottom"));
 ```
 
-根据编译器的报错：`不存在从 "const char [7]" 转换到 "Stack<std::string>" 的适当构造函数`，发现这个临时对象无法正常构造，问题就出在 C++ 的一个特性：在使用这种隐式的构造函数(转换构造函数)时不允许发生参数类型的隐式转换，也就是参数类型必须是 std::string，而不是 const char[7]。
+根据编译器的报错：`不存在从 "const char [7]" 转换到 "Stack<std::string>" 的适当构造函数`，发现这个临时对象无法正常构造，问题就出在 C++ 的一个特性：在使用这种隐式的构造函数(转换构造函数)时不允许再发生参数类型的隐式转换，也就是参数类型必须是 `std::string`，而不是 `const char[7]`。
 
 为了验证这个结论，我们直接使用显式的方式调用临时对象的构造函数，发现就可以正常执行：
 
 ```cpp
-Stack stringStack(Stack("bottom"));
 Stack stringStack = Stack("bottom");
+Stack stringStack(Stack("bottom"));
+```
+
+先把字面量转为 string 也可以解决问题:
+
+```cpp
+Stack stringStack = std::string("abc");
 ```
 
 ## 非类型模板参数
@@ -2595,7 +2604,7 @@ SFINAE 的初衷应该是一个模板可能会用于特定的用途，如果编�
 
 后来人们开始利用这个特性来实现一些其他功能，比如故意添加限制条件来让一个模板在某一个用途下产生错误，而无法生成，在该情况下编译器只能使用其他的重载。
 
-显然这并不是 SFINAE 的初衷，所以 C++ 提出了`std:enable_if<>`的概念，专门用于所谓的`条件实例化`：
+之后 C++ 提出了`std:enable_if<>`的语法，简化了这种所谓的`条件实例化`的写法：
 
 ```cpp
 namespace std {
@@ -2624,6 +2633,77 @@ namespace std {
 ```
 
 上面例子中使用了一个`typename = std::enable_if_t<!std::is_same_v<std::decay_t<F>,thread>>`的模板参数，当 is_same_v 为正确时，通过取反的操作，enable_if_t 内的判断条件为错误，此时该模板就无效。虽然其本质也是利用了 SFINAE，但就不需要用户专门想办法让 F 为 thread 时怎么让该模板无效了。
+
+#### SFINAE 替代特例化的一个例子
+
+```cpp
+#include  <type_traits>
+
+template <bool hasParam>
+class Father;
+
+template <>
+class Father<true>{
+public:
+    Father() = delete;
+    Father(int param){}
+};
+
+template <>
+class Father<false>{
+public:
+    Father() {}
+    Father(int param) = delete;
+};
+
+// 特例化方式
+template <bool hasParam>
+class A;
+
+template <>
+class A<true>: public Father<true> {
+public:
+    A(int param): Father(param) {}
+};
+
+template <>
+class A<false>: public Father<false> {
+public:
+    A(): Father() {}
+};
+```
+
+对于上面的例子，我们使用特例化来实现构造函数不同的两个 B 类。对于这种情况，我们可以用 SFINAE 达到同样的效果：
+
+```cpp
+// SFINAE方式
+template <bool hasParam>
+class A: public Father<hasParam> {
+public:
+    // 当hasParam为true时，Father<false>必须要有参数，
+    // 该语句不合法，实例化时会因为SFINAE规则被忽略。
+    A(): Father<false>() {}
+    A(int param): Father<true>(param) {}
+};
+```
+
+遗憾的是，无论哪种方式，都不能根据参数的有无进行自动推断，还是需要推断指引：
+
+```cpp
+A() -> A<false>;
+A(int) -> A<true>;
+```
+
+```cpp
+int main()
+{
+    A<false> a; // ok
+    A<true> a(1); // ok
+
+    A<true> a(1); // error
+    A<false> a; // error
+}
+```
 
 ### 编译期 if
 
