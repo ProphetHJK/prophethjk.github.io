@@ -1,1 +1,7 @@
-<script src="/assets/js/live2d/autoload.js"></script>
+<script>
+  if (window.location.pathname === '/about/') {
+    var script = document.createElement('script');
+    script.src = '/assets/js/live2d/autoload.js';
+    document.head.appendChild(script);
+  }
+</script>
