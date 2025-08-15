@@ -125,7 +125,7 @@ Disassembly of section .text._ZSt26__throw_bad_variant_accessb:
   14:   e55b3005        ldrb    r3, [fp, #-5]
 ```
 
-可以发现是 varient 库内部 abort。
+可以发现是 variant 库内部 abort。
 
 ## 附件
 
