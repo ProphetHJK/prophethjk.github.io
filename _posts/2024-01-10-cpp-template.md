@@ -2737,6 +2737,65 @@ void advanceIter(Iterator &x, Distance n) {
 }
 ```
 
+在模板函数中的 if constexpr 可以无视语法错误，因为在语法检查前模板函数的实例化就已经完成了，被禁用的分支代码不会进行语法检查。
+
+```cpp
+template <typename T>
+int test()
+{
+  T a;
+  if constexpr (false)
+  {
+    a.b(); // 当T为int时，也不报错
+  }
+  return 0;
+}
+int main()
+{
+  test<int>();
+}
+```
+
+在非模板函数中，语法检查在分支选择之前，也就是说语法错误会导致编译错误，即使该分支是被禁用的分支。
+
+```cpp
+int main()
+{
+  int a;
+  if constexpr(false)
+  {
+    a.b(); // Error: 表达式必须具有类类型
+  }
+}
+```
+
+此时可以仿照 variant 库中提供的 visit 方式：
+
+```cpp
+template<typename T, typename F>
+void visit(F&& f, T&& obj)
+{
+  f(obj);
+}
+
+int main()
+{
+  int a;
+  visit(
+    // 使用一个模板lambda(c++20中可用auto参数表示模板)封装操作
+    [](auto& x)
+    {
+      // c++20中requires用于if constexpr条件中判断一个表达式是否可执行，仅用于判断，不会实际执行
+      if constexpr (requires {x.b();})
+      {
+        x.b();
+      }
+    },
+    a
+  )
+}
+```
+
 ### 扩展：模板类成员函数的不完全实例化
 
 如果一个类模板的成员函数从未被使用过，那么它甚至不会被实例化--编译器根本不会查看它，也许只是进行**语法检查(syntax checking)**而已。
