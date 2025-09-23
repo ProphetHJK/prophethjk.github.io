@@ -5,7 +5,7 @@ published: true
 hidden: true
 categories: [卫宫家今天的饭]
 tags: [牛肉]
-image: /assets/img/cook/IMG_20250923-194938.jpg
+image: /assets/img/cook/IMG_20250923-195043.jpg
 ---
 
 ## 材料
