@@ -47,6 +47,10 @@ decoder 相比于 Encoder 增加了一个 Masked Multi-Head Attention 层，该�
 
 在训练时，Decoder 的输入是训练集的数据（teacher forcing），而不是 Encoder 的输出，我们希望让其模拟在推理时将产生的输出作为输入的过程，所以增加一个 Mask 去遮盖后面的部分，避免其看到完整的训练集数据。
 
+关于当前大模型使用的变种架构的情况如下，基本上都偏向于 Decoder-only 架构：
+
+![alt text](/assets/img/2025-02-02-transformer/image.png)
+
 ## Attention
 
 注意力函数需要一个 query 和 一组 key-value 作为输入，它会根据 query 和 key 的相似度作为对应的 value 的权重。不同的注意力函数的区别就是计算相似度的**相似函数**。
@@ -100,6 +104,8 @@ Feed-Forward 层实际就是一个 MLP,它对输入序列的每个词单独进�
 
 当然这个小模型其实可以塞到大模型中，成为其独立的 heads，这样达到的效果也是一样的。
 
+这种方式我们可以称为传统的 speculative decoding，后面出现了 [MTP 技术](/posts/deepseek/#multi-token-prediction)，从训练阶段就考虑到了多 token 预测，效果也会更好。
+
 ## Embeddings and Softmax
 
 Embedding 就是将输入数据映射成计算机可以进行计算的向量，这里固定每个词映射成 512 长度的向量。
@@ -112,7 +118,7 @@ attention 机制带来的一个问题是其注意力信息是位置无关的，�
 
 ## 应用：预测
 
-Transformer 可以用来做 token 预测，此时只需要 Decoder 就行
+Transformer 可以用来做 token 预测，此时只需要 Decoder 就行，即 Decoder-only
 
 我们为输入
 
@@ -132,11 +138,9 @@ Transformer 可以用来做 token 预测，此时只需要 Decoder 就行
 
 推理和训练过程不同，必须一个一个 token 生成，生成完的 token 作为下一次的输入，所以并行性并不如训练过程。比如推理时由 `I` 预测了 `have`，然后由 `I have` 预测了 `a` ，这样下去导致整个句子和训练过程就完全不同了，一个 token 预测错，后面就全错了，这也是预测这个应用的一个问题。
 
-
-
 ## 应用：翻译
 
-Transformer 可以用来做机器翻译
+Transformer 可以用来做机器翻译，这也是 Google 提出 transformer 时想要其解决的主要问题。这会利用到 Encoder-Decoder 架构。
 
 ## 参考
 
