@@ -22,4 +22,4 @@ image: /assets/img/cook/IMG_20251008_203155.jpg
 2. 加牛肉翻炒至表面没有生肉
 3. 加榨菜翻炒几下就可出锅
 
-![IMG_20251008-124216](../assets/img/cook/IMG_20251008-124216.jpg)
+![IMG_20251008-124216](/assets/img/cook/IMG_20251008-124216.jpg)
