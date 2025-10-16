@@ -153,7 +153,7 @@ int main()
     {
         if(currMode == &autoScrollMode) // 如果当前是AutoScrollMode
         {
-            if(now % autoScrollMode.scrollIntervals)
+            if(now % autoScrollMode.scrollIntervals == 0)
             {
                 // 翻页间隔时间到达
                 AutoScrollMode_nextPage(&autoScrollMode);
@@ -242,7 +242,7 @@ LowPowerAutoScrollMode lowPowerAutoScrollMode;
 
 else if(currMode == &lowPowerAutoScrollMode) // 如果当前是KeyScrollMode
 {
-    if(now % lowPowerAutoScrollMode.scrollIntervals)
+    if(now % lowPowerAutoScrollMode.scrollIntervals == 0)
     {
         // 翻页间隔时间到达
         ScrollMode_nextPage((ScrollMode*)currMode);
@@ -311,7 +311,7 @@ int main(
     {
         // ...
         // 屏幕每两秒刷新一次
-        if(now % 2)
+        if(now % 2 == 0)
         {
             display(currMode);
         }
