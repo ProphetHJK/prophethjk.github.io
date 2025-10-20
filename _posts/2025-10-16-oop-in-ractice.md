@@ -12,7 +12,7 @@ tags: [C, oop]
 
 本文案例将使用 C 语言进行编写，以此表明 OOP 是一种泛用的编程思想，并不是只能应用在 C++/python 之类的面向对象语言上。Linux 内核就用到了大量的面向对象的思想，但它是完全使用 C 语言编写的
 
-本文编写时尽可能考虑到了无面向对象基础的读者，但推荐无基础读者在观看本文之前先看 [面向对象编程(OOP)的C语言实现](/posts/c-oop/)
+本文编写时尽可能考虑到了无面向对象基础的读者，但推荐无基础读者在观看本文之前先看 [面向对象编程(OOP)的 C 语言实现](/posts/c-oop/)
 
 ## 需求分析
 
@@ -97,7 +97,7 @@ AutoScrollMode::nextPage()
 }
 ```
 
-c语言可以实现类似的语法，但要做绑定，比较麻烦：
+C 语言可以实现类似的语法，但要增加一个函数指针，导致每个对象的空间都要变大，一般不采取这种方式：
 
 ```c
 typedef struct {
@@ -112,6 +112,48 @@ AutoScrollMode autoScrollMode{.nextPage = AutoScrollMode_nextPage};
 ```
 
 > C++ 中的类的成员函数默认包含一个 `this 指针`，函数实现中的类成员变量也默认有 `this->` 的引用。C 语言完全可以实现面向对象，只是有些不太方便的地方，C++ 就是为了解决这个问题的。
+
+#### 构造函数
+
+对 C 语言来说，我们一般使用值初始化或默认初始化来初始化一个对象实例：
+
+```c
+typedef struct {
+    uint8_t scrollIntervals;
+    uint8_t page;
+    uint8_t maxPage;
+} AutoScrollMode;
+
+AutoScrollMode autoScrollMode_default; // 默认初始化
+AutoScrollMode autoScrollMode{0,0,5};  // 值初始化
+```
+
+但值初始化的表达能力不够，只能赋值，不能在初始化的时候执行一些动作(比如动态计算某些初始化值,判断合法性等)，所以我们引入构造函数代替值初始化：
+
+```cpp
+void AutoScrollMode_ctor(AutoScrollMode* this, uint8_t maxPage)
+{
+    this->scrollIntervals = 0;
+    this->page = 0;
+    if(maxPage > 10)
+    {
+        assert(0);
+    }
+    else
+    {
+        this->maxPage = maxPage;
+    }
+}
+```
+
+其中，`scrollIntervals` 和 `page` 使用默认的初始化值，而 `maxPage` 使用用户提供的值，同时增加了范围的限定。
+
+引入构造函数后，我们将不再使用值初始化的方式：
+
+```c
+AutoScrollMode autoScrollMode;  // 值初始化
+AutoScrollMode_ctor(&autoScrollMode, 5);
+```
 
 ### 按键轮显模式需求
 
@@ -213,6 +255,30 @@ typedef struct {
 } KeyScrollMode;
 ```
 
+构造函数也使用继承的结构：
+
+```c
+void ScrollMode_ctor(ScrollMode* this, uint8_t maxPage)
+{
+    this->page = 0;
+    this->maxPage = maxPage;
+}
+
+void AutoScrollMode_ctor(AutoScrollMode* this, uint8_t maxPage,
+                    uint8_t scrollIntervals)
+{
+    ScrollMode_ctor(&this->super, maxPage);
+    this->scrollIntervals = scrollIntervals;
+}
+
+void KeyScrollMode_ctor(KeyScrollMode* this, uint8_t maxPage,
+                    uint8_t timeout)
+{
+    ScrollMode_ctor(&this->super, maxPage);
+    this->timeout = timeout;
+}
+```
+
 main 函数也做相应修改：
 
 ```diff
@@ -255,6 +321,8 @@ else if(currMode == &lowPowerAutoScrollMode) // 如果当前是KeyScrollMode
     }
 }
 ```
+
+> 关于 super 成员的位置：在 C 语言的 struct 中，第一个成员的内存地址和 struct 本身是一样的，所以 `&autoScrollMode` 和 `&autoScrollMode.super` 的值是一样的，所以 `ScrollMode_nextPage((ScrollMode*)currMode);` 和 `ScrollMode_nextPage(&currMode->super);` 可以互相替代。但是如果采用后一种写法，对 super 的位置并没有要求，可以把它放在最后一个成员的位置上。但为了实现多态，这里将其放在了第一位。
 
 ## 多态的应用
 
@@ -329,6 +397,21 @@ struct ScrollMode {
     void (*displayPage)(ScrollMode*); // 虚函数(virtual function)
 };
 
+void ScrollMode_ctor(ScrollMode* this, uint8_t maxPage, void (*displayPage)(ScrollMode*))
+{
+    this->page = 0;
+    this->maxPage = maxPage;
+    this->displayPage = displayPage;
+}
+
+void AutoScrollMode_ctor(AutoScrollMode* this, uint8_t maxPage,
+                    uint8_t scrollIntervals)
+{
+    // 绑定虚函数
+    ScrollMode_ctor(&this->super, maxPage, AutoScrollMode_displayPage);
+    this->scrollIntervals = scrollIntervals;
+}
+
 // 无论传进来的currMode是哪个对象，都会调用其对应的displayPage的实现
 void display(void* currMode)
 {
@@ -338,9 +421,8 @@ void display(void* currMode)
 
 int main()
 {
-    // 绑定虚函数
-    autoScrollMode.super.displayPage = AutoScrollMode_displayPage;
-    keyScrollMode.super.displayPage = KeyScrollMode_displayPage;
+    AutoScrollMode autoScrollMode;
+    AutoScrollMode_ctor(&autoScrollMode, 5, 10);
     // ...
 }
 ```
