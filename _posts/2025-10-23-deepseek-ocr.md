@@ -1,6 +1,6 @@
 ---
 title: "DeepSeek-OCR 笔记"
-date: 2025-10-24 08:00:00 +0800
+date: 2025-10-23 08:00:00 +0800
 published: true
 math: true
 categories: [学习笔记]
