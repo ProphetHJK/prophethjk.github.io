@@ -106,6 +106,8 @@ CLIP(Contrastive Language-Image Pretraining): CLIP 能够把图像和文本映�
 
 ##### 兼容各种分辨率
 
+![alt text](/assets/img/2025-10-23-deepseek-ocr/image-7.png)
+
 将图像依据分辨率分类，每一类的分辨率固定，分为 Tiny(512 x 512, 压缩后 $\frac{\frac{512}{16} \times \frac{512}{16}}{16} = 64$ Tokens)、Small(100)、Base(256)、Large(400) 类型，如果图像分辨率和所属类的固定分辨率不同，需要进行 resize 或 padding 调整。
 
 对于 Tiny 和 Small 类型，本身分辨率就低，对图像的调整不敏感，就是直接用 resize 的方法改变形状强制调整为 1:1。对于 Base 和 Large，就用 padding 方法填充到 1:1，就像电影用 16:9 屏幕播放产生黑边一样，虽然浪费了部分 token 但保持了原图的形状。
