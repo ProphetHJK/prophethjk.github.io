@@ -46,6 +46,16 @@ RAM              0x20000000         0x00008000         xrw
 *default*        0x00000000         0xffffffff
 ```
 
+### 引导
+
+计算机设备上电时，CPU 内被固化的 bootROM 被引导，它的作用很有限，比如它是无法访问硬盘的，它会选择一种介质并加载其驱动，然后引导其中的系统，比如 spi flash 上的 bootloader(BIOS)。此时 bootROM 可以不初始化 DRAM，因为用不到。
+
+bootloader 的代码量更大，功能也越丰富，它被写在 spi flash 上，spi flash 可以被 CPU 直接寻址，也就是说它上面的指令可以被直接加载到 PC 寄存器。bootloader 拥有初始化 DRAM 的能力，它可以将部分或整个 bootloader 拷贝到 DRAM 上来提高自己执行的速度。
+
+bootloader 会加载硬盘驱动，可以访问硬盘，但是硬盘并不支持被 CPU 直接寻址，所以 bootloader 会将硬盘中的整个系统的指令全都拷贝到 DRAM 中，然后引导 DRAM 上的系统。
+
+当指令从一种介质拷贝到另一种介质时，地址也会变化，此时还要保证拷贝后那些全局变量、跳转指令、寻址指令都能正常找到正确的地址，此时就不能使用绝对地址，在代码链接时开启 PIC(Position-Independent Code)功能生成位置无关的指令即可。
+
 ## 内存分段
 
 在嵌入式领域，一般将内存分为代码(TEXT)段、数据(DATA)段、 BSS 段、堆(heap)和栈(stack)
